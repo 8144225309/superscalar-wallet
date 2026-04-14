@@ -5,7 +5,7 @@ import { clearCLNStore } from '../store/clnSlice';
 import { clearFactoriesStore } from '../store/factoriesSlice';
 import { APP_WAIT_TIME } from '../utilities/constants';
 import { useDispatch, useSelector } from 'react-redux';
-import { BookkeeperService, CLNService, FactoriesService, RootService } from '../services/http.service';
+import { BookkeeperService, CLNService, FactoriesService, NodesService, RootService } from '../services/http.service';
 import { selectAuthStatus } from '../store/rootSelectors';
 import logger from '../services/logger.service';
 
@@ -15,6 +15,22 @@ export function RootRouterReduxSync() {
   const { pathname } = useLocation();
   const authStatus = useSelector(selectAuthStatus);
   
+  // Fetch node profiles, run background discovery, detect factory plugin
+  useEffect(() => {
+    if (!authStatus?.isAuthenticated || !authStatus?.isValidPassword) return;
+
+    NodesService.fetchAndDispatchNodes();
+
+    // Run background discovery to find all local CLN nodes
+    NodesService.discoverNodes()
+      .then(() => NodesService.fetchAndDispatchNodes())
+      .catch(() => {});
+
+    // Delay plugin detection to ensure commando connection is ready
+    const timer = setTimeout(() => NodesService.detectFactoryPlugin(), 3000);
+    return () => clearTimeout(timer);
+  }, [authStatus?.isAuthenticated, authStatus?.isValidPassword]);
+
   // Handle polling
   useEffect(() => {
     if (!authStatus?.isAuthenticated || !authStatus?.isValidPassword) return;

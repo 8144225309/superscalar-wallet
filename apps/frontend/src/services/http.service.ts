@@ -14,12 +14,13 @@ import { setConnectWallet, setListChannels, setListFunds, setNodeInfo } from '..
 import { setFeeRate, setListBitcoinTransactions, setListLightningTransactions, setListOffers } from '../store/clnSlice';
 import { setAccountEvents, setSatsFlow, setVolume } from '../store/bkprSlice';
 import { setFactoryList } from '../store/factoriesSlice';
+import { setNodeProfiles, setHasFactoryPlugin } from '../store/nodesSlice';
 import { Factory, FactoryCreateResponse, FactoryRotateResponse, FactoryCloseResponse, FactoryForceCloseResponse, FactoryCheckBreachResponse } from '../types/factories.type';
 import { isCompatibleVersion } from '../utilities/data-formatters';
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL + API_VERSION,
-  timeout: APP_WAIT_TIME * 10,
+  timeout: 30 * 1000, // 30s — long enough for any real CLN call, fast enough to fail if node unreachable
   withCredentials: true,
 });
 
@@ -590,6 +591,50 @@ export class FactoriesService {
         }
       );
       return { factoryList: results.factoryList };
+    }
+  }
+}
+
+export class NodesService {
+  static async listNodes() {
+    return HttpService.get('/nodes');
+  }
+
+  static async getActiveNode() {
+    return HttpService.get('/nodes/active');
+  }
+
+  static async switchNode(profileId: string) {
+    return HttpService.post('/nodes/switch', { profileId });
+  }
+
+  static async discoverNodes() {
+    return HttpService.post('/nodes/discover', {});
+  }
+
+  static async addNode(params: { pubkey: string; rune: string; wsHost: string; wsPort: number; label?: string }) {
+    return HttpService.post('/nodes', params);
+  }
+
+  static async removeNode(id: string) {
+    return HttpService.delete('/nodes/' + id);
+  }
+
+  static async fetchAndDispatchNodes() {
+    try {
+      const data = await this.listNodes();
+      appStore.dispatch(setNodeProfiles(data));
+    } catch (error) {
+      logger.error('Failed to fetch node profiles:', error);
+    }
+  }
+
+  static async detectFactoryPlugin() {
+    try {
+      await HttpService.clnCall('factory-list');
+      appStore.dispatch(setHasFactoryPlugin(true));
+    } catch {
+      appStore.dispatch(setHasFactoryPlugin(false));
     }
   }
 }
