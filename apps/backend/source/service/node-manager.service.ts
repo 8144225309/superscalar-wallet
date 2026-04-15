@@ -260,10 +260,23 @@ export class NodeManager {
 
   /**
    * Get the active LightningService instance.
+   * If the current instance has been marked dead (WS dropped or commando timed out),
+   * rebuild it from the active profile so the next call gets a fresh connection.
    * Throws if no connection is available.
    */
   getActiveService(): LightningService {
     if (this.activeService) {
+      if (this.activeService.isDead() && this.activeProfile) {
+        logger.warn(
+          'Active LightningService is dead, rebuilding from profile: ' + this.activeProfile.id,
+        );
+        try {
+          this.activeService.disconnect();
+        } catch {
+          // ignore — the old service is already broken
+        }
+        this.activeService = LightningService.createFromProfile(this.activeProfile);
+      }
       return this.activeService;
     }
     if (this.legacyService) {

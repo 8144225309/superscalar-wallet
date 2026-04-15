@@ -19,6 +19,9 @@ import { NodeProfile } from '../models/node-profile.type.js';
 /** Internal flag to skip env-based init in the constructor */
 const SKIP_INIT = Symbol('skipInit');
 
+/** Max time to wait for a commando response before giving up and marking the connection dead. */
+const COMMANDO_CALL_TIMEOUT_MS = 20000;
+
 export class LightningService {
   private clnService: any = null;
   private axiosConfig: any = {
@@ -28,6 +31,8 @@ export class LightningService {
   };
   /** Per-instance rune. Defaults to APP_CONSTANTS.ADMIN_RUNE for legacy path. */
   private rune: string = '';
+  /** Marks the service as unusable; NodeManager rebuilds on next getActiveService() call. */
+  private dead: boolean = false;
 
   constructor(skipInit?: typeof SKIP_INIT) {
     if (skipInit === SKIP_INIT) {
@@ -103,10 +108,34 @@ export class LightningService {
     svc.clnService = new Lnmessage(config);
     svc.clnService.connect();
     svc.rune = profile.rune;
+    // Subscribe to connection status so we can mark the service dead when the WS closes.
+    // lnmessage emits 'disconnected' when the underlying WebSocket goes away.
+    try {
+      if (
+        svc.clnService.connectionStatus$ &&
+        typeof svc.clnService.connectionStatus$.subscribe === 'function'
+      ) {
+        svc.clnService.connectionStatus$.subscribe((status: string) => {
+          if (status === 'disconnected') {
+            logger.warn(
+              'lnmessage connection lost for profile ' + profile.id + '; marking service dead',
+            );
+            svc.dead = true;
+          }
+        });
+      }
+    } catch (err: any) {
+      logger.warn('Could not subscribe to lnmessage connectionStatus$: ' + (err.message || err));
+    }
     logger.info(
       'Created LightningService from profile: ' + profile.id + ' (' + profile.label + ')',
     );
     return svc;
+  }
+
+  /** True if the service has been marked dead by a timeout or disconnect event. */
+  isDead(): boolean {
+    return this.dead;
   }
 
   /**
@@ -190,20 +219,33 @@ export class LightningService {
             logger.error('gRPC lightning error from ' + method + ' command');
             throw err;
           });
-      default:
-        return this.clnService
-          .commando({
-            method: method,
-            params: methodParams,
-            rune: this.rune || APP_CONSTANTS.ADMIN_RUNE,
-            reqId: crypto.randomBytes(8).toString('hex'),
-            reqIdPrefix: 'clnapp',
-          })
+      default: {
+        const commandoPromise = this.clnService.commando({
+          method: method,
+          params: methodParams,
+          rune: this.rune || APP_CONSTANTS.ADMIN_RUNE,
+          reqId: crypto.randomBytes(8).toString('hex'),
+          reqIdPrefix: 'clnapp',
+        });
+        let timer: NodeJS.Timeout | null = null;
+        const timeoutPromise = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            this.dead = true;
+            reject(
+              new Error(
+                'Commando timeout after ' + COMMANDO_CALL_TIMEOUT_MS + 'ms for method ' + method,
+              ),
+            );
+          }, COMMANDO_CALL_TIMEOUT_MS);
+        });
+        return Promise.race([commandoPromise, timeoutPromise])
           .then((commandRes: any) => {
+            if (timer) clearTimeout(timer);
             logger.info('Commando response for ' + method + ': ' + JSON.stringify(commandRes));
-            return Promise.resolve(commandRes);
+            return commandRes;
           })
           .catch((err: any) => {
+            if (timer) clearTimeout(timer);
             logger.error('Commando lightning error from ' + method + ' command');
             if (typeof err === 'string') {
               logger.error(err);
@@ -213,6 +255,7 @@ export class LightningService {
               throw new LightningError(HttpStatusCode.LIGHTNING_SERVER, err.message || err.code);
             }
           });
+      }
     }
   };
 }
