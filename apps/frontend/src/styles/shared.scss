@@ -688,10 +688,12 @@ label.form-label {
   border: none;
 }
 
-// Force dark text on yellow/warning backgrounds regardless of color mode
+// Force dark text on light-colored badges regardless of color mode.
+// $secondary is white, so bg-secondary badges would otherwise be white-on-white.
 .badge.bg-primary,
 .btn-rounded.bg-primary.badge,
-.badge.bg-warning {
+.badge.bg-warning,
+.badge.bg-secondary {
   color: $dark !important;
 }
 
