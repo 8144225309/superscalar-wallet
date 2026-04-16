@@ -14,11 +14,10 @@ const RouteTransition = () => {
     <AnimatePresence mode="wait">
       <motion.div
         key={location.pathname}
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -20, opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ duration: TRANSITION_DURATION }}
-        className='overflow-hidden'
         data-testid="route-transition"
       >
         <Outlet />
