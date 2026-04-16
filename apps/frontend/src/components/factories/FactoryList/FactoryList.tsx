@@ -83,7 +83,7 @@ const FactoryList = (props: FactoryListProps) => {
   return (
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-list'>
       <Card.Header className='px-1 pb-2 fs-18px p-0 fw-bold text-dark'>Channel Factories</Card.Header>
-      <Card.Body className='py-0 px-1 channels-scroll-container'>
+      <Card.Body className='py-0 px-1 channels-scroll-container' style={{ overflowY: 'auto' }}>
         {isAuthenticated && isLoading ?
           <span className='h-100 d-flex justify-content-center align-items-center'>
             <Spinner animation='grow' variant='primary' />
