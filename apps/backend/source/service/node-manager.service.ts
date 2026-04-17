@@ -231,6 +231,9 @@ export class NodeManager {
     this.activeProfile = profile;
     this.profilesService.setActiveProfile(profileId);
 
+    // Wait for the WebSocket handshake to complete before calling getinfo
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     // Update profile info
     try {
       const info: any = await this.activeService.call('getinfo', []);

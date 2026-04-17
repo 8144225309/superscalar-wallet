@@ -33,6 +33,9 @@ export class LightningService {
   private rune: string = '';
   /** Marks the service as unusable; NodeManager rebuilds on next getActiveService() call. */
   private dead: boolean = false;
+  /** True once the WS connection has been established at least once. Prevents
+   *  the initial 'disconnected' status from lnmessage from marking a fresh service dead. */
+  private wasConnected: boolean = false;
 
   constructor(skipInit?: typeof SKIP_INIT) {
     if (skipInit === SKIP_INIT) {
@@ -116,7 +119,12 @@ export class LightningService {
         typeof svc.clnService.connectionStatus$.subscribe === 'function'
       ) {
         svc.clnService.connectionStatus$.subscribe((status: string) => {
-          if (status === 'disconnected') {
+          if (status === 'connected') {
+            svc.wasConnected = true;
+          } else if (status === 'disconnected' && svc.wasConnected) {
+            // Only mark dead after the connection was established at least once.
+            // lnmessage emits 'disconnected' as its initial state before the
+            // WS handshake completes — that's not a real disconnection.
             logger.warn(
               'lnmessage connection lost for profile ' + profile.id + '; marking service dead',
             );
