@@ -147,10 +147,10 @@ const NodePicker = () => {
   const actuallyConnected = isConnected || !!nodeInfo.id;
 
   // No connection and no profiles — show scan button
-  if (!actuallyConnected && profiles.length === 0 && !nodeInfo.isLoading && !nodeInfo.error) {
+  if (!actuallyConnected && profiles.length === 0 && !nodeInfo.isLoading) {
     return (
       <span className='fs-7 d-flex align-items-center'>
-        <OverlayTrigger placement='auto' delay={{ show: 250, hide: 250 }} overlay={<Tooltip>Disconnected</Tooltip>}>
+        <OverlayTrigger placement='auto' delay={{ show: 250, hide: 250 }} overlay={<Tooltip>{nodeInfo.error || 'Disconnected'}</Tooltip>}>
           <span className='d-inline-block me-2 dot bg-danger'></span>
         </OverlayTrigger>
         <button
@@ -175,9 +175,18 @@ const NodePicker = () => {
             Switching...
           </>
         ) : nodeInfo.isLoading ? (
-          'Loading...'
+          'Connecting...'
         ) : nodeInfo.error ? (
-          'Error: ' + nodeInfo.error
+          <>
+            <span className='me-2'>{displayAlias} — unreachable</span>
+            <button
+              className='btn btn-sm btn-outline-warning btn-rounded px-2'
+              onClick={handleDiscover}
+              disabled={isDiscovering}
+            >
+              {isDiscovering ? <><Spinner animation='border' size='sm' className='me-1' /> Scanning...</> : 'Rescan'}
+            </button>
+          </>
         ) : (
           <>
             {displayAlias}
@@ -204,9 +213,9 @@ const NodePicker = () => {
             Switching...
           </>
         ) : nodeInfo.isLoading ? (
-          'Loading...'
+          'Connecting...'
         ) : nodeInfo.error ? (
-          'Error: ' + nodeInfo.error
+          <>{displayAlias} — <span className='text-danger'>unreachable</span></>
         ) : (
           <>
             {displayAlias}
@@ -229,7 +238,7 @@ const NodePicker = () => {
             >
               <span
                 className='node-dot'
-                style={{ backgroundColor: isActive ? '#33db95' : '#9f9f9f' }}
+                style={{ backgroundColor: isActive ? (nodeInfo.error ? '#dc3545' : '#33db95') : '#9f9f9f' }}
               ></span>
               <div className='node-details'>
                 <div className='node-alias'>{profile.alias || profile.label}</div>
