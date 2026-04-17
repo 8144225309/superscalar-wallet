@@ -14,38 +14,36 @@ function CLNHome() {
   useInjectReducer('cln', clnReducer);
   const nodeInfo = useSelector(selectNodeInfo);
 
-  if (nodeInfo.error) {
-    return (
-      <Row className='message invalid mt-10'>
-        <Col xs={12} className='d-flex align-items-center justify-content-center'>
-          {nodeInfo.error}
-        </Col>
-      </Row>
-    );
-  }
-
   return (
-    <>
     <div data-testid='cln-container'>
       <Header />
-      <Row>
-        <Col className='mx-1'>
-          <Overview />
-        </Col>
-      </Row>
-      <Row className='px-3'>
-        <Col xs={12} lg={4} className='cards-container'>
-          <BTCCard />
-        </Col>
-        <Col xs={12} lg={4} className='cards-container'>
-          <CLNCard />
-        </Col>
-        <Col xs={12} lg={4} className='cards-container'>
-          <ChannelsCard />
-        </Col>
-      </Row>
+      {nodeInfo.error ? (
+        <Row className='message invalid mt-4'>
+          <Col xs={12} className='d-flex align-items-center justify-content-center'>
+            {nodeInfo.error}
+          </Col>
+        </Row>
+      ) : (
+        <>
+          <Row>
+            <Col className='mx-1'>
+              <Overview />
+            </Col>
+          </Row>
+          <Row className='px-3'>
+            <Col xs={12} lg={4} className='cards-container'>
+              <BTCCard />
+            </Col>
+            <Col xs={12} lg={4} className='cards-container'>
+              <CLNCard />
+            </Col>
+            <Col xs={12} lg={4} className='cards-container'>
+              <ChannelsCard />
+            </Col>
+          </Row>
+        </>
+      )}
     </div>
-    </>
   );
 }
 

@@ -15,19 +15,17 @@ function FactoriesHome() {
   useInjectReducer('factories', factoriesReducer);
   const nodeInfo = useSelector(selectNodeInfo);
 
-  if (nodeInfo.error) {
-    return (
-      <Row className='message invalid mt-10'>
-        <Col xs={12} className='d-flex align-items-center justify-content-center'>
-          {nodeInfo.error}
-        </Col>
-      </Row>
-    );
-  }
-
   return (
     <div data-testid='factories-container'>
       <Header />
+      {nodeInfo.error ? (
+        <Row className='message invalid mt-4'>
+          <Col xs={12} className='d-flex align-items-center justify-content-center'>
+            {nodeInfo.error}
+          </Col>
+        </Row>
+      ) : (
+        <>
       <Row>
         <Col className='mx-1'>
           <FactoriesOverview />
@@ -47,6 +45,8 @@ function FactoriesHome() {
           <LadderingTimeline />
         </Col>
       </Row>
+        </>
+      )}
     </div>
   );
 }
