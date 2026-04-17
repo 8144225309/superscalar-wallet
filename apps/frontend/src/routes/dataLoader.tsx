@@ -6,9 +6,11 @@ import { AppState } from "../store/store.type";
 export async function rootLoader({}: LoaderFunctionArgs) {
   const state = appStore.getState() as AppState;
   if (state.root.authStatus.isAuthenticated) {
-    const rootData = await RootService.fetchRootData();
-    const refreshData = await RootService.refreshData();
-    return [rootData, refreshData];
+    // Fire-and-forget: data arrives via Redux dispatches inside these methods.
+    // Do not await — a dead node would block React Router from rendering the
+    // entire UI, leaving the user stuck on "Loading..." with no node picker.
+    RootService.fetchRootData().catch(() => {});
+    RootService.refreshData().catch(() => {});
   }
   return null;
 }
