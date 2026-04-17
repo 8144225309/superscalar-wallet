@@ -10,6 +10,7 @@ export const defaultNodesState: NodesState = {
   isSwitching: false,
   isDiscovering: false,
   error: null,
+  profileHealth: [],
 };
 
 const selectNodesState = (state: { nodes: NodesState }) =>
@@ -64,4 +65,9 @@ export const selectIsDiscovering = createSelector(
 export const selectHasFactoryPlugin = createSelector(
   selectNodesState,
   (n) => n.hasFactoryPlugin
+);
+
+export const selectProfileHealth = createSelector(
+  selectNodesState,
+  (n) => n.profileHealth
 );

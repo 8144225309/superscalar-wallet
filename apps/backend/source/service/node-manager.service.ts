@@ -364,6 +364,29 @@ export class NodeManager {
     }
   }
 
+  /**
+   * Probe all known profiles in parallel and return health status for each.
+   * Uses LightningService.probe() which creates a temporary connection per node.
+   */
+  async checkAllHealth(): Promise<Array<{ profileId: string; alive: boolean; alias?: string; error?: string }>> {
+    const profiles = this.listProfiles();
+    const results = await Promise.allSettled(
+      profiles.map(async (profile) => {
+        const fullProfile = this.profilesService.getProfile(profile.id);
+        if (!fullProfile) return { profileId: profile.id, alive: false, error: 'Profile not found' };
+        try {
+          const info = await LightningService.probe(fullProfile);
+          return { profileId: profile.id, alive: true, alias: info.alias };
+        } catch (err: any) {
+          return { profileId: profile.id, alive: false, error: err.message || String(err) };
+        }
+      })
+    );
+    return results.map((r) =>
+      r.status === 'fulfilled' ? r.value : { profileId: 'unknown', alive: false, error: 'probe failed' }
+    );
+  }
+
   getProfilesService(): NodeProfilesService {
     return this.profilesService;
   }

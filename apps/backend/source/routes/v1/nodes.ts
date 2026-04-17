@@ -39,6 +39,11 @@ export class NodesRoutes extends CommonRoutesConfig {
       .route(API_VERSION + NODES_ROOT_ROUTE + '/switch')
       .post(authController.isUserAuthenticated, nodesController.switchNode);
 
+    // GET /v1/nodes/health — probe all profiles
+    this.app
+      .route(API_VERSION + NODES_ROOT_ROUTE + '/health')
+      .get(authController.isUserAuthenticated, nodesController.healthCheck);
+
     // POST /v1/nodes/discover — scan for nodes
     this.app
       .route(API_VERSION + NODES_ROOT_ROUTE + '/discover')

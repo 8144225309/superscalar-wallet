@@ -10,6 +10,13 @@ export interface NodeProfile {
   lastSeen?: number;
 }
 
+export interface ProfileHealth {
+  profileId: string;
+  alive: boolean;
+  alias?: string;
+  error?: string;
+}
+
 export interface NodesState {
   isLoading: boolean;
   profiles: NodeProfile[];
@@ -19,4 +26,5 @@ export interface NodesState {
   isSwitching: boolean;
   isDiscovering: boolean;
   error: any;
+  profileHealth: ProfileHealth[];
 }

@@ -620,6 +620,10 @@ export class NodesService {
     return HttpService.delete('/nodes/' + id);
   }
 
+  static async healthCheck() {
+    return HttpService.get('/nodes/health');
+  }
+
   static async fetchAndDispatchNodes() {
     try {
       const data = await this.listNodes();

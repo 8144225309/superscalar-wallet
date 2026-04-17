@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import nodesReducer from '../../../store/nodesSlice';
 import { setIsSwitching, setIsDiscovering, setActiveProfileId, setNodeProfiles } from '../../../store/nodesSlice';
-import { selectNodeProfiles, selectActiveProfile, selectIsSwitchingNode, selectHasMultipleNodes, selectActiveProfileId, selectIsConnected, selectIsDiscovering } from '../../../store/nodesSelectors';
+import { selectNodeProfiles, selectActiveProfile, selectIsSwitchingNode, selectHasMultipleNodes, selectActiveProfileId, selectIsConnected, selectIsDiscovering, selectProfileHealth } from '../../../store/nodesSelectors';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { NodesService, RootService, CLNService, BookkeeperService, FactoriesService } from '../../../services/http.service';
 import { clearNodeData } from '../../../store/rootSlice';
@@ -28,6 +28,7 @@ const NodePicker = () => {
   const isDiscovering = useSelector(selectIsDiscovering);
   const hasMultipleNodes = useSelector(selectHasMultipleNodes);
   const nodeInfo = useSelector(selectNodeInfo);
+  const profileHealth = useSelector(selectProfileHealth);
 
   const handleSwitchNode = async (profileId: string) => {
     if (profileId === activeProfileId || isSwitching) return;
@@ -229,6 +230,10 @@ const NodePicker = () => {
         {profiles.map((profile) => {
           const isActive = profile.id === activeProfileId;
           const badgeVariant = getNetworkBadgeVariant(profile.network);
+          const health = profileHealth.find(h => h.profileId === profile.id);
+          const dotColor = isActive
+            ? (nodeInfo.error ? '#dc3545' : '#33db95')
+            : health ? (health.alive ? '#33db95' : '#dc3545') : '#9f9f9f';
           return (
             <Dropdown.Item
               key={profile.id}
@@ -238,7 +243,7 @@ const NodePicker = () => {
             >
               <span
                 className='node-dot'
-                style={{ backgroundColor: isActive ? (nodeInfo.error ? '#dc3545' : '#33db95') : '#9f9f9f' }}
+                style={{ backgroundColor: dotColor }}
               ></span>
               <div className='node-details'>
                 <div className='node-alias'>{profile.alias || profile.label}</div>

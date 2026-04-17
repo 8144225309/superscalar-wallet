@@ -101,6 +101,15 @@ export class NodesController {
     }
   };
 
+  healthCheck = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const health = await this.nodeManager.checkAllHealth();
+      res.status(200).json({ health });
+    } catch (error: any) {
+      handleError(error, req, res, next);
+    }
+  };
+
   removeProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = req.params.id as string;

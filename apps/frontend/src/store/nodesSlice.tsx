@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { NodeProfile, NodesState } from '../types/node.type';
+import { NodeProfile, NodesState, ProfileHealth } from '../types/node.type';
 import { defaultNodesState } from './nodesSelectors';
 
 const nodesSlice = createSlice({
@@ -33,6 +33,9 @@ const nodesSlice = createSlice({
       state.error = action.payload;
       state.isLoading = false;
     },
+    setProfileHealth(state, action: PayloadAction<ProfileHealth[]>) {
+      state.profileHealth = action.payload;
+    },
     clearNodesStore() {
       return defaultNodesState;
     },
@@ -46,6 +49,7 @@ export const {
   setIsDiscovering,
   setHasFactoryPlugin,
   setNodesError,
+  setProfileHealth,
   clearNodesStore,
 } = nodesSlice.actions;
 

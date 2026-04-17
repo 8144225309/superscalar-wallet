@@ -3,10 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { clearBKPRStore } from '../store/bkprSlice';
 import { clearCLNStore } from '../store/clnSlice';
 import { clearFactoriesStore } from '../store/factoriesSlice';
+import { setProfileHealth } from '../store/nodesSlice';
 import { APP_WAIT_TIME } from '../utilities/constants';
 import { useDispatch, useSelector } from 'react-redux';
 import { BookkeeperService, CLNService, FactoriesService, NodesService, RootService } from '../services/http.service';
-import { selectAuthStatus } from '../store/rootSelectors';
+import { selectAuthStatus, selectNodeInfo } from '../store/rootSelectors';
+import { appStore } from '../store/appStore';
 import logger from '../services/logger.service';
 
 export function RootRouterReduxSync() {
@@ -14,6 +16,7 @@ export function RootRouterReduxSync() {
   const dispatch = useDispatch();
   const { pathname } = useLocation();
   const authStatus = useSelector(selectAuthStatus);
+  const nodeInfo = useSelector(selectNodeInfo);
   
   // Fetch node profiles, run background discovery, detect factory plugin
   useEffect(() => {
@@ -50,6 +53,34 @@ export function RootRouterReduxSync() {
 
     return () => clearInterval(interval);
   }, [authStatus.isAuthenticated]);
+
+  // Health polling: only active when the active node has an error.
+  // Probes all profiles so the dropdown shows live red/green dots.
+  // Auto-retries fetchRootData when the active node comes back alive.
+  useEffect(() => {
+    if (!authStatus?.isAuthenticated || !nodeInfo.error) return;
+
+    const healthInterval = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const result = await NodesService.healthCheck();
+        if (result.health) {
+          appStore.dispatch(setProfileHealth(result.health));
+          // Auto-recover: if active node is alive again, retry root data
+          const activeId = (appStore.getState() as any).nodes?.activeProfileId;
+          const activeHealth = result.health.find((h: any) => h.profileId === activeId);
+          if (activeHealth?.alive) {
+            RootService.fetchRootData().catch(() => {});
+            RootService.refreshData().catch(() => {});
+          }
+        }
+      } catch {
+        // Health endpoint itself failed — backend may be restarting
+      }
+    }, 10000);
+
+    return () => clearInterval(healthInterval);
+  }, [authStatus?.isAuthenticated, nodeInfo.error]);
 
   // Handle navigation for authenticated users
   useEffect(() => {
