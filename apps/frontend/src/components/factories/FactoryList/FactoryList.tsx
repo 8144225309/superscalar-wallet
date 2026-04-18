@@ -88,7 +88,11 @@ const FactoryList = (props: FactoryListProps) => {
   const roleCounts = useSelector(selectRoleCounts);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
 
-  const showPill = roleCounts.lsp > 0 && roleCounts.client > 0;
+  // TEMP: always show the pill until nostr rendezvous lands so single-role
+  // nodes can still preview the Client view. Revert to
+  //   roleCounts.lsp > 0 && roleCounts.client > 0
+  // once a natural dual-role setup is possible.
+  const showPill = true;
 
   const visible = useMemo(() => {
     if (!factories) return [];
