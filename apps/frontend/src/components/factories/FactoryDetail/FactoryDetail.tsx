@@ -1,6 +1,6 @@
 import './FactoryDetail.scss';
 import { useState } from 'react';
-import { Card, Row, Col, ListGroup, Alert, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Card, Row, Col, ListGroup, Alert, Spinner, OverlayTrigger, Tooltip, Form } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
 import { FactoriesService } from '../../../services/http.service';
@@ -27,6 +27,10 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
   const [responseStatus, setResponseStatus] = useState(CallStatus.NONE);
   const [responseMessage, setResponseMessage] = useState('');
   const nodeInfo = useSelector(selectNodeInfo);
+  // Auto-sign stub: local-only until `factory-set-policy` RPC lands.
+  // The plugin enforces allocation/epoch invariants independent of this toggle.
+  const [autoSign, setAutoSign] = useState(true);
+  const isLsp = factory.is_lsp;
 
   const resetStatus = () => {
     setTimeout(() => {
@@ -107,16 +111,24 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     resetStatus();
   };
 
-  const canRotate = factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE && !factory.rotation_in_progress;
-  const canClose = factory.lifecycle === FactoryLifecycle.ACTIVE;
+  const canRotate = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE && !factory.rotation_in_progress;
+  const canClose = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
   const canForceClose = factory.lifecycle !== FactoryLifecycle.EXPIRED;
-  const canOpenChannels = factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE;
-  const canInvite = factory.is_lsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
+  const canOpenChannels = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE;
+  const canInvite = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
 
   return (
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-detail'>
       <Card.Header className='px-1 pb-2 p-0 d-flex justify-content-between align-items-center'>
-        <span className='fs-18px fw-bold text-dark'>Factory Detail</span>
+        <span className='fs-18px fw-bold text-dark d-flex align-items-center gap-2'>
+          Factory Detail
+          <span
+            className={'badge ' + (isLsp ? 'bg-primary' : 'bg-info text-dark')}
+            data-testid='factory-detail-role-badge'
+          >
+            {isLsp ? 'LSP' : 'Client'}
+          </span>
+        </span>
         <button className='btn btn-sm btn-outline-secondary btn-rounded' onClick={onClose}>Back</button>
       </Card.Header>
       <Card.Body className='py-2 px-1 factory-detail-scroll'>
@@ -139,6 +151,29 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
             <CeremonyProgress ceremony={factory.ceremony} />
           </Col>
         </Row>
+
+        {!isLsp && (
+          <Row className='mb-2'>
+            <Col xs={12} className='d-flex align-items-center justify-content-between border-top pt-2'>
+              <span className='fs-7'>
+                <span className='text-light'>Auto-sign rotations</span>
+                <OverlayTrigger
+                  placement='auto'
+                  overlay={<Tooltip>Plugin signs valid rotations automatically. Invariants (allocation, epoch) are always enforced regardless of this toggle. Backend wiring pending.</Tooltip>}
+                >
+                  <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
+                </OverlayTrigger>
+              </span>
+              <Form.Check
+                type='switch'
+                id={`auto-sign-${factory.instance_id}`}
+                checked={autoSign}
+                onChange={(e) => setAutoSign(e.target.checked)}
+                data-testid='auto-sign-toggle'
+              />
+            </Col>
+          </Row>
+        )}
 
         <Row className='mb-2'>
           <Col xs={6} md={4}>

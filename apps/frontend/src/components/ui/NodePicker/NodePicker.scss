@@ -28,6 +28,29 @@
   .dropdown-menu {
     min-width: 16rem;
     padding: 0.5rem 0;
+    // Above page Cards — framer-motion transforms on RouteTransition create
+    // their own stacking contexts that otherwise win over the default 1000.
+    z-index: 1060;
+  }
+
+  // Scope flex layout to the open state only. Without `.show` here our
+  // `display: flex` would override Bootstrap's `.dropdown-menu { display: none }`
+  // and the menu could never close — leaving the list perma-expanded.
+  .dropdown-menu.show {
+    max-height: calc(100vh - 6rem);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .node-picker-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .node-picker-rescan {
+    flex-shrink: 0;
   }
 
   .node-item {

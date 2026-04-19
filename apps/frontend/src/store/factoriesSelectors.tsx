@@ -52,3 +52,11 @@ export const selectFactoryCounts = createSelector(
     totalChannels: factories.reduce((sum, f) => sum + (f.n_channels || 0), 0),
   })
 );
+
+export const selectRoleCounts = createSelector(
+  selectFactories,
+  (factories) => ({
+    lsp: factories.filter(f => f.is_lsp).length,
+    client: factories.filter(f => !f.is_lsp).length,
+  })
+);

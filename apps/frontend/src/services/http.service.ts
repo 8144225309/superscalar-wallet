@@ -139,6 +139,19 @@ export class HttpService {
     }
   }
 
+  static async fetchGossipCounts(): Promise<{ nodes: number; channels: number }> {
+    const [nodesRes, chansRes] = await Promise.all([
+      HttpService.clnCall<{ rows: any[][] }>('sql', { query: 'SELECT COUNT(*) FROM nodes' }),
+      HttpService.clnCall<{ rows: any[][] }>('sql', {
+        query: 'SELECT COUNT(DISTINCT short_channel_id) FROM channels',
+      }),
+    ]);
+    return {
+      nodes: Number(nodesRes?.rows?.[0]?.[0] ?? 0),
+      channels: Number(chansRes?.rows?.[0]?.[0] ?? 0),
+    };
+  }
+
 }
 
 export class RootService {

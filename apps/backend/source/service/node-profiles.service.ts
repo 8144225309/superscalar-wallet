@@ -106,7 +106,16 @@ export class NodeProfilesService {
     const config = this.loadProfiles();
     const profileId = this.generateProfileId(params.pubkey, params.wsHost, params.wsPort);
 
-    const existing = config.profiles.find(p => p.id === profileId);
+    // Dedupe by physical identity (pubkey + host + port) as well as by derived
+    // id so manually-inserted rows (which may use a different id scheme) still
+    // match a subsequent discovery instead of producing a duplicate.
+    const existing = config.profiles.find(
+      p =>
+        p.id === profileId ||
+        (p.pubkey === params.pubkey &&
+          p.wsHost === params.wsHost &&
+          p.wsPort === params.wsPort),
+    );
     if (existing) {
       // Update existing profile
       existing.label = params.label || existing.label;
