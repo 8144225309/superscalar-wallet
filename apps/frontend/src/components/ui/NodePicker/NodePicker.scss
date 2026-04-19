@@ -32,6 +32,9 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    // Above page Cards — framer-motion transforms on RouteTransition create
+    // their own stacking contexts that otherwise win over the default 1000.
+    z-index: 1060;
   }
 
   .node-picker-scroll {
