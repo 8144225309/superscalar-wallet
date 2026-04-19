@@ -1,7 +1,9 @@
 import './GossipPill.scss';
 import { useEffect, useState } from 'react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { useSelector } from 'react-redux';
 import { HttpService } from '../../../services/http.service';
+import { selectActiveProfileId } from '../../../store/nodesSelectors';
 
 const GOSSIP_REFRESH_MS = 30_000;
 
@@ -12,10 +14,14 @@ const formatCount = (n: number): string => {
 };
 
 const GossipPill = () => {
+  const activeProfileId = useSelector(selectActiveProfileId);
   const [state, setState] = useState<{ nodes: number; channels: number } | 'loading' | 'error'>('loading');
 
   useEffect(() => {
     let cancelled = false;
+    // Reset to loading whenever the active node changes so stale counts
+    // from the previous node don't linger while the new one is queried.
+    setState('loading');
     const load = async () => {
       try {
         const counts = await HttpService.fetchGossipCounts();
@@ -30,7 +36,7 @@ const GossipPill = () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [activeProfileId]);
 
   const label =
     state === 'loading'
