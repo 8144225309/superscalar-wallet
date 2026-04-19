@@ -227,38 +227,40 @@ const NodePicker = () => {
         )}
       </Dropdown.Toggle>
       <Dropdown.Menu>
-        {profiles.map((profile) => {
-          const isActive = profile.id === activeProfileId;
-          const badgeVariant = getNetworkBadgeVariant(profile.network);
-          const health = profileHealth.find(h => h.profileId === profile.id);
-          const dotColor = isActive
-            ? (nodeInfo.error ? '#dc3545' : '#33db95')
-            : health ? (health.alive ? '#33db95' : '#dc3545') : '#9f9f9f';
-          return (
-            <Dropdown.Item
-              key={profile.id}
-              className='node-item'
-              onClick={() => handleSwitchNode(profile.id)}
-              active={isActive}
-            >
-              <span
-                className='node-dot'
-                style={{ backgroundColor: dotColor }}
-              ></span>
-              <div className='node-details'>
-                <div className='node-alias'>{profile.alias || profile.label}</div>
-                <div className='node-pubkey'>{truncatePubkey(profile.pubkey)}</div>
-              </div>
-              {badgeVariant && (
-                <span className={`node-network-badge badge bg-${badgeVariant} text-dark`}>
-                  {profile.network}
-                </span>
-              )}
-            </Dropdown.Item>
-          );
-        })}
+        <div className='node-picker-scroll'>
+          {profiles.map((profile) => {
+            const isActive = profile.id === activeProfileId;
+            const badgeVariant = getNetworkBadgeVariant(profile.network);
+            const health = profileHealth.find(h => h.profileId === profile.id);
+            const dotColor = isActive
+              ? (nodeInfo.error ? '#dc3545' : '#33db95')
+              : health ? (health.alive ? '#33db95' : '#dc3545') : '#9f9f9f';
+            return (
+              <Dropdown.Item
+                key={profile.id}
+                className='node-item'
+                onClick={() => handleSwitchNode(profile.id)}
+                active={isActive}
+              >
+                <span
+                  className='node-dot'
+                  style={{ backgroundColor: dotColor }}
+                ></span>
+                <div className='node-details'>
+                  <div className='node-alias'>{profile.alias || profile.label}</div>
+                  <div className='node-pubkey'>{truncatePubkey(profile.pubkey)}</div>
+                </div>
+                {badgeVariant && (
+                  <span className={`node-network-badge badge bg-${badgeVariant} text-dark`}>
+                    {profile.network}
+                  </span>
+                )}
+              </Dropdown.Item>
+            );
+          })}
+        </div>
         <Dropdown.Divider />
-        <Dropdown.Item className='node-item' onClick={handleDiscover} disabled={isDiscovering}>
+        <Dropdown.Item className='node-item node-picker-rescan' onClick={handleDiscover} disabled={isDiscovering}>
           {isDiscovering ? <><Spinner animation='border' size='sm' className='me-1' /> Scanning...</> : 'Rescan for Nodes'}
         </Dropdown.Item>
       </Dropdown.Menu>
