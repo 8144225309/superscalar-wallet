@@ -1,7 +1,11 @@
 .vscode
 node_modules
 data
-application-cln.log
+application-cln*.log
+node-profiles.json
+rendezvous-settings.json
+config.json
+.commando-env.*
 .commando-env
 .commando
 release
