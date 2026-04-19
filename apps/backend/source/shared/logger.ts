@@ -42,6 +42,8 @@ export const logConfiguration = {
       filename: path.basename(APP_CONSTANTS.APP_LOG_FILE),
       dirname: logDir,
       maxsize: 5 * 1024 * 1024,
+      maxFiles: 5,
+      tailable: true,
       level:
         APP_CONSTANTS.APP_MODE === Environment.PRODUCTION
           ? LogLevel.DEBUG
