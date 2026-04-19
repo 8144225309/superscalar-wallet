@@ -50,7 +50,12 @@ const GossipPill = () => {
       }
     >
       <span
-        className='gossip-pill fs-7 fw-semibold px-3 py-1 rounded-pill bg-secondary text-dark'
+        className='gossip-pill fs-7 fw-semibold px-3 py-1 rounded-pill'
+        style={{
+          backgroundColor: 'rgba(51, 219, 149, 0.18)',
+          color: '#0a5c3e',
+          border: '1px solid rgba(51, 219, 149, 0.5)',
+        }}
         data-testid='gossip-pill'
       >
         {label}
