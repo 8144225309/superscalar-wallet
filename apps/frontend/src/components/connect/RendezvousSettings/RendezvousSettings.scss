@@ -31,11 +31,11 @@
     word-break: break-all;
   }
 
-  // "default" pill matches the value text size next to it.
+  // "default" pill — slightly smaller than the value text, still readable.
   .rendezvous-badge {
-    font-size: 0.85rem;
+    font-size: 0.7rem;
     font-weight: 500;
-    padding: 0.2rem 0.5rem;
+    padding: 0.18rem 0.45rem;
     vertical-align: middle;
   }
 }
