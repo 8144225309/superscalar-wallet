@@ -8,6 +8,7 @@ import { Units, BTC_SATS } from '../../../utilities/constants';
 import { CoordinationFactory, SAMPLE_COORDINATION_FACTORIES } from '../../../types/coordination.type';
 import { copyTextToClipboard } from '../../../utilities/data-formatters';
 import GossipPill from '../GossipPill/GossipPill';
+import VouchList from '../VouchList/VouchList';
 
 type SortFilter = 'all' | 'forming' | 'rotating';
 type JoinStatus = 'requested' | 'confirmed';
@@ -23,9 +24,9 @@ const ConnectList = () => {
   const [sortFilter, setSortFilter] = useState<SortFilter>('all');
   const [joinRequests, setJoinRequests] = useState<Record<string, JoinStatus>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // TEMP: demo toggle for the hardcoded SAMPLE_COORDINATION_FACTORIES.
-  // Remove once the Nostr rendezvous integration lands and real ads drive
-  // the list. Default off so a fresh install looks like production.
+  // Sample-mode override: when on, the hardcoded SAMPLE_COORDINATION_FACTORIES
+  // are shown instead of the real Nostr vouch list. Useful for demos when the
+  // active node's network has no real coordinator entries yet.
   const [showSample, setShowSample] = useState(false);
 
   const formatSats = (sats: number): string => {
@@ -71,11 +72,13 @@ const ConnectList = () => {
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='connect-list'>
       <Card.Header className='px-1 pb-2 p-0'>
         <div className='d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap'>
-          <span className='fs-18px fw-bold text-dark'>Open Factories</span>
+          <span className='fs-18px fw-bold text-dark'>
+            {showSample ? 'Open Factories (sample)' : 'Vouched LSPs'}
+          </span>
           <div className='d-flex align-items-center gap-3 flex-wrap'>
             <OverlayTrigger
               placement='auto'
-              overlay={<Tooltip>Demo toggle — shows hardcoded sample factories until Nostr rendezvous lands.</Tooltip>}
+              overlay={<Tooltip>Sample mode shows a hardcoded factory list for demos. Off = real vouches from the configured Nostr coordinators.</Tooltip>}
             >
               <Form.Check
                 type='switch'
@@ -89,21 +92,25 @@ const ConnectList = () => {
             <GossipPill />
           </div>
         </div>
-        <div className='d-flex gap-2'>
-          {(['all', 'forming', 'rotating'] as SortFilter[]).map(f => (
-            <button
-              key={f}
-              className={`connect-filter-chip btn-rounded btn-sm ${sortFilter === f ? 'connect-chip-active' : 'connect-chip-inactive'}`}
-              onClick={() => setSortFilter(f)}
-            >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+        {showSample && (
+          <div className='d-flex gap-2'>
+            {(['all', 'forming', 'rotating'] as SortFilter[]).map(f => (
+              <button
+                key={f}
+                className={`connect-filter-chip btn-rounded btn-sm ${sortFilter === f ? 'connect-chip-active' : 'connect-chip-inactive'}`}
+                onClick={() => setSortFilter(f)}
+              >
+                {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
       </Card.Header>
 
       <Card.Body className='py-0 px-1 channels-scroll-container'>
-        {sorted.length === 0 ? (
+        {!showSample ? (
+          <VouchList />
+        ) : sorted.length === 0 ? (
           <Row className='text-light fs-6 mt-3 h-100 align-items-center justify-content-center'>
             <Row className='text-center pb-4'>
               {!showSample
@@ -197,22 +204,24 @@ const ConnectList = () => {
         )}
       </Card.Body>
 
-      <Card.Footer className='d-flex justify-content-center gap-2'>
-        <button
-          className='btn-rounded bg-primary btn-sm'
-          onClick={handleJoin}
-          disabled={!canJoin}
-        >
-          Join Factory
-        </button>
-        <button
-          className={`btn-rounded btn-sm ${canCancel ? 'bg-warning text-dark' : 'bg-secondary'}`}
-          onClick={handleCancel}
-          disabled={!canCancel}
-        >
-          Cancel Request
-        </button>
-      </Card.Footer>
+      {showSample && (
+        <Card.Footer className='d-flex justify-content-center gap-2'>
+          <button
+            className='btn-rounded bg-primary btn-sm'
+            onClick={handleJoin}
+            disabled={!canJoin}
+          >
+            Join Factory
+          </button>
+          <button
+            className={`btn-rounded btn-sm ${canCancel ? 'bg-warning text-dark' : 'bg-secondary'}`}
+            onClick={handleCancel}
+            disabled={!canCancel}
+          >
+            Cancel Request
+          </button>
+        </Card.Footer>
+      )}
     </Card>
   );
 };

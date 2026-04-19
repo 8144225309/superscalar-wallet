@@ -14,10 +14,12 @@ import { LightningRoutes } from './routes/v1/lightning.js';
 import { SharedRoutes } from './routes/v1/shared.js';
 import { AuthRoutes } from './routes/v1/auth.js';
 import { NodesRoutes } from './routes/v1/nodes.js';
+import { RendezvousRoutes } from './routes/v1/rendezvous.js';
 import { APIError } from './models/errors.js';
 import { APP_CONSTANTS, Environment, HttpStatusCode } from './shared/consts.js';
 import handleError from './shared/error-handler.js';
 import { NodeManager } from './service/node-manager.service.js';
+import { RendezvousSettingsService } from './service/rendezvous-settings.service.js';
 
 const directoryName = dirname(fileURLToPath(import.meta.url));
 const routes: Array<CommonRoutesConfig> = [];
@@ -94,17 +96,22 @@ async function startServer() {
     const nodeManager = new NodeManager();
     await nodeManager.initialize();
 
+    const rendezvousSettingsService = new RendezvousSettingsService();
+    rendezvousSettingsService.load(); // materialize defaults file on first boot
+
     const authRoutes = new AuthRoutes(app);
     const sharedRoutes = new SharedRoutes(app, nodeManager);
     const lightningRoutes = new LightningRoutes(app, nodeManager);
     const nodesRoutes = new NodesRoutes(app, nodeManager);
+    const rendezvousRoutes = new RendezvousRoutes(app, rendezvousSettingsService);
 
     authRoutes.configureRoutes();
     sharedRoutes.configureRoutes();
     lightningRoutes.configureRoutes();
     nodesRoutes.configureRoutes();
+    rendezvousRoutes.configureRoutes();
 
-    routes.push(authRoutes, sharedRoutes, lightningRoutes, nodesRoutes);
+    routes.push(authRoutes, sharedRoutes, lightningRoutes, nodesRoutes, rendezvousRoutes);
 
     // serve frontend
     app.use('/', express.static(join(directoryName, '..', '..', 'frontend', 'build')));

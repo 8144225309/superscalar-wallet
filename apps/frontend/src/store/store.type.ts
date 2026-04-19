@@ -3,6 +3,7 @@ import { BKPRState } from "../types/bookkeeper.type";
 import { CLNState } from "../types/cln.type";
 import { FactoriesState } from "../types/factories.type";
 import { NodesState } from "../types/node.type";
+import { RendezvousState } from "../types/rendezvous.type";
 import { RootState } from "../types/root.type";
 
 export type ReducerManager = {
@@ -24,4 +25,5 @@ export type AppState = {
   bkpr?: BKPRState;
   factories?: FactoriesState;
   nodes?: NodesState;
+  rendezvous?: RendezvousState;
 };
