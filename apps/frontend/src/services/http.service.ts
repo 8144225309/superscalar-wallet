@@ -16,6 +16,7 @@ import { setAccountEvents, setSatsFlow, setVolume } from '../store/bkprSlice';
 import { setFactoryList } from '../store/factoriesSlice';
 import { setNodeProfiles, setHasFactoryPlugin } from '../store/nodesSlice';
 import { Factory, FactoryCreateResponse, FactoryRotateResponse, FactoryCloseResponse, FactoryForceCloseResponse, FactoryCheckBreachResponse } from '../types/factories.type';
+import { RendezvousSettings } from '../types/rendezvous.type';
 import { isCompatibleVersion } from '../utilities/data-formatters';
 
 const axiosInstance = axios.create({
@@ -152,6 +153,23 @@ export class HttpService {
     };
   }
 
+}
+
+export class RendezvousService {
+  static async fetchSettings(): Promise<RendezvousSettings> {
+    const res = await HttpService.get('/rendezvous/settings');
+    return res.settings;
+  }
+
+  static async saveSettings(settings: RendezvousSettings): Promise<RendezvousSettings> {
+    const res = await HttpService.put('/rendezvous/settings', { settings });
+    return res.settings;
+  }
+
+  static async resetSettings(): Promise<RendezvousSettings> {
+    const res = await HttpService.post('/rendezvous/settings/reset');
+    return res.settings;
+  }
 }
 
 export class RootService {

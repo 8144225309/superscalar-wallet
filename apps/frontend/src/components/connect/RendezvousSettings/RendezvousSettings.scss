@@ -1,0 +1,28 @@
+.rendezvous-settings-card {
+  .accordion {
+    --bs-accordion-bg: transparent;
+    --bs-accordion-border-color: transparent;
+    --bs-accordion-btn-padding-y: 0.75rem;
+    --bs-accordion-btn-padding-x: 1rem;
+    --bs-accordion-btn-bg: transparent;
+    --bs-accordion-btn-focus-box-shadow: none;
+  }
+
+  .accordion-button:not(.collapsed) {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .rendezvous-row {
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+
+    &:hover {
+      background-color: rgba(128, 128, 128, 0.08);
+    }
+  }
+
+  .fs-8 {
+    font-size: 0.6875rem;
+  }
+}

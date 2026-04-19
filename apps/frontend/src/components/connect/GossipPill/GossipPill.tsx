@@ -1,6 +1,5 @@
 import './GossipPill.scss';
 import { useEffect, useState } from 'react';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { HttpService } from '../../../services/http.service';
 import { selectActiveProfileId } from '../../../store/nodesSelectors';
@@ -46,23 +45,12 @@ const GossipPill = () => {
       : `Gossip: ${formatCount(state.nodes)} nodes · ${formatCount(state.channels)} chans`;
 
   return (
-    <OverlayTrigger
-      placement='auto'
-      overlay={
-        <Tooltip>
-          Live node + channel counts from the current CLN node's gossip.
-          Vouch verification relies on this — low counts mean many hosts
-          will show as unverifiable until gossip catches up.
-        </Tooltip>
-      }
+    <span
+      className='gossip-pill fs-7 fw-semibold px-3 py-1 rounded-pill'
+      data-testid='gossip-pill'
     >
-      <span
-        className='gossip-pill fs-7 fw-semibold px-3 py-1 rounded-pill'
-        data-testid='gossip-pill'
-      >
-        {label}
-      </span>
-    </OverlayTrigger>
+      {label}
+    </span>
   );
 };
 
