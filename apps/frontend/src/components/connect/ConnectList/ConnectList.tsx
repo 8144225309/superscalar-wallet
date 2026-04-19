@@ -7,6 +7,7 @@ import { selectUIConfigUnit } from '../../../store/rootSelectors';
 import { Units, BTC_SATS } from '../../../utilities/constants';
 import { CoordinationFactory, SAMPLE_COORDINATION_FACTORIES } from '../../../types/coordination.type';
 import { copyTextToClipboard } from '../../../utilities/data-formatters';
+import GossipPill from '../GossipPill/GossipPill';
 
 type SortFilter = 'all' | 'forming' | 'rotating';
 type JoinStatus = 'requested' | 'confirmed';
@@ -70,7 +71,10 @@ const ConnectList = () => {
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='connect-list'>
       <Card.Header className='px-1 pb-2 p-0'>
         <div className='d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap'>
-          <span className='fs-18px fw-bold text-dark'>Open Factories</span>
+          <div className='d-flex align-items-center gap-2 flex-wrap'>
+            <span className='fs-18px fw-bold text-dark'>Open Factories</span>
+            <GossipPill />
+          </div>
           <OverlayTrigger
             placement='auto'
             overlay={<Tooltip>Demo toggle — shows hardcoded sample factories until Nostr rendezvous lands.</Tooltip>}
