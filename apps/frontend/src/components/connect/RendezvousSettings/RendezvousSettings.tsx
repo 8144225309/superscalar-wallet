@@ -26,11 +26,6 @@ const NETWORK_LABEL: Record<CoordinatorNetwork, string> = {
   testnet4: 'Testnet4',
 };
 
-function shortNpub(npub: string): string {
-  if (npub.length <= 18) return npub;
-  return npub.slice(0, 12) + '…' + npub.slice(-6);
-}
-
 const RendezvousSettings = () => {
   useInjectReducer('rendezvous', rendezvousReducer);
   const dispatch = useDispatch();
@@ -211,25 +206,26 @@ const RendezvousSettings = () => {
                           onChange={e => updateCoord(net, c.npub, { enabled: e.target.checked })}
                         />
                       </Col>
-                      <Col className='font-monospace fs-7 text-truncate'>
-                        {shortNpub(c.npub)}
+                      <Col className='font-monospace text-break rendezvous-value'>
+                        {c.npub}
                         {c.isDefault && (
-                          <Badge bg='secondary' className='ms-2 fs-8'>default</Badge>
+                          <Badge bg='secondary' className='ms-2 rendezvous-badge'>default</Badge>
                         )}
                         {c.label && <span className='ms-2 text-light'>· {c.label}</span>}
                       </Col>
                       <Col xs='auto'>
-                        <Button
-                          variant='link'
-                          size='sm'
-                          className='text-danger p-0'
-                          onClick={() => {
-                            if (c.isDefault && !window.confirm('Remove the default coordinator for ' + NETWORK_LABEL[net] + '?')) return;
-                            removeCoord(net, c.npub);
-                          }}
-                        >
-                          remove
-                        </Button>
+                        {c.isDefault ? (
+                          <span className='text-light fs-7 fst-italic'>built-in</span>
+                        ) : (
+                          <Button
+                            variant='link'
+                            size='sm'
+                            className='text-danger p-0'
+                            onClick={() => removeCoord(net, c.npub)}
+                          >
+                            remove
+                          </Button>
+                        )}
                       </Col>
                     </Row>
                   ))}
@@ -268,22 +264,23 @@ const RendezvousSettings = () => {
                       onChange={e => updateRelay(r.url, { enabled: e.target.checked })}
                     />
                   </Col>
-                  <Col className='font-monospace fs-7 text-truncate'>
+                  <Col className='font-monospace text-break rendezvous-value'>
                     {r.url}
-                    {r.isDefault && <Badge bg='secondary' className='ms-2 fs-8'>default</Badge>}
+                    {r.isDefault && <Badge bg='secondary' className='ms-2 rendezvous-badge'>default</Badge>}
                   </Col>
                   <Col xs='auto'>
-                    <Button
-                      variant='link'
-                      size='sm'
-                      className='text-danger p-0'
-                      onClick={() => {
-                        if (r.isDefault && !window.confirm('Remove a default relay?')) return;
-                        removeRelay(r.url);
-                      }}
-                    >
-                      remove
-                    </Button>
+                    {r.isDefault ? (
+                      <span className='text-light fs-7 fst-italic'>built-in</span>
+                    ) : (
+                      <Button
+                        variant='link'
+                        size='sm'
+                        className='text-danger p-0'
+                        onClick={() => removeRelay(r.url)}
+                      >
+                        remove
+                      </Button>
+                    )}
                   </Col>
                 </Row>
               ))}
@@ -337,16 +334,28 @@ const RendezvousSettings = () => {
               </Col>
               <Col md={6}>
                 <h6 className='fw-bold mb-2'>Refresh + peer tier</h6>
+                <Form.Check
+                  type='switch'
+                  id='vouch-auto-refresh'
+                  className='mb-2'
+                  label='Auto-refresh vouches'
+                  checked={draft.vouchAutoRefresh}
+                  onChange={e => setDraft({ ...draft, vouchAutoRefresh: e.target.checked })}
+                />
                 <Form.Group className='mb-2'>
-                  <Form.Label className='fs-7 mb-0'>Vouch refresh interval (minutes)</Form.Label>
+                  <Form.Label className='fs-7 mb-0'>Auto-refresh interval (minutes)</Form.Label>
                   <Form.Control
                     size='sm'
                     type='number'
+                    disabled={!draft.vouchAutoRefresh}
                     value={draft.vouchRefreshMin}
                     min={1}
                     max={1440}
                     onChange={e => setDraft({ ...draft, vouchRefreshMin: Math.max(1, Number(e.target.value) || 1) })}
                   />
+                  <Form.Text className='text-light'>
+                    Off by default. Use the Refresh button on the list to pull on demand.
+                  </Form.Text>
                 </Form.Group>
                 <Form.Group className='mb-2'>
                   <Form.Label className='fs-7 mb-0'>Browse cache TTL (minutes)</Form.Label>

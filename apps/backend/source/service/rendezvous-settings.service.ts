@@ -126,6 +126,7 @@ export class RendezvousSettingsService {
     if (!out.showPeerTier) out.showPeerTier = { signet: true, testnet4: true, bitcoin: false };
     if (typeof out.maxEntries !== 'number') out.maxEntries = 500;
     if (typeof out.vouchRefreshMin !== 'number') out.vouchRefreshMin = 60;
+    if (typeof out.vouchAutoRefresh !== 'boolean') out.vouchAutoRefresh = false;
     if (typeof out.browseCacheTtlMin !== 'number') out.browseCacheTtlMin = 5;
 
     return out;
