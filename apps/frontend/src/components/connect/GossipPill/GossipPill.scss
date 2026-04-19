@@ -1,0 +1,11 @@
+.gossip-pill {
+  background-color: rgba(51, 219, 149, 0.18);
+  border: 1px solid rgba(51, 219, 149, 0.5);
+  // Light mode: dark text so it reads against the light green tint
+  color: #0a0a0a;
+}
+
+[data-bs-theme='dark'] .gossip-pill {
+  // Dark mode: white text so it reads against the same green tint on a dark card
+  color: #ffffff;
+}
