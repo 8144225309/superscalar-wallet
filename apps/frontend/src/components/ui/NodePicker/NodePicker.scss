@@ -28,6 +28,8 @@
   .dropdown-menu {
     min-width: 16rem;
     padding: 0.5rem 0;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
   }
 
   .node-item {
