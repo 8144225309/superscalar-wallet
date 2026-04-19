@@ -49,7 +49,10 @@ const GossipPill = () => {
         </Tooltip>
       }
     >
-      <span className='badge bg-secondary text-dark fs-8 gossip-pill' data-testid='gossip-pill'>
+      <span
+        className='gossip-pill fs-7 fw-semibold px-3 py-1 rounded-pill bg-secondary text-dark'
+        data-testid='gossip-pill'
+      >
         {label}
       </span>
     </OverlayTrigger>

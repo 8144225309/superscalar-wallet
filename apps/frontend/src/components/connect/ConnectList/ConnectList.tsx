@@ -71,23 +71,23 @@ const ConnectList = () => {
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='connect-list'>
       <Card.Header className='px-1 pb-2 p-0'>
         <div className='d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap'>
-          <div className='d-flex align-items-center gap-2 flex-wrap'>
-            <span className='fs-18px fw-bold text-dark'>Open Factories</span>
+          <span className='fs-18px fw-bold text-dark'>Open Factories</span>
+          <div className='d-flex align-items-center gap-3 flex-wrap'>
+            <OverlayTrigger
+              placement='auto'
+              overlay={<Tooltip>Demo toggle — shows hardcoded sample factories until Nostr rendezvous lands.</Tooltip>}
+            >
+              <Form.Check
+                type='switch'
+                id='connect-sample-toggle'
+                label={<span className='fs-7 text-light'>Sample data</span>}
+                checked={showSample}
+                onChange={(e) => setShowSample(e.target.checked)}
+                data-testid='connect-sample-toggle'
+              />
+            </OverlayTrigger>
             <GossipPill />
           </div>
-          <OverlayTrigger
-            placement='auto'
-            overlay={<Tooltip>Demo toggle — shows hardcoded sample factories until Nostr rendezvous lands.</Tooltip>}
-          >
-            <Form.Check
-              type='switch'
-              id='connect-sample-toggle'
-              label={<span className='fs-7 text-light'>Sample data</span>}
-              checked={showSample}
-              onChange={(e) => setShowSample(e.target.checked)}
-              data-testid='connect-sample-toggle'
-            />
-          </OverlayTrigger>
         </div>
         <div className='d-flex gap-2'>
           {(['all', 'forming', 'rotating'] as SortFilter[]).map(f => (
