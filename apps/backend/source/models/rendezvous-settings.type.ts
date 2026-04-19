@@ -27,6 +27,7 @@ export interface RendezvousSettings {
   tierCaps: TierCaps;
   showPeerTier: Partial<Record<CoordinatorNetwork, boolean>>;
   vouchRefreshMin: number;
+  vouchAutoRefresh: boolean;
   browseCacheTtlMin: number;
 }
 
@@ -62,6 +63,7 @@ export function buildDefaultSettings(): RendezvousSettings {
     tierCaps: { channel: 500, utxo: 500, peer: 100 },
     showPeerTier: { signet: true, testnet4: true, bitcoin: false },
     vouchRefreshMin: 60,
+    vouchAutoRefresh: false,
     browseCacheTtlMin: 5,
   };
 }

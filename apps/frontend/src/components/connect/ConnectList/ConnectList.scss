@@ -30,6 +30,26 @@
   &:hover {
     background-color: rgba($primary, 0.05);
   }
+
+  &.is-self {
+    background-color: rgba(255, 193, 7, 0.06);
+    border-left: 3px solid #ffc107;
+  }
+}
+
+.connect-detail {
+  background-color: rgba(128, 128, 128, 0.06);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.connect-vouch-errors {
+  border-top: 1px dashed rgba(220, 53, 69, 0.4);
+  padding-top: 0.5rem;
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }
 
 .connect-name {
@@ -50,6 +70,26 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border-bottom: 1px solid rgba($gray-400, 0.4);
+
+  .sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.12s;
+
+    &:hover {
+      color: $primary !important;
+    }
+  }
+
+  .sort-indicator {
+    font-size: 0.85em;
+    margin-left: 0.25rem;
+    opacity: 0.85;
+
+    &.inactive {
+      opacity: 0.35;
+    }
+  }
 }
 
 .connect-disclaimer {

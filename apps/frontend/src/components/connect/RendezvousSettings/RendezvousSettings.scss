@@ -2,10 +2,11 @@
   .accordion {
     --bs-accordion-bg: transparent;
     --bs-accordion-border-color: transparent;
-    --bs-accordion-btn-padding-y: 0.75rem;
+    --bs-accordion-btn-padding-y: 0.85rem;
     --bs-accordion-btn-padding-x: 1rem;
     --bs-accordion-btn-bg: transparent;
     --bs-accordion-btn-focus-box-shadow: none;
+    --bs-accordion-btn-font-size: 1rem;
   }
 
   .accordion-button:not(.collapsed) {
@@ -14,7 +15,7 @@
   }
 
   .rendezvous-row {
-    padding: 0.125rem 0.25rem;
+    padding: 0.25rem 0.25rem;
     border-radius: 0.25rem;
 
     &:hover {
@@ -22,7 +23,19 @@
     }
   }
 
-  .fs-8 {
-    font-size: 0.6875rem;
+  // Coordinator npubs and relay URLs — full length, body-sized so users can
+  // actually read and copy them.
+  .rendezvous-value {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  // "default" pill matches the value text size next to it.
+  .rendezvous-badge {
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.2rem 0.5rem;
+    vertical-align: middle;
   }
 }

@@ -29,6 +29,7 @@ export interface RendezvousSettings {
   tierCaps: TierCaps;
   showPeerTier: Partial<Record<CoordinatorNetwork, boolean>>;
   vouchRefreshMin: number;
+  vouchAutoRefresh: boolean;
   browseCacheTtlMin: number;
 }
 
