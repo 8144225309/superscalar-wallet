@@ -8,6 +8,7 @@ config.json
 .commando-env.*
 .commando-env
 .commando
+PLUGIN_HANDOFF.md
 release
 env-local.sh
 apps/frontend/build
