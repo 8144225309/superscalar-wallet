@@ -15,7 +15,7 @@ import { setFeeRate, setListBitcoinTransactions, setListLightningTransactions, s
 import { setAccountEvents, setSatsFlow, setVolume } from '../store/bkprSlice';
 import { setFactoryList } from '../store/factoriesSlice';
 import { setNodeProfiles, setHasFactoryPlugin } from '../store/nodesSlice';
-import { Factory, FactoryCreateResponse, FactoryRotateResponse, FactoryCloseResponse, FactoryForceCloseResponse, FactoryCheckBreachResponse } from '../types/factories.type';
+import { Factory, FactoryCreateOptions, FactoryCreateResponse, FactoryRotateResponse, FactoryCloseResponse, FactoryForceCloseResponse, FactoryCheckBreachResponse } from '../types/factories.type';
 import { RendezvousSettings } from '../types/rendezvous.type';
 import { isCompatibleVersion } from '../utilities/data-formatters';
 
@@ -580,8 +580,22 @@ export class FactoriesService {
     return HttpService.clnCall('factory-list');
   }
 
-  static async createFactory(fundingSats: number, clients: string[]): Promise<FactoryCreateResponse> {
-    return HttpService.clnCall('factory-create', { funding_sats: fundingSats, clients });
+  static async createFactory(
+    fundingSats: number,
+    clients: string[],
+    options?: FactoryCreateOptions,
+  ): Promise<FactoryCreateResponse> {
+    const params: Record<string, any> = { funding_sats: fundingSats, clients };
+    if (options) {
+      if (options.leaf_arity != null) params.leaf_arity = options.leaf_arity;
+      if (options.epoch_count != null) params.epoch_count = options.epoch_count;
+      if (options.lifetime_blocks != null) params.lifetime_blocks = options.lifetime_blocks;
+      if (options.dying_period_blocks != null) params.dying_period_blocks = options.dying_period_blocks;
+      if (options.lsp_fee_sat != null) params.lsp_fee_sat = options.lsp_fee_sat;
+      if (options.lsp_fee_ppm != null) params.lsp_fee_ppm = options.lsp_fee_ppm;
+      if (options.allocations && options.allocations.length > 0) params.allocations = options.allocations;
+    }
+    return HttpService.clnCall('factory-create', params);
   }
 
   static async rotateFactory(instanceId: string): Promise<FactoryRotateResponse> {
