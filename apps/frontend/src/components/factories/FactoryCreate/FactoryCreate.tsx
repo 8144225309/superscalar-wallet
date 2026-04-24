@@ -165,7 +165,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   type='text'
                   value={factoryLabel}
                   onChange={(e) => setFactoryLabel(e.target.value)}
-                  placeholder='e.g. "Mobile users batch 1"'
+                  placeholder='e.g. "Daily mainnet ladder"'
                   disabled={isBusy}
                 />
                 <Form.Text className='text-light'>
