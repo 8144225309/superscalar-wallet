@@ -1,6 +1,6 @@
 import './FactoryCreate.scss';
 import { useMemo, useState } from 'react';
-import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert } from 'react-bootstrap';
+import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { FactoriesService } from '../../../services/http.service';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
@@ -22,6 +22,7 @@ const numOrDefault = (s: string, fallback: number): number => {
 };
 
 const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
+  const [factoryLabel, setFactoryLabel] = useState('');
   const [fundingSats, setFundingSats] = useState(String(FACTORY_PLAN_DEFAULTS.fundingSats));
   const [nClients, setNClients] = useState(String(FACTORY_PLAN_DEFAULTS.nClients));
   const [perClientCapacity, setPerClientCapacity] = useState(String(FACTORY_PLAN_DEFAULTS.perClientCapacitySat));
@@ -127,6 +128,11 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
 
     try {
       const res = await FactoriesService.createFactory(funding, clientNodeIds, options);
+      if (factoryLabel.trim() && res.instance_id) {
+        try {
+          localStorage.setItem(`factory-label-${res.instance_id}`, factoryLabel.trim());
+        } catch { /* localStorage may be unavailable; non-fatal */ }
+      }
       setResponseStatus(CallStatus.SUCCESS);
       setResponseMessage(`Factory hosted: ${res.instance_id.substring(0, 16)}...`);
       FactoriesService.fetchFactoriesData();
@@ -151,10 +157,23 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
       <Card.Body className='py-2 px-1 factory-create-scroll'>
         <Form>
           <section className='mb-3'>
-            <div className='fs-7 fw-bold text-dark mb-2'>Basics</div>
+            <div className='fs-18px fw-bold text-dark mb-2'>Basics</div>
             <Row className='g-2'>
+              <Col xs={12}>
+                <Form.Label className='text-light mb-1'>Factory label (optional, local-only)</Form.Label>
+                <Form.Control
+                  type='text'
+                  value={factoryLabel}
+                  onChange={(e) => setFactoryLabel(e.target.value)}
+                  placeholder='e.g. "Mobile users batch 1"'
+                  disabled={isBusy}
+                />
+                <Form.Text className='text-light'>
+                  Saved in your browser to help you recognize this factory later. Never sent to the plugin or other nodes.
+                </Form.Text>
+              </Col>
               <Col xs={12} md={6}>
-                <Form.Label className='fs-7 text-light mb-1'>Total funding (sats)</Form.Label>
+                <Form.Label className='text-light mb-1'>Total funding (sats)</Form.Label>
                 <Form.Control
                   type='number'
                   value={fundingSats}
@@ -165,7 +184,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                 />
               </Col>
               <Col xs={6} md={3}>
-                <Form.Label className='fs-7 text-light mb-1'>Clients</Form.Label>
+                <Form.Label className='text-light mb-1'>Clients</Form.Label>
                 <Form.Control
                   type='number'
                   min={1}
@@ -176,7 +195,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                 />
               </Col>
               <Col xs={6} md={3}>
-                <Form.Label className='fs-7 text-light mb-1'>Per-client capacity (sat)</Form.Label>
+                <Form.Label className='text-light mb-1'>Per-client capacity (sat)</Form.Label>
                 <Form.Control
                   type='number'
                   value={perClientCapacity}
@@ -185,19 +204,19 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                 />
               </Col>
               <Col xs={12} md={6}>
-                <Form.Label className='fs-7 text-light mb-1'>LSP reserve per leaf (sat)</Form.Label>
+                <Form.Label className='text-light mb-1'>LSP reserve per leaf (sat)</Form.Label>
                 <Form.Control
                   type='number'
                   value={lspReservePerLeaf}
                   onChange={(e) => setLspReservePerLeaf(e.target.value)}
                   disabled={isBusy}
                 />
-                <Form.Text className='fs-8 text-light'>
+                <Form.Text className='text-light'>
                   LSP-only output per leaf. Lets you sell inbound liquidity without clients being online.
                 </Form.Text>
               </Col>
               <Col xs={12}>
-                <Form.Label className='fs-7 text-light mb-1'>Client pubkeys (one per line)</Form.Label>
+                <Form.Label className='text-light mb-1'>Client pubkeys (one per line)</Form.Label>
                 <Form.Control
                   as='textarea'
                   rows={3}
@@ -206,9 +225,8 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   onChange={(e) => setClientPubkeysRaw(e.target.value)}
                   disabled={isBusy}
                   data-testid='factory-create-clients'
-                  className='fs-7'
                 />
-                <Form.Text className='fs-8 text-light'>
+                <Form.Text className='text-light'>
                   Leave empty to let the plugin fill slots during the ceremony.
                 </Form.Text>
               </Col>
@@ -221,7 +239,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
               <Accordion.Body>
                 <Row className='g-2'>
                   <Col xs={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>Leaf arity</Form.Label>
+                    <Form.Label className='text-light mb-1'>Leaf arity</Form.Label>
                     <Form.Select value={leafArity} onChange={(e) => setLeafArity(e.target.value)} disabled={isBusy}>
                       <option value='2'>2 (default — two clients share a leaf)</option>
                       <option value='4'>4</option>
@@ -229,7 +247,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                     </Form.Select>
                   </Col>
                   <Col xs={6} className='d-flex align-items-end'>
-                    <div className='fs-7 text-light'>
+                    <div className='text-light'>
                       Derived leaves: <span className='fw-bold text-dark'>{plan.derived.nLeaves}</span>
                     </div>
                   </Col>
@@ -242,34 +260,34 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
               <Accordion.Body>
                 <Row className='g-2'>
                   <Col xs={12} md={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>Active period (blocks)</Form.Label>
+                    <Form.Label className='text-light mb-1'>Active period (blocks)</Form.Label>
                     <InputGroup>
                       <Form.Control type='number' value={lifetimeBlocks} onChange={(e) => setLifetimeBlocks(e.target.value)} disabled={isBusy} />
-                      <InputGroup.Text className='fs-8 text-light'>{blocksToDuration(numOrDefault(lifetimeBlocks, 0))}</InputGroup.Text>
+                      <InputGroup.Text className='text-light'>{blocksToDuration(numOrDefault(lifetimeBlocks, 0))}</InputGroup.Text>
                     </InputGroup>
                   </Col>
                   <Col xs={12} md={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>Dying period (blocks)</Form.Label>
+                    <Form.Label className='text-light mb-1'>Dying period (blocks)</Form.Label>
                     <InputGroup>
                       <Form.Control type='number' value={dyingPeriodBlocks} onChange={(e) => setDyingPeriodBlocks(e.target.value)} disabled={isBusy} />
-                      <InputGroup.Text className='fs-8 text-light'>{blocksToDuration(numOrDefault(dyingPeriodBlocks, 0))}</InputGroup.Text>
+                      <InputGroup.Text className='text-light'>{blocksToDuration(numOrDefault(dyingPeriodBlocks, 0))}</InputGroup.Text>
                     </InputGroup>
                   </Col>
                   <Col xs={12} md={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>Max rotations (epochs)</Form.Label>
+                    <Form.Label className='text-light mb-1'>Max rotations (epochs)</Form.Label>
                     <Form.Control type='number' value={epochCount} onChange={(e) => setEpochCount(e.target.value)} disabled={isBusy} />
-                    <Form.Text className='fs-8 text-light'>
-                      Decker-Wattenhofer limit — each rotation decrements an nSequence slot.
+                    <Form.Text className='text-light'>
+                      Decker-Wattenhofer limit — each rotation decrements an nSequence slot. Rotations are <strong>offchain</strong> (no kickoff transaction).
                     </Form.Text>
                   </Col>
                   <Col xs={12} md={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>Ladder cadence (hours)</Form.Label>
+                    <Form.Label className='text-light mb-1'>Ladder cadence (hours)</Form.Label>
                     <InputGroup>
                       <Form.Control type='number' value={ladderCadenceHours} onChange={(e) => setLadderCadenceHours(e.target.value)} disabled={isBusy} />
-                      <InputGroup.Text className='fs-8 text-light'>~{(numOrDefault(ladderCadenceHours, 1) * BLOCKS_PER_HOUR).toLocaleString()} blocks</InputGroup.Text>
+                      <InputGroup.Text className='text-light'>~{(numOrDefault(ladderCadenceHours, 1) * BLOCKS_PER_HOUR).toLocaleString()} blocks</InputGroup.Text>
                     </InputGroup>
-                    <Form.Text className='fs-8 text-light'>
-                      Local-only. How often you plan to spin up the next factory in the ladder.
+                    <Form.Text className='text-light'>
+                      Local-only. How often you plan to host the next factory in the ladder. Each hosting is one onchain kickoff.
                     </Form.Text>
                   </Col>
                 </Row>
@@ -281,12 +299,28 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
               <Accordion.Body>
                 <Row className='g-2'>
                   <Col xs={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>Flat LSP fee (sat)</Form.Label>
+                    <Form.Label className='text-light mb-1'>
+                      Flat LSP fee (sat)
+                      <OverlayTrigger placement='auto' overlay={<Tooltip>One-time fee per client, paid at factory creation. Locked in for this factory's lifetime — change it on the next ladder generation if you want.</Tooltip>}>
+                        <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
+                      </OverlayTrigger>
+                    </Form.Label>
                     <Form.Control type='number' value={lspFeeSat} onChange={(e) => setLspFeeSat(e.target.value)} disabled={isBusy} />
                   </Col>
                   <Col xs={6}>
-                    <Form.Label className='fs-7 text-light mb-1'>LSP fee (ppm)</Form.Label>
+                    <Form.Label className='text-light mb-1'>
+                      LSP fee (ppm)
+                      <OverlayTrigger placement='auto' overlay={<Tooltip>Parts-per-million of each client's allocated capacity, paid at factory creation. ppm = ÷1,000,000 (so 1000 ppm = 0.1% of capacity).</Tooltip>}>
+                        <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
+                      </OverlayTrigger>
+                    </Form.Label>
                     <Form.Control type='number' value={lspFeePpm} onChange={(e) => setLspFeePpm(e.target.value)} disabled={isBusy} />
+                  </Col>
+                  <Col xs={12}>
+                    <Form.Text className='text-light'>
+                      Estimated revenue per factory: <strong className='text-dark'>{fmtSat(plan.derived.feeRevenuePerFactorySat)} sat</strong>
+                      {' '}· per month across the ladder: <strong className='text-dark'>{fmtSat(plan.derived.feeRevenuePerMonthSat)} sat</strong>
+                    </Form.Text>
                   </Col>
                 </Row>
               </Accordion.Body>
@@ -306,7 +340,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                 />
                 {useAllocationOverride && (
                   <>
-                    <Form.Label className='fs-7 text-light mb-1'>Allocations (one per line: pubkey,capacity_sat)</Form.Label>
+                    <Form.Label className='text-light mb-1'>Allocations (one per line: pubkey,capacity_sat)</Form.Label>
                     <Form.Control
                       as='textarea'
                       rows={4}
@@ -314,9 +348,8 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                       value={allocationOverrideRaw}
                       onChange={(e) => setAllocationOverrideRaw(e.target.value)}
                       disabled={isBusy}
-                      className='fs-7'
                     />
-                    <Form.Text className='fs-8 text-light'>
+                    <Form.Text className='text-light'>
                       Must sum to {fmtSat(plan.derived.expectedAllocationSum)} sat (funding − LSP reserve total − flat fee).
                     </Form.Text>
                   </>
@@ -325,32 +358,42 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             </Accordion.Item>
           </Accordion>
 
-          <section className='mt-3 p-2 border rounded bg-light-subtle'>
-            <div className='fs-7 fw-bold text-dark mb-1'>Summary</div>
-            <Row className='g-1'>
+          <section className='mt-3 p-3 border rounded bg-light-subtle'>
+            <div className='fs-18px fw-bold text-dark mb-2'>Summary</div>
+            <Row className='g-2'>
               <Col xs={6} md={4}>
-                <div className='fs-8 text-light'>Ladder footprint</div>
-                <div className='fs-7 fw-bold text-dark'>{plan.derived.ladderFootprint} factories</div>
+                <div className='text-light'>Ladder footprint</div>
+                <div className='fs-18px fw-bold text-dark'>{plan.derived.ladderFootprint} factories</div>
               </Col>
               <Col xs={6} md={4}>
-                <div className='fs-8 text-light'>Avg new-client wait</div>
-                <div className='fs-7 fw-bold text-dark'>~{plan.derived.avgWaitHours.toFixed(1)} h</div>
+                <div className='text-light'>Avg new-client wait</div>
+                <div className='fs-18px fw-bold text-dark'>~{plan.derived.avgWaitHours.toFixed(1)} h</div>
               </Col>
               <Col xs={6} md={4}>
-                <div className='fs-8 text-light'>Onchain cost / mo</div>
-                <div className='fs-7 fw-bold text-dark'>~{fmtSat(plan.derived.approxOnchainCostPerMonthSat)} sat</div>
+                <div className='text-light d-flex align-items-center'>
+                  Onchain kickoffs / mo
+                  <OverlayTrigger placement='auto' overlay={<Tooltip>One kickoff transaction per new factory hosted. Rotations within an existing factory are offchain and don't count here. Sat estimate uses a placeholder feerate.</Tooltip>}>
+                    <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
+                  </OverlayTrigger>
+                </div>
+                <div className='fs-18px fw-bold text-dark'>~{plan.derived.kickoffsPerMonth.toFixed(1)} <span className='fs-7 text-light'>(~{fmtSat(plan.derived.approxOnchainCostPerMonthSat)} sat fees)</span></div>
               </Col>
               <Col xs={6} md={4}>
-                <div className='fs-8 text-light'>LSP commit / factory</div>
-                <div className='fs-7 fw-bold text-dark'>{fmtSat(plan.derived.lspSingleFactoryCommitmentSat)} sat</div>
+                <div className='text-light'>LSP commit / factory</div>
+                <div className='fs-18px fw-bold text-dark'>{fmtSat(plan.derived.lspSingleFactoryCommitmentSat)} sat</div>
               </Col>
               <Col xs={6} md={4}>
-                <div className='fs-8 text-light'>LSP commit / ladder</div>
-                <div className='fs-7 fw-bold text-dark'>{fmtSat(plan.derived.lspLadderCommitmentSat)} sat</div>
+                <div className='text-light'>LSP commit / ladder</div>
+                <div className='fs-18px fw-bold text-dark'>{fmtSat(plan.derived.lspLadderCommitmentSat)} sat</div>
               </Col>
               <Col xs={6} md={4}>
-                <div className='fs-8 text-light'>Client CLTV budget</div>
-                <div className='fs-7 fw-bold text-dark'>{plan.derived.clientCltvBudgetBlocks} blocks</div>
+                <div className='text-light d-flex align-items-center'>
+                  Client CLTV budget
+                  <OverlayTrigger placement='auto' overlay={<Tooltip>Blocks remaining for HTLC routing through factory channels after Decker-Wattenhofer overhead and dying period are subtracted. Below ~2016 blocks, some payment paths refuse to route.</Tooltip>}>
+                    <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
+                  </OverlayTrigger>
+                </div>
+                <div className='fs-18px fw-bold text-dark'>{plan.derived.clientCltvBudgetBlocks} blocks</div>
               </Col>
             </Row>
           </section>
@@ -358,7 +401,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
           {plan.warnings.length > 0 && (
             <section className='mt-2'>
               {plan.warnings.map(w => (
-                <Alert key={w.id} variant={w.severity === 'error' ? 'danger' : w.severity === 'warning' ? 'warning' : 'info'} className='py-1 px-2 mb-1 fs-8'>
+                <Alert key={w.id} variant={w.severity === 'error' ? 'danger' : w.severity === 'warning' ? 'warning' : 'info'} className='py-2 px-3 mb-2'>
                   {w.message}
                 </Alert>
               ))}

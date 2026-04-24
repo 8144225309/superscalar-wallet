@@ -51,6 +51,8 @@ export type FactoryPlanDerived = {
   lifetimeDays: number;
   dyingPeriodDays: number;
   cadenceBlocks: number;
+  feeRevenuePerFactorySat: number;
+  feeRevenuePerMonthSat: number;
 };
 
 export type FactoryPlanWarning = {
@@ -100,6 +102,10 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
 
   const lifetimeDays = inputs.lifetimeBlocks / BLOCKS_PER_DAY;
   const dyingPeriodDays = inputs.dyingPeriodBlocks / BLOCKS_PER_DAY;
+
+  const feeRevenuePerFactorySat = inputs.nClients * inputs.lspFeeSat
+    + Math.round((allocatedSum * inputs.lspFeePpm) / 1_000_000);
+  const feeRevenuePerMonthSat = Math.round(feeRevenuePerFactorySat * (kickoffsPerMonth));
 
   if (inputs.nClients % leafArity !== 0) {
     warnings.push({
@@ -198,6 +204,8 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
       lifetimeDays,
       dyingPeriodDays,
       cadenceBlocks,
+      feeRevenuePerFactorySat,
+      feeRevenuePerMonthSat,
     },
     warnings,
     canSubmit,
