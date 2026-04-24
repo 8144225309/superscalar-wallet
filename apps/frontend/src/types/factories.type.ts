@@ -45,6 +45,21 @@ export type Factory = {
   channels: FactoryChannel[];
 };
 
+export type FactoryAllocation = {
+  node_id: string;
+  capacity_sat: number;
+};
+
+export type FactoryCreateOptions = {
+  leaf_arity?: number;
+  epoch_count?: number;
+  lifetime_blocks?: number;
+  dying_period_blocks?: number;
+  lsp_fee_sat?: number;
+  lsp_fee_ppm?: number;
+  allocations?: FactoryAllocation[];
+};
+
 export type FactoryCreateResponse = {
   instance_id: string;
   n_clients: number;

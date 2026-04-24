@@ -1,89 +1,369 @@
 import './FactoryCreate.scss';
-import { useState } from 'react';
-import { Card, Row, Col, Form, Spinner } from 'react-bootstrap';
+import { useMemo, useState } from 'react';
+import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { FactoriesService } from '../../../services/http.service';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
+import {
+  FACTORY_PLAN_DEFAULTS,
+  BLOCKS_PER_HOUR,
+  blocksToDuration,
+  planFactory,
+} from '../../../utilities/factory-planner';
+import { FactoryAllocation, FactoryCreateOptions } from '../../../types/factories.type';
 
 type FactoryCreateProps = {
   onClose: () => void;
 };
 
+const numOrDefault = (s: string, fallback: number): number => {
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
 const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
-  const [fundingSats, setFundingSats] = useState('');
-  const [clientIds, setClientIds] = useState('');
+  const [fundingSats, setFundingSats] = useState(String(FACTORY_PLAN_DEFAULTS.fundingSats));
+  const [nClients, setNClients] = useState(String(FACTORY_PLAN_DEFAULTS.nClients));
+  const [perClientCapacity, setPerClientCapacity] = useState(String(FACTORY_PLAN_DEFAULTS.perClientCapacitySat));
+  const [lspReservePerLeaf, setLspReservePerLeaf] = useState(String(FACTORY_PLAN_DEFAULTS.lspReservePerLeafSat));
+  const [clientPubkeysRaw, setClientPubkeysRaw] = useState('');
+
+  const [leafArity, setLeafArity] = useState(String(FACTORY_PLAN_DEFAULTS.leafArity));
+
+  const [lifetimeBlocks, setLifetimeBlocks] = useState(String(FACTORY_PLAN_DEFAULTS.lifetimeBlocks));
+  const [dyingPeriodBlocks, setDyingPeriodBlocks] = useState(String(FACTORY_PLAN_DEFAULTS.dyingPeriodBlocks));
+  const [epochCount, setEpochCount] = useState(String(FACTORY_PLAN_DEFAULTS.epochCount));
+  const [ladderCadenceHours, setLadderCadenceHours] = useState(String(FACTORY_PLAN_DEFAULTS.ladderCadenceHours));
+
+  const [lspFeeSat, setLspFeeSat] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeeSat));
+  const [lspFeePpm, setLspFeePpm] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeePpm));
+
+  const [useAllocationOverride, setUseAllocationOverride] = useState(false);
+  const [allocationOverrideRaw, setAllocationOverrideRaw] = useState('');
+
   const [responseStatus, setResponseStatus] = useState(CallStatus.NONE);
   const [responseMessage, setResponseMessage] = useState('');
 
+  const clientNodeIds = useMemo(() => clientPubkeysRaw
+    .split(/\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0), [clientPubkeysRaw]);
+
+  const parsedAllocations: FactoryAllocation[] = useMemo(() => {
+    if (!useAllocationOverride) return [];
+    return allocationOverrideRaw
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => {
+        const [node_id, capStr] = line.split(/[,\s]+/);
+        return { node_id: node_id || '', capacity_sat: parseInt(capStr, 10) || 0 };
+      });
+  }, [useAllocationOverride, allocationOverrideRaw]);
+
+  const plan = useMemo(() => planFactory({
+    fundingSats: numOrDefault(fundingSats, 0),
+    nClients: numOrDefault(nClients, 0),
+    perClientCapacitySat: numOrDefault(perClientCapacity, 0),
+    lspReservePerLeafSat: numOrDefault(lspReservePerLeaf, 0),
+    leafArity: numOrDefault(leafArity, 2),
+    lifetimeBlocks: numOrDefault(lifetimeBlocks, 0),
+    dyingPeriodBlocks: numOrDefault(dyingPeriodBlocks, 0),
+    epochCount: numOrDefault(epochCount, 1),
+    ladderCadenceHours: numOrDefault(ladderCadenceHours, 1),
+    lspFeeSat: numOrDefault(lspFeeSat, 0),
+    lspFeePpm: numOrDefault(lspFeePpm, 0),
+    allocationsOverride: parsedAllocations,
+    clientNodeIds,
+  }), [fundingSats, nClients, perClientCapacity, lspReservePerLeaf, leafArity,
+    lifetimeBlocks, dyingPeriodBlocks, epochCount, ladderCadenceHours,
+    lspFeeSat, lspFeePpm, parsedAllocations, clientNodeIds]);
+
   const handleCreate = async () => {
-    const amount = parseInt(fundingSats, 10);
-    if (!amount || amount <= 0) {
+    const funding = numOrDefault(fundingSats, 0);
+    const clientCount = numOrDefault(nClients, 0);
+
+    if (funding <= 0) {
       setResponseStatus(CallStatus.ERROR);
       setResponseMessage('Funding amount must be greater than 0');
       return;
     }
-
-    const clients = clientIds
-      .split('\n')
-      .map(id => id.trim())
-      .filter(id => id.length > 0);
-
-    if (clients.length === 0) {
+    if (clientCount <= 0) {
       setResponseStatus(CallStatus.ERROR);
-      setResponseMessage('At least one client node ID is required');
+      setResponseMessage('Client count must be at least 1');
+      return;
+    }
+    if (!plan.canSubmit) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage('Fix the errors in the summary panel before hosting.');
       return;
     }
 
+    const options: FactoryCreateOptions = {};
+    const arity = numOrDefault(leafArity, FACTORY_PLAN_DEFAULTS.leafArity);
+    if (arity !== FACTORY_PLAN_DEFAULTS.leafArity) options.leaf_arity = arity;
+
+    const epochs = numOrDefault(epochCount, FACTORY_PLAN_DEFAULTS.epochCount);
+    if (epochs !== FACTORY_PLAN_DEFAULTS.epochCount) options.epoch_count = epochs;
+
+    const lifetime = numOrDefault(lifetimeBlocks, FACTORY_PLAN_DEFAULTS.lifetimeBlocks);
+    if (lifetime !== FACTORY_PLAN_DEFAULTS.lifetimeBlocks) options.lifetime_blocks = lifetime;
+
+    const dying = numOrDefault(dyingPeriodBlocks, FACTORY_PLAN_DEFAULTS.dyingPeriodBlocks);
+    if (dying !== FACTORY_PLAN_DEFAULTS.dyingPeriodBlocks) options.dying_period_blocks = dying;
+
+    const feeSat = numOrDefault(lspFeeSat, 0);
+    if (feeSat > 0) options.lsp_fee_sat = feeSat;
+
+    const feePpm = numOrDefault(lspFeePpm, 0);
+    if (feePpm > 0) options.lsp_fee_ppm = feePpm;
+
+    if (useAllocationOverride && parsedAllocations.length > 0) {
+      options.allocations = parsedAllocations;
+    }
+
     setResponseStatus(CallStatus.PENDING);
-    setResponseMessage('Creating factory...');
+    setResponseMessage('Hosting factory...');
 
     try {
-      const res = await FactoriesService.createFactory(amount, clients);
+      const res = await FactoriesService.createFactory(funding, clientNodeIds, options);
       setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage(`Factory created: ${res.instance_id.substring(0, 16)}...`);
+      setResponseMessage(`Factory hosted: ${res.instance_id.substring(0, 16)}...`);
       FactoriesService.fetchFactoriesData();
       setTimeout(() => {
         onClose();
       }, CLEAR_STATUS_ALERT_DELAY);
     } catch (err: any) {
       setResponseStatus(CallStatus.ERROR);
-      setResponseMessage(typeof err === 'string' ? err : err.message || 'Factory creation failed');
+      setResponseMessage(typeof err === 'string' ? err : err.message || 'Factory hosting failed');
     }
   };
+
+  const fmtSat = (n: number) => n.toLocaleString();
+  const isBusy = responseStatus === CallStatus.PENDING;
 
   return (
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-create'>
       <Card.Header className='px-1 pb-2 p-0 d-flex justify-content-between align-items-center'>
-        <span className='fs-18px fw-bold text-dark'>Create Factory</span>
-        <button className='btn btn-sm btn-outline-secondary btn-rounded' onClick={onClose}>Cancel</button>
+        <span className='fs-18px fw-bold text-dark'>Host Factory</span>
+        <button className='btn btn-sm btn-outline-secondary btn-rounded' onClick={onClose} disabled={isBusy}>Cancel</button>
       </Card.Header>
-      <Card.Body className='py-2 px-1'>
+      <Card.Body className='py-2 px-1 factory-create-scroll'>
         <Form>
-          <Form.Group className='mb-3'>
-            <Form.Label className='fs-7 text-light'>Funding Amount (sats)</Form.Label>
-            <Form.Control
-              type='number'
-              placeholder='100000'
-              value={fundingSats}
-              onChange={(e) => setFundingSats(e.target.value)}
-              disabled={responseStatus === CallStatus.PENDING}
-              data-testid='factory-create-amount'
-              autoFocus
-            />
-          </Form.Group>
-          <Form.Group className='mb-3'>
-            <Form.Label className='fs-7 text-light'>Client Node IDs (one per line)</Form.Label>
-            <Form.Control
-              as='textarea'
-              rows={4}
-              placeholder={'03abc123...def456\n02xyz789...ghi012'}
-              value={clientIds}
-              onChange={(e) => setClientIds(e.target.value)}
-              disabled={responseStatus === CallStatus.PENDING}
-              data-testid='factory-create-clients'
-              className='fs-7'
-            />
-          </Form.Group>
+          <section className='mb-3'>
+            <div className='fs-7 fw-bold text-dark mb-2'>Basics</div>
+            <Row className='g-2'>
+              <Col xs={12} md={6}>
+                <Form.Label className='fs-7 text-light mb-1'>Total funding (sats)</Form.Label>
+                <Form.Control
+                  type='number'
+                  value={fundingSats}
+                  onChange={(e) => setFundingSats(e.target.value)}
+                  disabled={isBusy}
+                  data-testid='factory-create-amount'
+                  autoFocus
+                />
+              </Col>
+              <Col xs={6} md={3}>
+                <Form.Label className='fs-7 text-light mb-1'>Clients</Form.Label>
+                <Form.Control
+                  type='number'
+                  min={1}
+                  value={nClients}
+                  onChange={(e) => setNClients(e.target.value)}
+                  disabled={isBusy}
+                  data-testid='factory-create-n-clients'
+                />
+              </Col>
+              <Col xs={6} md={3}>
+                <Form.Label className='fs-7 text-light mb-1'>Per-client capacity (sat)</Form.Label>
+                <Form.Control
+                  type='number'
+                  value={perClientCapacity}
+                  onChange={(e) => setPerClientCapacity(e.target.value)}
+                  disabled={isBusy}
+                />
+              </Col>
+              <Col xs={12} md={6}>
+                <Form.Label className='fs-7 text-light mb-1'>LSP reserve per leaf (sat)</Form.Label>
+                <Form.Control
+                  type='number'
+                  value={lspReservePerLeaf}
+                  onChange={(e) => setLspReservePerLeaf(e.target.value)}
+                  disabled={isBusy}
+                />
+                <Form.Text className='fs-8 text-light'>
+                  LSP-only output per leaf. Lets you sell inbound liquidity without clients being online.
+                </Form.Text>
+              </Col>
+              <Col xs={12}>
+                <Form.Label className='fs-7 text-light mb-1'>Client pubkeys (one per line)</Form.Label>
+                <Form.Control
+                  as='textarea'
+                  rows={3}
+                  placeholder={'03abc...\n02def...'}
+                  value={clientPubkeysRaw}
+                  onChange={(e) => setClientPubkeysRaw(e.target.value)}
+                  disabled={isBusy}
+                  data-testid='factory-create-clients'
+                  className='fs-7'
+                />
+                <Form.Text className='fs-8 text-light'>
+                  Leave empty to let the plugin fill slots during the ceremony.
+                </Form.Text>
+              </Col>
+            </Row>
+          </section>
+
+          <Accordion alwaysOpen>
+            <Accordion.Item eventKey='tree'>
+              <Accordion.Header>Tree shape</Accordion.Header>
+              <Accordion.Body>
+                <Row className='g-2'>
+                  <Col xs={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>Leaf arity</Form.Label>
+                    <Form.Select value={leafArity} onChange={(e) => setLeafArity(e.target.value)} disabled={isBusy}>
+                      <option value='2'>2 (default — two clients share a leaf)</option>
+                      <option value='4'>4</option>
+                      <option value='8'>8</option>
+                    </Form.Select>
+                  </Col>
+                  <Col xs={6} className='d-flex align-items-end'>
+                    <div className='fs-7 text-light'>
+                      Derived leaves: <span className='fw-bold text-dark'>{plan.derived.nLeaves}</span>
+                    </div>
+                  </Col>
+                </Row>
+              </Accordion.Body>
+            </Accordion.Item>
+
+            <Accordion.Item eventKey='lifecycle'>
+              <Accordion.Header>Lifecycle &amp; ladder cadence</Accordion.Header>
+              <Accordion.Body>
+                <Row className='g-2'>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>Active period (blocks)</Form.Label>
+                    <InputGroup>
+                      <Form.Control type='number' value={lifetimeBlocks} onChange={(e) => setLifetimeBlocks(e.target.value)} disabled={isBusy} />
+                      <InputGroup.Text className='fs-8 text-light'>{blocksToDuration(numOrDefault(lifetimeBlocks, 0))}</InputGroup.Text>
+                    </InputGroup>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>Dying period (blocks)</Form.Label>
+                    <InputGroup>
+                      <Form.Control type='number' value={dyingPeriodBlocks} onChange={(e) => setDyingPeriodBlocks(e.target.value)} disabled={isBusy} />
+                      <InputGroup.Text className='fs-8 text-light'>{blocksToDuration(numOrDefault(dyingPeriodBlocks, 0))}</InputGroup.Text>
+                    </InputGroup>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>Max rotations (epochs)</Form.Label>
+                    <Form.Control type='number' value={epochCount} onChange={(e) => setEpochCount(e.target.value)} disabled={isBusy} />
+                    <Form.Text className='fs-8 text-light'>
+                      Decker-Wattenhofer limit — each rotation decrements an nSequence slot.
+                    </Form.Text>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>Ladder cadence (hours)</Form.Label>
+                    <InputGroup>
+                      <Form.Control type='number' value={ladderCadenceHours} onChange={(e) => setLadderCadenceHours(e.target.value)} disabled={isBusy} />
+                      <InputGroup.Text className='fs-8 text-light'>~{(numOrDefault(ladderCadenceHours, 1) * BLOCKS_PER_HOUR).toLocaleString()} blocks</InputGroup.Text>
+                    </InputGroup>
+                    <Form.Text className='fs-8 text-light'>
+                      Local-only. How often you plan to spin up the next factory in the ladder.
+                    </Form.Text>
+                  </Col>
+                </Row>
+              </Accordion.Body>
+            </Accordion.Item>
+
+            <Accordion.Item eventKey='economics'>
+              <Accordion.Header>Economics</Accordion.Header>
+              <Accordion.Body>
+                <Row className='g-2'>
+                  <Col xs={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>Flat LSP fee (sat)</Form.Label>
+                    <Form.Control type='number' value={lspFeeSat} onChange={(e) => setLspFeeSat(e.target.value)} disabled={isBusy} />
+                  </Col>
+                  <Col xs={6}>
+                    <Form.Label className='fs-7 text-light mb-1'>LSP fee (ppm)</Form.Label>
+                    <Form.Control type='number' value={lspFeePpm} onChange={(e) => setLspFeePpm(e.target.value)} disabled={isBusy} />
+                  </Col>
+                </Row>
+              </Accordion.Body>
+            </Accordion.Item>
+
+            <Accordion.Item eventKey='allocations'>
+              <Accordion.Header>Allocations override (advanced)</Accordion.Header>
+              <Accordion.Body>
+                <Form.Check
+                  type='switch'
+                  id='use-allocation-override'
+                  label='Set per-client capacities manually'
+                  checked={useAllocationOverride}
+                  onChange={(e) => setUseAllocationOverride(e.target.checked)}
+                  disabled={isBusy}
+                  className='mb-2'
+                />
+                {useAllocationOverride && (
+                  <>
+                    <Form.Label className='fs-7 text-light mb-1'>Allocations (one per line: pubkey,capacity_sat)</Form.Label>
+                    <Form.Control
+                      as='textarea'
+                      rows={4}
+                      placeholder={'03abc...,450000\n02def...,450000'}
+                      value={allocationOverrideRaw}
+                      onChange={(e) => setAllocationOverrideRaw(e.target.value)}
+                      disabled={isBusy}
+                      className='fs-7'
+                    />
+                    <Form.Text className='fs-8 text-light'>
+                      Must sum to {fmtSat(plan.derived.expectedAllocationSum)} sat (funding − LSP reserve total − flat fee).
+                    </Form.Text>
+                  </>
+                )}
+              </Accordion.Body>
+            </Accordion.Item>
+          </Accordion>
+
+          <section className='mt-3 p-2 border rounded bg-light-subtle'>
+            <div className='fs-7 fw-bold text-dark mb-1'>Summary</div>
+            <Row className='g-1'>
+              <Col xs={6} md={4}>
+                <div className='fs-8 text-light'>Ladder footprint</div>
+                <div className='fs-7 fw-bold text-dark'>{plan.derived.ladderFootprint} factories</div>
+              </Col>
+              <Col xs={6} md={4}>
+                <div className='fs-8 text-light'>Avg new-client wait</div>
+                <div className='fs-7 fw-bold text-dark'>~{plan.derived.avgWaitHours.toFixed(1)} h</div>
+              </Col>
+              <Col xs={6} md={4}>
+                <div className='fs-8 text-light'>Onchain cost / mo</div>
+                <div className='fs-7 fw-bold text-dark'>~{fmtSat(plan.derived.approxOnchainCostPerMonthSat)} sat</div>
+              </Col>
+              <Col xs={6} md={4}>
+                <div className='fs-8 text-light'>LSP commit / factory</div>
+                <div className='fs-7 fw-bold text-dark'>{fmtSat(plan.derived.lspSingleFactoryCommitmentSat)} sat</div>
+              </Col>
+              <Col xs={6} md={4}>
+                <div className='fs-8 text-light'>LSP commit / ladder</div>
+                <div className='fs-7 fw-bold text-dark'>{fmtSat(plan.derived.lspLadderCommitmentSat)} sat</div>
+              </Col>
+              <Col xs={6} md={4}>
+                <div className='fs-8 text-light'>Client CLTV budget</div>
+                <div className='fs-7 fw-bold text-dark'>{plan.derived.clientCltvBudgetBlocks} blocks</div>
+              </Col>
+            </Row>
+          </section>
+
+          {plan.warnings.length > 0 && (
+            <section className='mt-2'>
+              {plan.warnings.map(w => (
+                <Alert key={w.id} variant={w.severity === 'error' ? 'danger' : w.severity === 'warning' ? 'warning' : 'info'} className='py-1 px-2 mb-1 fs-8'>
+                  {w.message}
+                </Alert>
+              ))}
+            </section>
+          )}
         </Form>
 
         {responseStatus !== CallStatus.NONE && (
@@ -94,13 +374,11 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
         <button
           className='btn-rounded bg-primary'
           onClick={handleCreate}
-          disabled={responseStatus === CallStatus.PENDING}
+          disabled={isBusy || !plan.canSubmit}
           data-testid='button-submit-create-factory'
         >
-          {responseStatus === CallStatus.PENDING ? (
-            <Spinner animation='border' size='sm' className='me-2' />
-          ) : null}
-          Create Factory
+          {isBusy ? <Spinner animation='border' size='sm' className='me-2' /> : null}
+          Host Factory
         </button>
       </Card.Footer>
     </Card>
