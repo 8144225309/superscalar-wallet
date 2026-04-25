@@ -521,13 +521,13 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   disabled={isBusy}
                   label={
                     <span>
-                      Advertise on Nostr
-                      <InfoIcon text='Publishes a soup-rendezvous ad so clients can discover this factory via configured Nostr relays. Off by default for private factories.' />
+                      Advertise this factory on Nostr
+                      <InfoIcon text='Publishes a soup-rendezvous ad announcing your LSP and this factory&#39;s open slots, so prospective joiners can discover it. Off by default for private/invite-only factories.' />
                     </span>
                   }
                 />
                 <Form.Text className='text-light'>
-                  Factory channels are 0-conf and never appear in standard LN gossip. Nostr is the discovery channel for SuperScalar factories.
+                  Nostr is the discovery layer (find the factory). Once a client joins, the factory + channel exchange happens over LN custommsg (bLIP-56) — channels themselves never go through Nostr.
                 </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
@@ -596,7 +596,10 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             <div className='fs-18px fw-bold text-dark mb-2'>Summary</div>
             <Row className='g-2'>
               <Col xs={6} md={4}>
-                <div className='text-light'>Ladder footprint</div>
+                <div className='text-light d-flex align-items-center'>
+                  Ladder steady state
+                  <InfoIcon text='Eventual size of your ladder once you keep hosting at this cadence + lifetime. You are creating 1 factory now — this projection shows what the rolling set grows to.' />
+                </div>
                 <div className='fs-18px fw-bold text-dark'>{plan.derived.ladderFootprint} factories</div>
               </Col>
               <Col xs={6} md={4}>
