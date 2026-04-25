@@ -588,9 +588,11 @@ export class FactoriesService {
     const params: Record<string, any> = { funding_sats: fundingSats, clients };
     if (options) {
       if (options.leaf_arity != null) params.leaf_arity = options.leaf_arity;
+      if (options.leaf_channel_type != null) params.leaf_channel_type = options.leaf_channel_type;
       if (options.epoch_count != null) params.epoch_count = options.epoch_count;
       if (options.lifetime_blocks != null) params.lifetime_blocks = options.lifetime_blocks;
       if (options.dying_period_blocks != null) params.dying_period_blocks = options.dying_period_blocks;
+      if (options.block_early_count != null) params.block_early_count = options.block_early_count;
       if (options.lsp_fee_sat != null) params.lsp_fee_sat = options.lsp_fee_sat;
       if (options.lsp_fee_ppm != null) params.lsp_fee_ppm = options.lsp_fee_ppm;
       if (options.allocations && options.allocations.length > 0) params.allocations = options.allocations;

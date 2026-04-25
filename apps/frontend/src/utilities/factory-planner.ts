@@ -3,9 +3,11 @@ import { FactoryAllocation } from '../types/factories.type';
 export const BLOCKS_PER_DAY = 144;
 export const BLOCKS_PER_HOUR = 6;
 
-const DW_OVERHEAD_BLOCKS = 1008;
+const NSEQUENCE_STEP_BLOCKS = 144;
 const BASE_CLTV_BUDGET_BLOCKS = 4032;
 const MEDIAN_KICKOFF_FEE_SAT = 5000;
+const CLTV_WARN_THRESHOLD = 2016;
+const EPOCH_CLIFF_THRESHOLD = 13;
 
 export const FACTORY_PLAN_DEFAULTS = {
   fundingSats: 1_000_000,
@@ -13,12 +15,23 @@ export const FACTORY_PLAN_DEFAULTS = {
   perClientCapacitySat: 450_000,
   lspReservePerLeafSat: 50_000,
   leafArity: 2,
+  leafChannelType: 'pseudo-spilman' as 'pseudo-spilman' | 'ln-penalty',
   lifetimeBlocks: 4320,
   dyingPeriodBlocks: 288,
-  epochCount: 8,
+  epochCount: 6,
+  blockEarlyCount: 144,
   ladderCadenceHours: 24,
   lspFeeSat: 0,
   lspFeePpm: 0,
+  autoHostNext: true,
+  autoFinalizeOnDying: true,
+  autoRotatePeriodically: false,
+  autoAcceptJoiners: false,
+  allowBolt12: true,
+  allowAmp: false,
+  htlcMinSat: 1,
+  htlcMaxSat: 0,
+  advertiseOnNostr: false,
 };
 
 export type FactoryPlanInputs = {
@@ -27,9 +40,11 @@ export type FactoryPlanInputs = {
   perClientCapacitySat: number;
   lspReservePerLeafSat: number;
   leafArity: number;
+  leafChannelType: 'pseudo-spilman' | 'ln-penalty';
   lifetimeBlocks: number;
   dyingPeriodBlocks: number;
   epochCount: number;
+  blockEarlyCount: number;
   ladderCadenceHours: number;
   lspFeeSat: number;
   lspFeePpm: number;
@@ -46,6 +61,7 @@ export type FactoryPlanDerived = {
   lspSingleFactoryCommitmentSat: number;
   lspLadderCommitmentSat: number;
   clientCltvBudgetBlocks: number;
+  dwOverheadBlocks: number;
   allocatedSum: number;
   expectedAllocationSum: number;
   lifetimeDays: number;
@@ -95,9 +111,10 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
   const lspSingleFactoryCommitmentSat = lspReserveTotal + inputs.lspFeeSat;
   const lspLadderCommitmentSat = lspSingleFactoryCommitmentSat * ladderFootprint;
 
+  const dwOverheadBlocks = inputs.epochCount * NSEQUENCE_STEP_BLOCKS;
   const clientCltvBudgetBlocks = Math.max(
     0,
-    BASE_CLTV_BUDGET_BLOCKS - DW_OVERHEAD_BLOCKS - inputs.dyingPeriodBlocks,
+    BASE_CLTV_BUDGET_BLOCKS - dwOverheadBlocks - inputs.dyingPeriodBlocks - inputs.blockEarlyCount,
   );
 
   const lifetimeDays = inputs.lifetimeBlocks / BLOCKS_PER_DAY;
@@ -105,7 +122,7 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
 
   const feeRevenuePerFactorySat = inputs.nClients * inputs.lspFeeSat
     + Math.round((allocatedSum * inputs.lspFeePpm) / 1_000_000);
-  const feeRevenuePerMonthSat = Math.round(feeRevenuePerFactorySat * (kickoffsPerMonth));
+  const feeRevenuePerMonthSat = Math.round(feeRevenuePerFactorySat * kickoffsPerMonth);
 
   if (inputs.nClients % leafArity !== 0) {
     warnings.push({
@@ -147,7 +164,7 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
     });
   }
 
-  if (clientCltvBudgetBlocks < 2016) {
+  if (clientCltvBudgetBlocks < CLTV_WARN_THRESHOLD) {
     warnings.push({
       id: 'cltv_budget_insufficient',
       severity: 'warning',
@@ -155,11 +172,35 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
     });
   }
 
-  if (inputs.epochCount > 32) {
+  if (inputs.epochCount > EPOCH_CLIFF_THRESHOLD) {
     warnings.push({
       id: 'too_many_epochs',
       severity: 'warning',
-      message: `${inputs.epochCount} epochs means up to ${inputs.epochCount} rotation ceremonies. Each one requires every client on its branch to come online and sign.`,
+      message: `${inputs.epochCount} epochs at ${NSEQUENCE_STEP_BLOCKS}-block step burns ${dwOverheadBlocks} blocks of CLTV budget. The SuperScalar reference design uses 4 — pseudo-Spilman leaves mean payments don't consume epochs, so most operators don't need many.`,
+    });
+  }
+
+  if (inputs.epochCount < 4) {
+    warnings.push({
+      id: 'too_few_epochs',
+      severity: 'info',
+      message: 'Fewer than 4 epochs leaves no buffer for retry attempts or unexpected reallocations. The reference design uses 4.',
+    });
+  }
+
+  if (inputs.blockEarlyCount > inputs.dyingPeriodBlocks) {
+    warnings.push({
+      id: 'block_early_exceeds_dying',
+      severity: 'warning',
+      message: `Block-early count (${inputs.blockEarlyCount}) exceeds dying period (${inputs.dyingPeriodBlocks}). Plugin will trigger early exits before clients have a chance to migrate cooperatively.`,
+    });
+  }
+
+  if (inputs.leafChannelType === 'ln-penalty') {
+    warnings.push({
+      id: 'ln_penalty_leaves',
+      severity: 'info',
+      message: 'LN-Penalty leaves require clients to maintain watchtower-grade liveness. Pseudo-Spilman is the design\'s preferred leaf type for mobile/no-coiner clients.',
     });
   }
 
@@ -199,6 +240,7 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
       lspSingleFactoryCommitmentSat,
       lspLadderCommitmentSat,
       clientCltvBudgetBlocks,
+      dwOverheadBlocks,
       allocatedSum,
       expectedAllocationSum,
       lifetimeDays,

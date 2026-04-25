@@ -2,4 +2,15 @@
 
 .factory-create-scroll {
   overflow-y: auto;
+
+  .form-control::placeholder,
+  .form-control::-webkit-input-placeholder {
+    color: #9f9f9f !important;
+    opacity: 1;
+  }
+
+  textarea.form-control::placeholder {
+    color: #9f9f9f !important;
+    opacity: 1;
+  }
 }
