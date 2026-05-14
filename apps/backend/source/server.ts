@@ -20,6 +20,7 @@ import { APP_CONSTANTS, Environment, HttpStatusCode } from './shared/consts.js';
 import handleError from './shared/error-handler.js';
 import { NodeManager } from './service/node-manager.service.js';
 import { RendezvousSettingsService } from './service/rendezvous-settings.service.js';
+import { LspNostrIdentityService } from './service/lsp-nostr-identity.service.js';
 
 const directoryName = dirname(fileURLToPath(import.meta.url));
 const routes: Array<CommonRoutesConfig> = [];
@@ -98,6 +99,9 @@ async function startServer() {
 
     const rendezvousSettingsService = new RendezvousSettingsService();
     rendezvousSettingsService.load(); // materialize defaults file on first boot
+
+    const lspNostrIdentityService = new LspNostrIdentityService();
+    lspNostrIdentityService.load(); // generate-or-load on first boot
 
     const authRoutes = new AuthRoutes(app);
     const sharedRoutes = new SharedRoutes(app, nodeManager);
