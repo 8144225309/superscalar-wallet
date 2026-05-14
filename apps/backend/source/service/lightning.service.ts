@@ -192,6 +192,28 @@ export class LightningService {
     return this.clnService?.publicKey || '';
   };
 
+  /**
+   * Sign an arbitrary UTF-8 message with the active CLN node's HSM key.
+   * Wraps the standard CLN signmessage RPC and returns the zbase signature
+   * (which checkmessage verifies via BOLT-7 gossip membership).
+   *
+   * Used by the soup-rendezvous proof-of-channel flow: the host signs a
+   * coordinator-bound challenge here, then the backend embeds the zbase
+   * in a NIP-44-encrypted proof_multi DM to the coordinator.
+   */
+  signMessage = async (
+    message: string,
+  ): Promise<{ zbase: string; signature: string; pubkey?: string }> => {
+    const res: any = await this.call('signmessage', [message]);
+    if (!res || typeof res.zbase !== 'string') {
+      throw new LightningError(
+        HttpStatusCode.LIGHTNING_SERVER,
+        'signmessage returned no zbase field',
+      );
+    }
+    return { zbase: res.zbase, signature: res.signature, pubkey: res.pubkey };
+  };
+
   call = async (method: string, methodParams: any[]) => {
     switch (APP_CONSTANTS.APP_CONNECT) {
       case AppConnect.REST:
