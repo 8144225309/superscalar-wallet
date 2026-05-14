@@ -21,6 +21,7 @@ import handleError from './shared/error-handler.js';
 import { NodeManager } from './service/node-manager.service.js';
 import { RendezvousSettingsService } from './service/rendezvous-settings.service.js';
 import { LspNostrIdentityService } from './service/lsp-nostr-identity.service.js';
+import { VouchPublisherService } from './service/vouch-publisher.service.js';
 
 const directoryName = dirname(fileURLToPath(import.meta.url));
 const routes: Array<CommonRoutesConfig> = [];
@@ -103,11 +104,22 @@ async function startServer() {
     const lspNostrIdentityService = new LspNostrIdentityService();
     lspNostrIdentityService.load(); // generate-or-load on first boot
 
+    const vouchPublisherService = new VouchPublisherService(
+      lspNostrIdentityService,
+      nodeManager,
+      rendezvousSettingsService,
+    );
+
     const authRoutes = new AuthRoutes(app);
     const sharedRoutes = new SharedRoutes(app, nodeManager);
     const lightningRoutes = new LightningRoutes(app, nodeManager);
     const nodesRoutes = new NodesRoutes(app, nodeManager);
-    const rendezvousRoutes = new RendezvousRoutes(app, rendezvousSettingsService);
+    const rendezvousRoutes = new RendezvousRoutes(
+      app,
+      rendezvousSettingsService,
+      lspNostrIdentityService,
+      vouchPublisherService,
+    );
 
     authRoutes.configureRoutes();
     sharedRoutes.configureRoutes();
