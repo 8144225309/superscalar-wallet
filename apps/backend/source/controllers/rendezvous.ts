@@ -85,9 +85,7 @@ export class RendezvousController {
         return res.status(400).json({ error: 'request body must be an object' });
       }
       if (!body.network || !VALID_NETWORKS.has(body.network)) {
-        return res
-          .status(400)
-          .json({ error: 'network must be one of: bitcoin, signet, testnet4' });
+        return res.status(400).json({ error: 'network must be one of: bitcoin, signet, testnet4' });
       }
       if (!body.lnNodeId || typeof body.lnNodeId !== 'string') {
         return res.status(400).json({ error: 'lnNodeId (hex string) is required' });

@@ -127,7 +127,10 @@ export class VouchPublisherService {
    * soup-rendezvous challenge format per WALLET_INTEGRATION.md §9:
    *   soup-rendezvous:proof-of-<tier>:v0:<coord-npub>:<16-hex-nonce>:<unix-ts>
    */
-  private buildChallenge(tier: 'proof-of-channel' | 'proof-of-utxo' | 'proof-of-peer', coordNpub: string): string {
+  private buildChallenge(
+    tier: 'proof-of-channel' | 'proof-of-utxo' | 'proof-of-peer',
+    coordNpub: string,
+  ): string {
     const nonce = crypto.randomBytes(8).toString('hex'); // 16 hex chars
     const ts = Math.floor(Date.now() / 1000);
     return 'soup-rendezvous:' + tier + ':v0:' + coordNpub + ':' + nonce + ':' + ts;

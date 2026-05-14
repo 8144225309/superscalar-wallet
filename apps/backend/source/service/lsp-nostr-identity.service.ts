@@ -52,7 +52,11 @@ export class LspNostrIdentityService {
         this.secretKey = new Uint8Array(sk);
         this.pubkeyHex = parsed.pubkey_hex;
         logger.info(
-          'Loaded LSP Nostr identity: ' + this.pubkeyHex.substring(0, 12) + '... (npub ' + this.getNpub().substring(0, 16) + '...)',
+          'Loaded LSP Nostr identity: ' +
+            this.pubkeyHex.substring(0, 12) +
+            '... (npub ' +
+            this.getNpub().substring(0, 16) +
+            '...)',
         );
         return;
       }
@@ -75,9 +79,7 @@ export class LspNostrIdentityService {
     this.persist(data);
     this.secretKey = sk;
     this.pubkeyHex = pk;
-    logger.warn(
-      'Generated new LSP Nostr identity: ' + pk + ' (npub ' + nip19.npubEncode(pk) + ')',
-    );
+    logger.warn('Generated new LSP Nostr identity: ' + pk + ' (npub ' + nip19.npubEncode(pk) + ')');
   }
 
   private persist(data: PersistedIdentity): void {
