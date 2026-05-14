@@ -16,7 +16,12 @@ import { setAccountEvents, setSatsFlow, setVolume } from '../store/bkprSlice';
 import { setFactoryList } from '../store/factoriesSlice';
 import { setNodeProfiles, setHasFactoryPlugin } from '../store/nodesSlice';
 import { Factory, FactoryCreateOptions, FactoryCreateResponse, FactoryRotateResponse, FactoryCloseResponse, FactoryForceCloseResponse, FactoryCheckBreachResponse } from '../types/factories.type';
-import { RendezvousSettings } from '../types/rendezvous.type';
+import {
+  RendezvousSettings,
+  LspIdentity,
+  PrepareVouchEventRequest,
+  PrepareVouchEventResponse,
+} from '../types/rendezvous.type';
 import { isCompatibleVersion } from '../utilities/data-formatters';
 
 const axiosInstance = axios.create({
@@ -169,6 +174,14 @@ export class RendezvousService {
   static async resetSettings(): Promise<RendezvousSettings> {
     const res = await HttpService.post('/rendezvous/settings/reset');
     return res.settings;
+  }
+
+  static async getLspIdentity(): Promise<LspIdentity> {
+    return HttpService.get('/rendezvous/lsp-identity');
+  }
+
+  static async prepareVouchEvent(req: PrepareVouchEventRequest): Promise<PrepareVouchEventResponse> {
+    return HttpService.post('/rendezvous/prepare-vouch-event', req);
   }
 }
 

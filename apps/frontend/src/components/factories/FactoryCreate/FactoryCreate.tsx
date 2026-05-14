@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
-import { FactoriesService } from '../../../services/http.service';
+import { FactoriesService, RendezvousService } from '../../../services/http.service';
+import { publishSignedEvent } from '../../../services/nostr.service';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import {
   FACTORY_PLAN_DEFAULTS,
@@ -217,20 +218,64 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     setResponseStatus(CallStatus.PENDING);
     setResponseMessage('Hosting factory...');
 
+    let createRes;
     try {
-      const res = await FactoriesService.createFactory(funding, clientNodeIds, options);
-      if (res.instance_id) {
-        persistLocalPrefs(res.instance_id);
+      createRes = await FactoriesService.createFactory(funding, clientNodeIds, options);
+      if (createRes.instance_id) {
+        persistLocalPrefs(createRes.instance_id);
       }
-      setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage(`Factory hosted: ${res.instance_id.substring(0, 16)}...`);
       FactoriesService.fetchFactoriesData();
-      setTimeout(() => {
-        onClose();
-      }, CLEAR_STATUS_ALERT_DELAY);
     } catch (err: any) {
       setResponseStatus(CallStatus.ERROR);
       setResponseMessage(typeof err === 'string' ? err : err.message || 'Factory hosting failed');
+      return;
+    }
+
+    const instanceShort = createRes.instance_id.substring(0, 16);
+
+    if (!advertiseOnNostr) {
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(`Factory hosted: ${instanceShort}...`);
+      setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+      return;
+    }
+
+    const lnNodeId = nodeInfo?.id;
+    if (!lnNodeId) {
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(
+        `Factory hosted: ${instanceShort}... (Nostr advertise skipped — no active node pubkey)`,
+      );
+      setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+      return;
+    }
+
+    setResponseMessage(`Factory hosted: ${instanceShort}... Publishing Nostr vouch request...`);
+    try {
+      const prepared = await RendezvousService.prepareVouchEvent({
+        network: advertiseNetwork,
+        lnNodeId,
+      });
+      const relayResults = await publishSignedEvent(prepared.signedEvent, prepared.relays);
+      const okCount = relayResults.filter(r => r.status === 'ok').length;
+      const total = relayResults.length;
+      if (okCount === 0) {
+        setResponseStatus(CallStatus.ERROR);
+        setResponseMessage(
+          `Factory hosted, but Nostr publish failed on all ${total} relays. Retry from Discovery settings.`,
+        );
+      } else {
+        setResponseStatus(CallStatus.SUCCESS);
+        setResponseMessage(
+          `Factory hosted: ${instanceShort}... Vouch DM sent to ${okCount}/${total} relays; coordinator typically publishes within ~15s.`,
+        );
+        setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+      }
+    } catch (err: any) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage(
+        `Factory hosted, but Nostr publish failed: ${typeof err === 'string' ? err : err.message || 'unknown error'}`,
+      );
     }
   };
 

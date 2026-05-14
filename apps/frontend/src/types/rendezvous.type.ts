@@ -81,6 +81,46 @@ export interface BrowseCacheEntry {
   error?: string;
 }
 
+/** Backend POST /v1/rendezvous/prepare-vouch-event request shape. */
+export interface PrepareVouchEventRequest {
+  network: CoordinatorNetwork;
+  lnNodeId: string;
+}
+
+/** Backend POST /v1/rendezvous/prepare-vouch-event response shape. The
+ *  frontend takes signedEvent and publishes it via SimplePool. */
+export interface PrepareVouchEventResponse {
+  signedEvent: {
+    id: string;
+    pubkey: string;
+    created_at: number;
+    kind: number;
+    tags: string[][];
+    content: string;
+    sig: string;
+  };
+  coordinator: {
+    npub: string;
+    pubkeyHex: string;
+    label?: string;
+  };
+  relays: string[];
+  lspNpub: string;
+  challenge: string;
+}
+
+export interface LspIdentity {
+  pubkeyHex: string;
+  npub: string;
+}
+
+/** Per-relay result of publishing the vouch DM. */
+export interface RelayPublishResult {
+  relay: string;
+  status: 'ok' | 'failed';
+  error?: string;
+}
+
 export interface RendezvousState {
   settings: RendezvousSettings | null;
   settingsLoading: boolean;

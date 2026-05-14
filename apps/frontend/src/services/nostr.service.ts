@@ -1,6 +1,7 @@
 import { SimplePool, nip19, type Event as NostrEvent, type Filter } from 'nostr-tools';
 import {
   CoordinatorEntry,
+  RelayPublishResult,
   TierCaps,
   Vouch,
   VouchTier,
@@ -245,4 +246,38 @@ export function closeNostrPool(): void {
     }
     sharedPool = null;
   }
+}
+
+/**
+ * Publish an already-signed Nostr event to every relay in the list.
+ * Used by the host-factory flow to deliver the proof_multi DM the
+ * backend prepared. Returns per-relay status so the UI can show a
+ * partial-success message ("3 of 4 relays accepted the DM").
+ *
+ * Per-relay timeout: a slow relay must not block the others. SimplePool
+ * resolves each pub.* event independently.
+ */
+export async function publishSignedEvent(
+  event: NostrEvent,
+  relays: string[],
+): Promise<RelayPublishResult[]> {
+  if (relays.length === 0) {
+    return [];
+  }
+  const pool = getPool();
+  const promises: Promise<RelayPublishResult>[] = pool.publish(relays, event).map((p, idx) =>
+    p
+      .then(() => ({ relay: relays[idx], status: 'ok' as const }))
+      .catch((err: any) => ({
+        relay: relays[idx],
+        status: 'failed' as const,
+        error: err?.message || String(err),
+      })),
+  );
+  const results = await Promise.all(promises);
+  const okCount = results.filter(r => r.status === 'ok').length;
+  logger.info(
+    'publishSignedEvent: ' + okCount + '/' + relays.length + ' relays accepted event ' + event.id.substring(0, 12),
+  );
+  return results;
 }
