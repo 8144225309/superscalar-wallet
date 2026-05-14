@@ -1,5 +1,6 @@
 import './FactoryCreate.scss';
 import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { FactoriesService } from '../../../services/http.service';
@@ -11,6 +12,32 @@ import {
   planFactory,
 } from '../../../utilities/factory-planner';
 import { FactoryAllocation, FactoryCreateOptions, FactoryLocalPrefs } from '../../../types/factories.type';
+import { selectNodeInfo } from '../../../store/rootSelectors';
+
+type AdvertiseNetwork = 'bitcoin' | 'signet' | 'testnet4';
+const ADVERTISE_NETWORKS: AdvertiseNetwork[] = ['bitcoin', 'signet', 'testnet4'];
+
+/**
+ * Map a CLN getinfo.network value to a soup-rendezvous network.
+ * CLN reports "bitcoin" for mainnet, "regtest" / "testnet" / "testnet4" / "signet"
+ * for others. We only advertise to coordinators that exist; regtest and legacy
+ * testnet fall back to signet for the default.
+ */
+const mapClnNetwork = (n?: string): AdvertiseNetwork => {
+  switch (n) {
+    case 'bitcoin':
+    case 'mainnet':
+      return 'bitcoin';
+    case 'testnet4':
+      return 'testnet4';
+    case 'signet':
+    case 'regtest':
+    case 'testnet':
+    case 'testnet3':
+    default:
+      return 'signet';
+  }
+};
 
 type FactoryCreateProps = {
   onClose: () => void;
@@ -57,6 +84,10 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   const [htlcMaxSat, setHtlcMaxSat] = useState(String(FACTORY_PLAN_DEFAULTS.htlcMaxSat));
 
   const [advertiseOnNostr, setAdvertiseOnNostr] = useState(FACTORY_PLAN_DEFAULTS.advertiseOnNostr);
+  const nodeInfo = useSelector(selectNodeInfo);
+  const [advertiseNetwork, setAdvertiseNetwork] = useState<AdvertiseNetwork>(() =>
+    mapClnNetwork(nodeInfo?.network),
+  );
 
   const [lspFeeSat, setLspFeeSat] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeeSat));
   const [lspFeePpm, setLspFeePpm] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeePpm));
@@ -512,6 +543,29 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             <Accordion.Item eventKey='discovery'>
               <Accordion.Header>Discovery</Accordion.Header>
               <Accordion.Body>
+                <Row className='g-2 mb-3'>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='text-light mb-1'>
+                      Chain
+                      <InfoIcon text='Picks which soup-rendezvous coordinator the proof DM is sent to. Should match your CLN node&#39;s network — a mismatch will fail at coordinator verification time (signmessage signed on the wrong chain).' />
+                    </Form.Label>
+                    <Form.Select
+                      value={advertiseNetwork}
+                      onChange={(e) => setAdvertiseNetwork(e.target.value as AdvertiseNetwork)}
+                      disabled={isBusy}
+                      data-testid='factory-create-advertise-network'
+                    >
+                      {ADVERTISE_NETWORKS.map(n => (
+                        <option key={n} value={n}>{n === 'bitcoin' ? 'mainnet (bitcoin)' : n}</option>
+                      ))}
+                    </Form.Select>
+                    {nodeInfo?.network && mapClnNetwork(nodeInfo.network) !== advertiseNetwork && (
+                      <Form.Text className='text-warning'>
+                        Active node reports network <strong>{nodeInfo.network}</strong>. Coordinator verification will likely fail.
+                      </Form.Text>
+                    )}
+                  </Col>
+                </Row>
                 <Form.Check
                   type='switch'
                   id='advertise-nostr'
@@ -522,12 +576,12 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   label={
                     <span>
                       Advertise this factory on Nostr
-                      <InfoIcon text='Publishes a soup-rendezvous ad announcing your LSP and this factory&#39;s open slots, so prospective joiners can discover it. Off by default for private/invite-only factories.' />
+                      <InfoIcon text='After hosting, the wallet sends a soup-rendezvous proof DM to the coordinator for the selected chain. If the proof verifies, the coordinator publishes a kind-38101 vouch with your LN pubkey to its configured relays. Off by default for private/invite-only factories.' />
                     </span>
                   }
                 />
                 <Form.Text className='text-light'>
-                  Nostr is the discovery layer (find the factory). Once a client joins, the factory + channel exchange happens over LN custommsg (bLIP-56) — channels themselves never go through Nostr.
+                  Nostr is the discovery layer. Once a client picks your LSP from a relay, the factory + channel exchange happens over LN custommsg (bLIP-56) — channels themselves never go through Nostr.
                 </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
