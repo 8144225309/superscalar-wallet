@@ -12,6 +12,8 @@ import {
   blocksToDuration,
   planFactory,
   FactoryPlanWarning,
+  LIFETIME_PRESETS,
+  LifetimePresetId,
 } from '../../../utilities/factory-planner';
 import { FactoryAllocation, FactoryCreateOptions, FactoryLocalPrefs } from '../../../types/factories.type';
 import { selectNodeInfo } from '../../../store/rootSelectors';
@@ -87,8 +89,23 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   const [leafChannelType, setLeafChannelType] = useState<'pseudo-spilman' | 'ln-penalty'>(FACTORY_PLAN_DEFAULTS.leafChannelType);
   const [psSubfactoryArity, setPsSubfactoryArity] = useState(String(FACTORY_PLAN_DEFAULTS.psSubfactoryArity));
 
-  const [lifetimeBlocks, setLifetimeBlocks] = useState(String(FACTORY_PLAN_DEFAULTS.lifetimeBlocks));
-  const [dyingPeriodBlocks, setDyingPeriodBlocks] = useState(String(FACTORY_PLAN_DEFAULTS.dyingPeriodBlocks));
+  const [lifetimePreset, setLifetimePreset] = useState<LifetimePresetId>('production');
+  const [lifetimeBlocks, setLifetimeBlocksRaw] = useState(String(FACTORY_PLAN_DEFAULTS.lifetimeBlocks));
+  const [dyingPeriodBlocks, setDyingPeriodBlocksRaw] = useState(String(FACTORY_PLAN_DEFAULTS.dyingPeriodBlocks));
+
+  /* Manual edits to either field flip the preset selector to 'custom' so
+   * the dropdown reflects that the values no longer match a preset. */
+  const setLifetimeBlocks = (v: string) => { setLifetimeBlocksRaw(v); setLifetimePreset('custom'); };
+  const setDyingPeriodBlocks = (v: string) => { setDyingPeriodBlocksRaw(v); setLifetimePreset('custom'); };
+
+  /* Selecting a non-custom preset fills both fields with the preset's values. */
+  const applyLifetimePreset = (preset: LifetimePresetId) => {
+    setLifetimePreset(preset);
+    if (preset === 'custom') return;
+    const p = LIFETIME_PRESETS[preset];
+    setLifetimeBlocksRaw(String(p.lifetimeBlocks));
+    setDyingPeriodBlocksRaw(String(p.dyingPeriodBlocks));
+  };
   const [epochCount, setEpochCount] = useState(String(FACTORY_PLAN_DEFAULTS.epochCount));
   const [blockEarlyCount, setBlockEarlyCount] = useState(String(FACTORY_PLAN_DEFAULTS.blockEarlyCount));
   const [ladderCadenceHours, setLadderCadenceHours] = useState(String(FACTORY_PLAN_DEFAULTS.ladderCadenceHours));
@@ -526,6 +543,21 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
               <Accordion.Header>Lifecycle &amp; ladder cadence</Accordion.Header>
               <Accordion.Body>
                 <Row className='g-2'>
+                  <Col xs={12}>
+                    <Form.Label className='text-light mb-1'>
+                      Lifetime preset
+                      <InfoIcon text='Production: ZmnSCPxj&#39;s recommended deployment (30-day active + 3-day dying = 33 concurrent factories). Demo: smaller worked example from his diagrams (7-day active + 2-day dying = 9 concurrent factories). Pick Demo for early-mainnet caution or testnet — smaller capital exposure with the same daily kickoff cadence. Custom: manual values below.' />
+                    </Form.Label>
+                    <Form.Select
+                      value={lifetimePreset}
+                      onChange={(e) => applyLifetimePreset(e.target.value as LifetimePresetId)}
+                      disabled={isBusy}
+                    >
+                      <option value='production'>{LIFETIME_PRESETS.production.label}</option>
+                      <option value='demo'>{LIFETIME_PRESETS.demo.label}</option>
+                      <option value='custom'>Custom (set values manually below)</option>
+                    </Form.Select>
+                  </Col>
                   <Col xs={12} md={6}>
                     <Form.Label className='text-light mb-1'>Active period (blocks)</Form.Label>
                     <InputGroup>
