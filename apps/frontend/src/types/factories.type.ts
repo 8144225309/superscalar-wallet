@@ -57,8 +57,6 @@ export type FactoryCreateOptions = {
   lifetime_blocks?: number;
   dying_period_blocks?: number;
   block_early_count?: number;
-  lsp_fee_sat?: number;
-  lsp_fee_ppm?: number;
   allocations?: FactoryAllocation[];
 };
 

@@ -1,8 +1,10 @@
 import './FactoryCreate.scss';
 import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
-import { FactoriesService } from '../../../services/http.service';
+import { FactoriesService, RendezvousService } from '../../../services/http.service';
+import { publishSignedEvent } from '../../../services/nostr.service';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import {
   FACTORY_PLAN_DEFAULTS,
@@ -11,6 +13,32 @@ import {
   planFactory,
 } from '../../../utilities/factory-planner';
 import { FactoryAllocation, FactoryCreateOptions, FactoryLocalPrefs } from '../../../types/factories.type';
+import { selectNodeInfo } from '../../../store/rootSelectors';
+
+type AdvertiseNetwork = 'bitcoin' | 'signet' | 'testnet4';
+const ADVERTISE_NETWORKS: AdvertiseNetwork[] = ['bitcoin', 'signet', 'testnet4'];
+
+/**
+ * Map a CLN getinfo.network value to a soup-rendezvous network.
+ * CLN reports "bitcoin" for mainnet, "regtest" / "testnet" / "testnet4" / "signet"
+ * for others. We only advertise to coordinators that exist; regtest and legacy
+ * testnet fall back to signet for the default.
+ */
+const mapClnNetwork = (n?: string): AdvertiseNetwork => {
+  switch (n) {
+    case 'bitcoin':
+    case 'mainnet':
+      return 'bitcoin';
+    case 'testnet4':
+      return 'testnet4';
+    case 'signet':
+    case 'regtest':
+    case 'testnet':
+    case 'testnet3':
+    default:
+      return 'signet';
+  }
+};
 
 type FactoryCreateProps = {
   onClose: () => void;
@@ -57,9 +85,10 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   const [htlcMaxSat, setHtlcMaxSat] = useState(String(FACTORY_PLAN_DEFAULTS.htlcMaxSat));
 
   const [advertiseOnNostr, setAdvertiseOnNostr] = useState(FACTORY_PLAN_DEFAULTS.advertiseOnNostr);
-
-  const [lspFeeSat, setLspFeeSat] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeeSat));
-  const [lspFeePpm, setLspFeePpm] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeePpm));
+  const nodeInfo = useSelector(selectNodeInfo);
+  const [advertiseNetwork, setAdvertiseNetwork] = useState<AdvertiseNetwork>(() =>
+    mapClnNetwork(nodeInfo?.network),
+  );
 
   const [useAllocationOverride, setUseAllocationOverride] = useState(false);
   const [allocationOverrideRaw, setAllocationOverrideRaw] = useState('');
@@ -101,13 +130,11 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     epochCount: numOrDefault(epochCount, 1),
     blockEarlyCount: numOrDefault(blockEarlyCount, 0),
     ladderCadenceHours: numOrDefault(ladderCadenceHours, 1),
-    lspFeeSat: numOrDefault(lspFeeSat, 0),
-    lspFeePpm: numOrDefault(lspFeePpm, 0),
     allocationsOverride: parsedAllocations,
     clientNodeIds,
   }), [fundingSats, nClients, perClientCapacity, lspReservePerLeaf, leafArity, leafChannelType,
     lifetimeBlocks, dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours,
-    lspFeeSat, lspFeePpm, parsedAllocations, clientNodeIds]);
+    parsedAllocations, clientNodeIds]);
 
   const persistLocalPrefs = (instanceId: string) => {
     const prefs: FactoryLocalPrefs = {
@@ -155,11 +182,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     const arity = numOrDefault(leafArity, FACTORY_PLAN_DEFAULTS.leafArity);
     if (arity !== FACTORY_PLAN_DEFAULTS.leafArity) options.leaf_arity = arity;
 
-    if (leafChannelType !== FACTORY_PLAN_DEFAULTS.leafChannelType) {
-      options.leaf_channel_type = leafChannelType;
-    } else {
-      options.leaf_channel_type = leafChannelType;
-    }
+    if (leafChannelType !== FACTORY_PLAN_DEFAULTS.leafChannelType) options.leaf_channel_type = leafChannelType;
 
     const epochs = numOrDefault(epochCount, FACTORY_PLAN_DEFAULTS.epochCount);
     if (epochs !== FACTORY_PLAN_DEFAULTS.epochCount) options.epoch_count = epochs;
@@ -173,12 +196,6 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     const blockEarly = numOrDefault(blockEarlyCount, FACTORY_PLAN_DEFAULTS.blockEarlyCount);
     if (blockEarly !== FACTORY_PLAN_DEFAULTS.blockEarlyCount) options.block_early_count = blockEarly;
 
-    const feeSat = numOrDefault(lspFeeSat, 0);
-    if (feeSat > 0) options.lsp_fee_sat = feeSat;
-
-    const feePpm = numOrDefault(lspFeePpm, 0);
-    if (feePpm > 0) options.lsp_fee_ppm = feePpm;
-
     if (useAllocationOverride && parsedAllocations.length > 0) {
       options.allocations = parsedAllocations;
     }
@@ -186,20 +203,64 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     setResponseStatus(CallStatus.PENDING);
     setResponseMessage('Hosting factory...');
 
+    let createRes;
     try {
-      const res = await FactoriesService.createFactory(funding, clientNodeIds, options);
-      if (res.instance_id) {
-        persistLocalPrefs(res.instance_id);
+      createRes = await FactoriesService.createFactory(funding, clientNodeIds, options);
+      if (createRes.instance_id) {
+        persistLocalPrefs(createRes.instance_id);
       }
-      setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage(`Factory hosted: ${res.instance_id.substring(0, 16)}...`);
       FactoriesService.fetchFactoriesData();
-      setTimeout(() => {
-        onClose();
-      }, CLEAR_STATUS_ALERT_DELAY);
     } catch (err: any) {
       setResponseStatus(CallStatus.ERROR);
       setResponseMessage(typeof err === 'string' ? err : err.message || 'Factory hosting failed');
+      return;
+    }
+
+    const instanceShort = createRes.instance_id.substring(0, 16);
+
+    if (!advertiseOnNostr) {
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(`Factory hosted: ${instanceShort}...`);
+      setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+      return;
+    }
+
+    const lnNodeId = nodeInfo?.id;
+    if (!lnNodeId) {
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(
+        `Factory hosted: ${instanceShort}... (Nostr advertise skipped — no active node pubkey)`,
+      );
+      setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+      return;
+    }
+
+    setResponseMessage(`Factory hosted: ${instanceShort}... Publishing Nostr vouch request...`);
+    try {
+      const prepared = await RendezvousService.prepareVouchEvent({
+        network: advertiseNetwork,
+        lnNodeId,
+      });
+      const relayResults = await publishSignedEvent(prepared.signedEvent, prepared.relays);
+      const okCount = relayResults.filter(r => r.status === 'ok').length;
+      const total = relayResults.length;
+      if (okCount === 0) {
+        setResponseStatus(CallStatus.ERROR);
+        setResponseMessage(
+          `Factory hosted, but Nostr publish failed on all ${total} relays. Retry from Discovery settings.`,
+        );
+      } else {
+        setResponseStatus(CallStatus.SUCCESS);
+        setResponseMessage(
+          `Factory hosted: ${instanceShort}... Vouch DM sent to ${okCount}/${total} relays; coordinator typically publishes within ~15s.`,
+        );
+        setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+      }
+    } catch (err: any) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage(
+        `Factory hosted, but Nostr publish failed: ${typeof err === 'string' ? err : err.message || 'unknown error'}`,
+      );
     }
   };
 
@@ -512,6 +573,29 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             <Accordion.Item eventKey='discovery'>
               <Accordion.Header>Discovery</Accordion.Header>
               <Accordion.Body>
+                <Row className='g-2 mb-3'>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='text-light mb-1'>
+                      Chain
+                      <InfoIcon text='Picks which soup-rendezvous coordinator the proof DM is sent to. Should match your CLN node&#39;s network — a mismatch will fail at coordinator verification time (signmessage signed on the wrong chain).' />
+                    </Form.Label>
+                    <Form.Select
+                      value={advertiseNetwork}
+                      onChange={(e) => setAdvertiseNetwork(e.target.value as AdvertiseNetwork)}
+                      disabled={isBusy}
+                      data-testid='factory-create-advertise-network'
+                    >
+                      {ADVERTISE_NETWORKS.map(n => (
+                        <option key={n} value={n}>{n === 'bitcoin' ? 'mainnet (bitcoin)' : n}</option>
+                      ))}
+                    </Form.Select>
+                    {nodeInfo?.network && mapClnNetwork(nodeInfo.network) !== advertiseNetwork && (
+                      <Form.Text className='text-warning'>
+                        Active node reports network <strong>{nodeInfo.network}</strong>. Coordinator verification will likely fail.
+                      </Form.Text>
+                    )}
+                  </Col>
+                </Row>
                 <Form.Check
                   type='switch'
                   id='advertise-nostr'
@@ -522,12 +606,12 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   label={
                     <span>
                       Advertise this factory on Nostr
-                      <InfoIcon text='Publishes a soup-rendezvous ad announcing your LSP and this factory&#39;s open slots, so prospective joiners can discover it. Off by default for private/invite-only factories.' />
+                      <InfoIcon text='After hosting, the wallet sends a soup-rendezvous proof DM to the coordinator for the selected chain. If the proof verifies, the coordinator publishes a kind-38101 vouch with your LN pubkey to its configured relays. Off by default for private/invite-only factories.' />
                     </span>
                   }
                 />
                 <Form.Text className='text-light'>
-                  Nostr is the discovery layer (find the factory). Once a client joins, the factory + channel exchange happens over LN custommsg (bLIP-56) — channels themselves never go through Nostr.
+                  Nostr is the discovery layer. Once a client picks your LSP from a relay, the factory + channel exchange happens over LN custommsg (bLIP-56) — channels themselves never go through Nostr.
                 </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
@@ -535,28 +619,13 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             <Accordion.Item eventKey='economics'>
               <Accordion.Header>Economics</Accordion.Header>
               <Accordion.Body>
-                <Row className='g-2'>
-                  <Col xs={6}>
-                    <Form.Label className='text-light mb-1'>
-                      Flat LSP fee (sat)
-                      <InfoIcon text='One-time fee per client, paid at factory creation. Locked in for this factory&#39;s lifetime — change it on the next ladder generation if you want.' />
-                    </Form.Label>
-                    <Form.Control type='number' value={lspFeeSat} onChange={(e) => setLspFeeSat(e.target.value)} disabled={isBusy} />
-                  </Col>
-                  <Col xs={6}>
-                    <Form.Label className='text-light mb-1'>
-                      LSP fee (ppm)
-                      <InfoIcon text="Parts-per-million of each client&#39;s allocated capacity, paid at factory creation. ppm = ÷1,000,000 (so 1000 ppm = 0.1% of capacity)." />
-                    </Form.Label>
-                    <Form.Control type='number' value={lspFeePpm} onChange={(e) => setLspFeePpm(e.target.value)} disabled={isBusy} />
-                  </Col>
-                  <Col xs={12}>
-                    <Form.Text className='text-light'>
-                      Estimated revenue per factory: <strong className='text-dark'>{fmtSat(plan.derived.feeRevenuePerFactorySat)} sat</strong>
-                      {' '}· per month across the ladder: <strong className='text-dark'>{fmtSat(plan.derived.feeRevenuePerMonthSat)} sat</strong>
-                    </Form.Text>
-                  </Col>
-                </Row>
+                <Form.Text className='text-light'>
+                  v1 is <strong className='text-dark'>pure-routing</strong>: joiners don&#39;t pay a setup fee.
+                  Your LSP earns on per-HTLC forwarding fees as payments flow through the channels
+                  this factory opens. Routing-fee policy (ppm + base) is set per-channel after the
+                  factory confirms, not as a factory-wide policy. See{' '}
+                  <code>FACTORY_POLICY_V1.md</code> §4.4 and §4.12.
+                </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
 

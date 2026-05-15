@@ -21,6 +21,7 @@
     "express-winston": "4.2.0",
     "jsonwebtoken": "9.0.2",
     "lnmessage": "0.2.9",
+    "nostr-tools": "2.23.3",
     "protobufjs": "7.5.4",
     "ts-node": "10.9.2",
     "winston": "3.19.0",
