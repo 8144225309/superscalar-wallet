@@ -65,6 +65,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
 
   const [leafArity, setLeafArity] = useState(String(FACTORY_PLAN_DEFAULTS.leafArity));
   const [leafChannelType, setLeafChannelType] = useState<'pseudo-spilman' | 'ln-penalty'>(FACTORY_PLAN_DEFAULTS.leafChannelType);
+  const [psSubfactoryArity, setPsSubfactoryArity] = useState(String(FACTORY_PLAN_DEFAULTS.psSubfactoryArity));
 
   const [lifetimeBlocks, setLifetimeBlocks] = useState(String(FACTORY_PLAN_DEFAULTS.lifetimeBlocks));
   const [dyingPeriodBlocks, setDyingPeriodBlocks] = useState(String(FACTORY_PLAN_DEFAULTS.dyingPeriodBlocks));
@@ -125,6 +126,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     lspReservePerLeafSat: numOrDefault(lspReservePerLeaf, 0),
     leafArity: numOrDefault(leafArity, 2),
     leafChannelType,
+    psSubfactoryArity: numOrDefault(psSubfactoryArity, FACTORY_PLAN_DEFAULTS.psSubfactoryArity),
     lifetimeBlocks: numOrDefault(lifetimeBlocks, 0),
     dyingPeriodBlocks: numOrDefault(dyingPeriodBlocks, 0),
     epochCount: numOrDefault(epochCount, 1),
@@ -133,7 +135,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     allocationsOverride: parsedAllocations,
     clientNodeIds,
   }), [fundingSats, nClients, perClientCapacity, lspReservePerLeaf, leafArity, leafChannelType,
-    lifetimeBlocks, dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours,
+    psSubfactoryArity, lifetimeBlocks, dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours,
     parsedAllocations, clientNodeIds]);
 
   const persistLocalPrefs = (instanceId: string) => {
@@ -183,6 +185,9 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     if (arity !== FACTORY_PLAN_DEFAULTS.leafArity) options.leaf_arity = arity;
 
     if (leafChannelType !== FACTORY_PLAN_DEFAULTS.leafChannelType) options.leaf_channel_type = leafChannelType;
+
+    const psSub = numOrDefault(psSubfactoryArity, FACTORY_PLAN_DEFAULTS.psSubfactoryArity);
+    if (psSub !== FACTORY_PLAN_DEFAULTS.psSubfactoryArity) options.ps_subfactory_arity = psSub;
 
     const epochs = numOrDefault(epochCount, FACTORY_PLAN_DEFAULTS.epochCount);
     if (epochs !== FACTORY_PLAN_DEFAULTS.epochCount) options.epoch_count = epochs;
@@ -377,6 +382,22 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                       <option value='2'>2 (default — two clients share a leaf)</option>
                       <option value='4'>4</option>
                       <option value='8'>8</option>
+                    </Form.Select>
+                  </Col>
+                  <Col xs={6}>
+                    <Form.Label className='text-light mb-1'>
+                      PS subfactory arity (k, wide-leaf)
+                      <InfoIcon text='k=1 = flat: each leaf is one PS channel. k≥2 = wide-leaf: each leaf is a k×k subfactory holding k² clients. Use k≥2 only when you need to host more clients than a flat tree can fit under BIP-68 CSV stack limits (typically >~100 clients). Requires leaf type = pseudo-spilman.' />
+                    </Form.Label>
+                    <Form.Select
+                      value={psSubfactoryArity}
+                      onChange={(e) => setPsSubfactoryArity(e.target.value)}
+                      disabled={isBusy}
+                    >
+                      <option value='1'>1 (flat — one PS channel per leaf, recommended)</option>
+                      <option value='2'>2 (wide-leaf: 4 clients per outer leaf)</option>
+                      <option value='3'>3 (wide-leaf: 9 clients per outer leaf)</option>
+                      <option value='4'>4 (wide-leaf: 16 clients per outer leaf)</option>
                     </Form.Select>
                   </Col>
                   <Col xs={12}>

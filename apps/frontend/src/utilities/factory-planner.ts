@@ -16,6 +16,7 @@ export const FACTORY_PLAN_DEFAULTS = {
   lspReservePerLeafSat: 50_000,
   leafArity: 2,
   leafChannelType: 'pseudo-spilman' as 'pseudo-spilman' | 'ln-penalty',
+  psSubfactoryArity: 1,
   lifetimeBlocks: 4320,
   dyingPeriodBlocks: 288,
   epochCount: 6,
@@ -39,6 +40,7 @@ export type FactoryPlanInputs = {
   lspReservePerLeafSat: number;
   leafArity: number;
   leafChannelType: 'pseudo-spilman' | 'ln-penalty';
+  psSubfactoryArity: number;
   lifetimeBlocks: number;
   dyingPeriodBlocks: number;
   epochCount: number;
@@ -191,6 +193,29 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
       id: 'ln_penalty_leaves',
       severity: 'info',
       message: 'LN-Penalty leaves require clients to maintain watchtower-grade liveness. Pseudo-Spilman is the design\'s preferred leaf type for mobile/no-coiner clients.',
+    });
+  }
+
+  if (inputs.psSubfactoryArity >= 2) {
+    const subfactorySize = inputs.psSubfactoryArity * inputs.psSubfactoryArity;
+    if (inputs.nClients % subfactorySize !== 0) {
+      warnings.push({
+        id: 'ps_subfactory_size_mismatch',
+        severity: 'warning',
+        message: `Client count (${inputs.nClients}) is not a multiple of k² (${subfactorySize}) for k=${inputs.psSubfactoryArity} wide-leaf. Some outer leaves will be partially filled; consider ${Math.ceil(inputs.nClients / subfactorySize) * subfactorySize} clients.`,
+      });
+    }
+    warnings.push({
+      id: 'ps_subfactory_active',
+      severity: 'info',
+      message: `Wide-leaf active (k=${inputs.psSubfactoryArity}): each outer leaf holds a ${inputs.psSubfactoryArity}×${inputs.psSubfactoryArity}=${subfactorySize}-client subfactory. Reduces tree depth at the cost of larger per-leaf signing ceremonies.`,
+    });
+  }
+  if (inputs.leafChannelType !== 'pseudo-spilman' && inputs.psSubfactoryArity >= 2) {
+    warnings.push({
+      id: 'ps_subfactory_requires_ps_leaves',
+      severity: 'error',
+      message: 'Wide-leaf (psSubfactoryArity ≥ 2) only applies when leaf channel type is pseudo-spilman. Either switch leaf type or set psSubfactoryArity = 1.',
     });
   }
 
