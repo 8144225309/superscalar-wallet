@@ -159,6 +159,54 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   };
 
   const handleCreate = async () => {
+    /* Two modes:
+     *  - Advertise on Nostr ON  → publish LSP capability vouch only, no factory-create.
+     *    Joiners discover the LSP via the rendezvous list and contact peer-to-peer.
+     *    The actual factory materializes later (manual factory-create RPC, or
+     *    auto-create when the plugin gains a JOIN_REQUEST queue).
+     *  - Advertise on Nostr OFF → call factory-create immediately with the policy
+     *    inputs from the dialog. Use when you already have known joiners (clients
+     *    field populated) and want to materialize a specific factory now.
+     */
+    if (advertiseOnNostr) {
+      const lnNodeId = nodeInfo?.id;
+      if (!lnNodeId) {
+        setResponseStatus(CallStatus.ERROR);
+        setResponseMessage('No active node pubkey — cannot advertise on Nostr. Connect a CLN node and retry.');
+        return;
+      }
+      setResponseStatus(CallStatus.PENDING);
+      setResponseMessage(`Publishing LSP advertisement to ${advertiseNetwork} relays...`);
+      try {
+        const prepared = await RendezvousService.prepareVouchEvent({
+          network: advertiseNetwork,
+          lnNodeId,
+        });
+        const relayResults = await publishSignedEvent(prepared.signedEvent, prepared.relays);
+        const okCount = relayResults.filter(r => r.status === 'ok').length;
+        const total = relayResults.length;
+        if (okCount === 0) {
+          setResponseStatus(CallStatus.ERROR);
+          setResponseMessage(
+            `Nostr publish failed on all ${total} relays. Check the rendezvous-settings panel for per-relay errors.`,
+          );
+        } else {
+          setResponseStatus(CallStatus.SUCCESS);
+          setResponseMessage(
+            `LSP advertised on ${advertiseNetwork}: vouch DM accepted by ${okCount}/${total} relays. Coordinator typically publishes the kind-38101 vouch within ~15s.`,
+          );
+          setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
+        }
+      } catch (err: any) {
+        setResponseStatus(CallStatus.ERROR);
+        setResponseMessage(
+          `Nostr publish failed: ${typeof err === 'string' ? err : err.message || 'unknown error'}`,
+        );
+      }
+      return;
+    }
+
+    /* Factory-create path (Advertise on Nostr OFF). */
     const funding = numOrDefault(fundingSats, 0);
     const clientCount = numOrDefault(nClients, 0);
 
@@ -217,51 +265,9 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     }
 
     const instanceShort = createRes.instance_id.substring(0, 16);
-
-    if (!advertiseOnNostr) {
-      setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage(`Factory hosted: ${instanceShort}...`);
-      setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
-      return;
-    }
-
-    const lnNodeId = nodeInfo?.id;
-    if (!lnNodeId) {
-      setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage(
-        `Factory hosted: ${instanceShort}... (Nostr advertise skipped — no active node pubkey)`,
-      );
-      setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
-      return;
-    }
-
-    setResponseMessage(`Factory hosted: ${instanceShort}... Publishing Nostr vouch request...`);
-    try {
-      const prepared = await RendezvousService.prepareVouchEvent({
-        network: advertiseNetwork,
-        lnNodeId,
-      });
-      const relayResults = await publishSignedEvent(prepared.signedEvent, prepared.relays);
-      const okCount = relayResults.filter(r => r.status === 'ok').length;
-      const total = relayResults.length;
-      if (okCount === 0) {
-        setResponseStatus(CallStatus.ERROR);
-        setResponseMessage(
-          `Factory hosted, but Nostr publish failed on all ${total} relays. Retry from Discovery settings.`,
-        );
-      } else {
-        setResponseStatus(CallStatus.SUCCESS);
-        setResponseMessage(
-          `Factory hosted: ${instanceShort}... Vouch DM sent to ${okCount}/${total} relays; coordinator typically publishes within ~15s.`,
-        );
-        setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
-      }
-    } catch (err: any) {
-      setResponseStatus(CallStatus.ERROR);
-      setResponseMessage(
-        `Factory hosted, but Nostr publish failed: ${typeof err === 'string' ? err : err.message || 'unknown error'}`,
-      );
-    }
+    setResponseStatus(CallStatus.SUCCESS);
+    setResponseMessage(`Factory hosted: ${instanceShort}...`);
+    setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
   };
 
   const fmtSat = (n: number) => n.toLocaleString();
@@ -605,8 +611,8 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   disabled={isBusy}
                   label={
                     <span>
-                      Advertise this factory on Nostr
-                      <InfoIcon text='After hosting, the wallet sends a soup-rendezvous proof DM to the coordinator for the selected chain. If the proof verifies, the coordinator publishes a kind-38101 vouch with your LN pubkey to its configured relays. Off by default for private/invite-only factories.' />
+                      Advertise this LSP on Nostr (no factory created yet)
+                      <InfoIcon text='When ON: the wallet only publishes a soup-rendezvous proof DM to the coordinator for the selected chain — no factory-create call. The kind-38101 vouch advertises your LSP capability so joiners can discover you; the actual factory is built later when joiners arrive via peer-to-peer custommsg (or when you separately call factory-create). When OFF: the wallet calls factory-create immediately with the policy inputs in this dialog (use this when you already have specific joiner pubkeys in the Client pubkeys field).' />
                     </span>
                   }
                 />
@@ -719,11 +725,11 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
         <button
           className='btn-rounded bg-primary'
           onClick={handleCreate}
-          disabled={isBusy || !plan.canSubmit}
+          disabled={isBusy || (!advertiseOnNostr && !plan.canSubmit) || (advertiseOnNostr && !nodeInfo?.id)}
           data-testid='button-submit-create-factory'
         >
           {isBusy ? <Spinner animation='border' size='sm' className='me-2' /> : null}
-          Host Factory
+          {advertiseOnNostr ? `Advertise LSP on ${advertiseNetwork} Nostr` : 'Host Factory'}
         </button>
       </Card.Footer>
     </Card>
