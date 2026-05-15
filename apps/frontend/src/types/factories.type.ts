@@ -53,6 +53,7 @@ export type FactoryAllocation = {
 export type FactoryCreateOptions = {
   leaf_arity?: number;
   leaf_channel_type?: 'pseudo-spilman' | 'ln-penalty';
+  ps_subfactory_arity?: number;
   epoch_count?: number;
   lifetime_blocks?: number;
   dying_period_blocks?: number;

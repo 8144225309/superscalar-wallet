@@ -602,6 +602,7 @@ export class FactoriesService {
     if (options) {
       if (options.leaf_arity != null) params.leaf_arity = options.leaf_arity;
       if (options.leaf_channel_type != null) params.leaf_channel_type = options.leaf_channel_type;
+      if (options.ps_subfactory_arity != null) params.ps_subfactory_arity = options.ps_subfactory_arity;
       if (options.epoch_count != null) params.epoch_count = options.epoch_count;
       if (options.lifetime_blocks != null) params.lifetime_blocks = options.lifetime_blocks;
       if (options.dying_period_blocks != null) params.dying_period_blocks = options.dying_period_blocks;
