@@ -51,9 +51,17 @@ app.use(cookieParser());
 app.use(csurf({ cookie: true }) as unknown as express.RequestHandler);
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-cache');
+  /* CSP: the soup-rendezvous browse + advertise flows need outbound
+   * WebSocket connections to user-configured Nostr relays
+   * (wss://nos.lol, wss://relay.damus.io, etc.) and the rendezvous
+   * settings panel may eventually need HTTPS fetches to coordinator
+   * info endpoints. `connect-src 'self' wss: https:` permits both
+   * without hardcoding any specific relay set (which is operator-
+   * configurable per network). default-src remains 'self' so script,
+   * style, image, etc. loads stay locked to the wallet's own origin. */
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; frame-src 'self'; style-src 'self';",
+    "default-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; frame-src 'self'; style-src 'self'; connect-src 'self' wss: https:;",
   );
   next();
 });
