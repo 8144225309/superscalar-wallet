@@ -21,8 +21,6 @@ export const FACTORY_PLAN_DEFAULTS = {
   epochCount: 6,
   blockEarlyCount: 144,
   ladderCadenceHours: 24,
-  lspFeeSat: 0,
-  lspFeePpm: 0,
   autoHostNext: true,
   autoFinalizeOnDying: true,
   autoRotatePeriodically: false,
@@ -46,8 +44,6 @@ export type FactoryPlanInputs = {
   epochCount: number;
   blockEarlyCount: number;
   ladderCadenceHours: number;
-  lspFeeSat: number;
-  lspFeePpm: number;
   allocationsOverride: FactoryAllocation[];
   clientNodeIds: string[];
 };
@@ -67,8 +63,6 @@ export type FactoryPlanDerived = {
   lifetimeDays: number;
   dyingPeriodDays: number;
   cadenceBlocks: number;
-  feeRevenuePerFactorySat: number;
-  feeRevenuePerMonthSat: number;
 };
 
 export type FactoryPlanWarning = {
@@ -91,7 +85,7 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
   const lspReserveTotal = nLeaves * inputs.lspReservePerLeafSat;
   const expectedAllocationSum = Math.max(
     0,
-    inputs.fundingSats - lspReserveTotal - inputs.lspFeeSat,
+    inputs.fundingSats - lspReserveTotal,
   );
 
   const effectiveAllocations = inputs.allocationsOverride.length > 0
@@ -108,7 +102,7 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
   const kickoffsPerMonth = (30 * 24) / inputs.ladderCadenceHours;
   const approxOnchainCostPerMonthSat = Math.round(kickoffsPerMonth * MEDIAN_KICKOFF_FEE_SAT);
 
-  const lspSingleFactoryCommitmentSat = lspReserveTotal + inputs.lspFeeSat;
+  const lspSingleFactoryCommitmentSat = lspReserveTotal;
   const lspLadderCommitmentSat = lspSingleFactoryCommitmentSat * ladderFootprint;
 
   const dwOverheadBlocks = inputs.epochCount * NSEQUENCE_STEP_BLOCKS;
@@ -119,10 +113,6 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
 
   const lifetimeDays = inputs.lifetimeBlocks / BLOCKS_PER_DAY;
   const dyingPeriodDays = inputs.dyingPeriodBlocks / BLOCKS_PER_DAY;
-
-  const feeRevenuePerFactorySat = inputs.nClients * inputs.lspFeeSat
-    + Math.round((allocatedSum * inputs.lspFeePpm) / 1_000_000);
-  const feeRevenuePerMonthSat = Math.round(feeRevenuePerFactorySat * kickoffsPerMonth);
 
   if (inputs.nClients % leafArity !== 0) {
     warnings.push({
@@ -136,7 +126,7 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
     warnings.push({
       id: 'allocation_sum_mismatch',
       severity: 'error',
-      message: `Allocations sum to ${allocatedSum.toLocaleString()} sat but ${expectedAllocationSum.toLocaleString()} sat is available after LSP reserve and fees. Adjust allocations or funding amount.`,
+      message: `Allocations sum to ${allocatedSum.toLocaleString()} sat but ${expectedAllocationSum.toLocaleString()} sat is available after LSP reserve. Adjust allocations or funding amount.`,
     });
   }
 
@@ -246,8 +236,6 @@ export function planFactory(inputs: FactoryPlanInputs): FactoryPlan {
       lifetimeDays,
       dyingPeriodDays,
       cadenceBlocks,
-      feeRevenuePerFactorySat,
-      feeRevenuePerMonthSat,
     },
     warnings,
     canSubmit,

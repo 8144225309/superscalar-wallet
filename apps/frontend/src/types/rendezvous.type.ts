@@ -60,8 +60,6 @@ export interface BrowseFactory {
   slots_total: number;
   lifecycle: string;
   expiry_block?: number;
-  lsp_fee_sat?: number;
-  lsp_fee_ppm?: number;
 }
 
 export interface VouchListSlice {

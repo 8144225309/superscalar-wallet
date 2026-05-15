@@ -90,9 +90,6 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     mapClnNetwork(nodeInfo?.network),
   );
 
-  const [lspFeeSat, setLspFeeSat] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeeSat));
-  const [lspFeePpm, setLspFeePpm] = useState(String(FACTORY_PLAN_DEFAULTS.lspFeePpm));
-
   const [useAllocationOverride, setUseAllocationOverride] = useState(false);
   const [allocationOverrideRaw, setAllocationOverrideRaw] = useState('');
 
@@ -133,13 +130,11 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     epochCount: numOrDefault(epochCount, 1),
     blockEarlyCount: numOrDefault(blockEarlyCount, 0),
     ladderCadenceHours: numOrDefault(ladderCadenceHours, 1),
-    lspFeeSat: numOrDefault(lspFeeSat, 0),
-    lspFeePpm: numOrDefault(lspFeePpm, 0),
     allocationsOverride: parsedAllocations,
     clientNodeIds,
   }), [fundingSats, nClients, perClientCapacity, lspReservePerLeaf, leafArity, leafChannelType,
     lifetimeBlocks, dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours,
-    lspFeeSat, lspFeePpm, parsedAllocations, clientNodeIds]);
+    parsedAllocations, clientNodeIds]);
 
   const persistLocalPrefs = (instanceId: string) => {
     const prefs: FactoryLocalPrefs = {
@@ -187,11 +182,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     const arity = numOrDefault(leafArity, FACTORY_PLAN_DEFAULTS.leafArity);
     if (arity !== FACTORY_PLAN_DEFAULTS.leafArity) options.leaf_arity = arity;
 
-    if (leafChannelType !== FACTORY_PLAN_DEFAULTS.leafChannelType) {
-      options.leaf_channel_type = leafChannelType;
-    } else {
-      options.leaf_channel_type = leafChannelType;
-    }
+    if (leafChannelType !== FACTORY_PLAN_DEFAULTS.leafChannelType) options.leaf_channel_type = leafChannelType;
 
     const epochs = numOrDefault(epochCount, FACTORY_PLAN_DEFAULTS.epochCount);
     if (epochs !== FACTORY_PLAN_DEFAULTS.epochCount) options.epoch_count = epochs;
@@ -204,12 +195,6 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
 
     const blockEarly = numOrDefault(blockEarlyCount, FACTORY_PLAN_DEFAULTS.blockEarlyCount);
     if (blockEarly !== FACTORY_PLAN_DEFAULTS.blockEarlyCount) options.block_early_count = blockEarly;
-
-    const feeSat = numOrDefault(lspFeeSat, 0);
-    if (feeSat > 0) options.lsp_fee_sat = feeSat;
-
-    const feePpm = numOrDefault(lspFeePpm, 0);
-    if (feePpm > 0) options.lsp_fee_ppm = feePpm;
 
     if (useAllocationOverride && parsedAllocations.length > 0) {
       options.allocations = parsedAllocations;
@@ -634,28 +619,13 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             <Accordion.Item eventKey='economics'>
               <Accordion.Header>Economics</Accordion.Header>
               <Accordion.Body>
-                <Row className='g-2'>
-                  <Col xs={6}>
-                    <Form.Label className='text-light mb-1'>
-                      Flat LSP fee (sat)
-                      <InfoIcon text='One-time fee per client, paid at factory creation. Locked in for this factory&#39;s lifetime — change it on the next ladder generation if you want.' />
-                    </Form.Label>
-                    <Form.Control type='number' value={lspFeeSat} onChange={(e) => setLspFeeSat(e.target.value)} disabled={isBusy} />
-                  </Col>
-                  <Col xs={6}>
-                    <Form.Label className='text-light mb-1'>
-                      LSP fee (ppm)
-                      <InfoIcon text="Parts-per-million of each client&#39;s allocated capacity, paid at factory creation. ppm = ÷1,000,000 (so 1000 ppm = 0.1% of capacity)." />
-                    </Form.Label>
-                    <Form.Control type='number' value={lspFeePpm} onChange={(e) => setLspFeePpm(e.target.value)} disabled={isBusy} />
-                  </Col>
-                  <Col xs={12}>
-                    <Form.Text className='text-light'>
-                      Estimated revenue per factory: <strong className='text-dark'>{fmtSat(plan.derived.feeRevenuePerFactorySat)} sat</strong>
-                      {' '}· per month across the ladder: <strong className='text-dark'>{fmtSat(plan.derived.feeRevenuePerMonthSat)} sat</strong>
-                    </Form.Text>
-                  </Col>
-                </Row>
+                <Form.Text className='text-light'>
+                  v1 is <strong className='text-dark'>pure-routing</strong>: joiners don&#39;t pay a setup fee.
+                  Your LSP earns on per-HTLC forwarding fees as payments flow through the channels
+                  this factory opens. Routing-fee policy (ppm + base) is set per-channel after the
+                  factory confirms, not as a factory-wide policy. See{' '}
+                  <code>FACTORY_POLICY_V1.md</code> §4.4 and §4.12.
+                </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
 
