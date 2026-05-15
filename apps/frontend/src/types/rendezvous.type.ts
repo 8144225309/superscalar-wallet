@@ -126,4 +126,10 @@ export interface RendezvousState {
   vouchList: VouchListSlice;
   /** browseCache keyed by ln_node_id. Empty for now — populated once factory-browse RPC ships. */
   browseCache: Record<string, BrowseCacheEntry>;
+  /** Monotonically increasing counter that any component can bump to ask the
+   * rendezvous list to re-fetch. Used by FactoryCreate after a successful
+   * advertise publish to close the loop: the coord typically takes ~15s to
+   * emit the kind-38101 vouch, so the publisher schedules a bump ~20s later
+   * and ConnectList's useEffect picks up the change and re-queries the relays. */
+  vouchRefreshTrigger: number;
 }

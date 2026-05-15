@@ -19,6 +19,7 @@ export const defaultRendezvousState: RendezvousState = {
     errors: {},
   },
   browseCache: {},
+  vouchRefreshTrigger: 0,
 };
 
 const selectRendezvousState = (state: { rendezvous?: RendezvousState }) =>
@@ -95,3 +96,8 @@ export const selectMergedVouchList = createSelector(
 
 export const selectBrowseCacheFor = (lnNodeId: string) =>
   createSelector(selectRendezvousState, (s) => s.browseCache[lnNodeId]);
+
+export const selectVouchRefreshTrigger = createSelector(
+  selectRendezvousState,
+  (s) => s.vouchRefreshTrigger,
+);
