@@ -51,6 +51,24 @@ const numOrDefault = (s: string, fallback: number): number => {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 };
 
+/** True if the user typed something that looks like a numeric input but can't be parsed as a non-negative integer. Empty string counts as "not entered yet" — fall through to default. */
+const isInvalidNumericInput = (s: string): boolean => {
+  if (s.trim() === '') return false;
+  const n = parseInt(s, 10);
+  return !Number.isFinite(n) || n < 0 || String(n) !== s.trim();
+};
+
+/** Surface useful debug info even when the error object has no .message field (e.g. raw axios shapes, plain objects). */
+const formatErr = (err: any, fallback: string): string => {
+  if (typeof err === 'string') return err;
+  if (err?.message) return err.message;
+  try {
+    const s = JSON.stringify(err);
+    if (s && s !== '{}' && s !== 'null') return s;
+  } catch { /* circular ref or non-stringifiable */ }
+  return fallback;
+};
+
 const InfoIcon = ({ text }: { text: string }) => (
   <OverlayTrigger placement='auto' overlay={<Tooltip>{text}</Tooltip>}>
     <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
@@ -190,8 +208,36 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     psSubfactoryArity, lifetimeBlocks, dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours,
     parsedAllocations, clientNodeIds]);
 
-  const allWarnings = useMemo(() => [...inputWarnings, ...plan.warnings], [inputWarnings, plan.warnings]);
-  const canSubmit = plan.canSubmit && inputWarnings.length === 0;
+  const fieldInvalidWarnings: FactoryPlanWarning[] = useMemo(() => {
+    const checks: Array<[string, string]> = [
+      [fundingSats, 'Total funding'],
+      [nClients, 'Client count'],
+      [perClientCapacity, 'Per-client capacity'],
+      [lspReservePerLeaf, 'LSP reserve per leaf'],
+      [leafArity, 'Leaf arity'],
+      [lifetimeBlocks, 'Lifetime blocks'],
+      [dyingPeriodBlocks, 'Dying period blocks'],
+      [epochCount, 'Epoch count'],
+      [blockEarlyCount, 'Block early count'],
+      [ladderCadenceHours, 'Ladder cadence hours'],
+      [htlcMinSat, 'HTLC min sat'],
+      [htlcMaxSat, 'HTLC max sat'],
+    ];
+    return checks
+      .filter(([val]) => isInvalidNumericInput(val))
+      .map(([val, label]) => ({
+        id: `numeric_invalid_${label}`,
+        severity: 'error' as const,
+        message: `${label} has an invalid value: "${val}". Enter a non-negative integer.`,
+      }));
+  }, [fundingSats, nClients, perClientCapacity, lspReservePerLeaf, leafArity, lifetimeBlocks,
+    dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours, htlcMinSat, htlcMaxSat]);
+
+  const allWarnings = useMemo(
+    () => [...inputWarnings, ...fieldInvalidWarnings, ...plan.warnings],
+    [inputWarnings, fieldInvalidWarnings, plan.warnings],
+  );
+  const canSubmit = plan.canSubmit && inputWarnings.length === 0 && fieldInvalidWarnings.length === 0;
 
   const persistLocalPrefs = (instanceId: string) => {
     const prefs: FactoryLocalPrefs = {
@@ -320,7 +366,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
       FactoriesService.fetchFactoriesData();
     } catch (err: any) {
       setResponseStatus(CallStatus.ERROR);
-      setResponseMessage(typeof err === 'string' ? err : err.message || 'Factory hosting failed');
+      setResponseMessage(formatErr(err, 'Factory hosting failed'));
       return;
     }
 
