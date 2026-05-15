@@ -30,6 +30,7 @@ import {
   selectVouchesLoading,
   makeSelectActiveCoordinators,
   selectEnabledRelays,
+  selectVouchRefreshTrigger,
 } from '../../../store/rendezvousSelectors';
 import {
   setSettings,
@@ -199,6 +200,18 @@ const ConnectList = () => {
     const id = setInterval(() => { refreshVouches(); }, intervalMs);
     return () => clearInterval(id);
   }, [showSample, settings, refreshVouches]);
+
+  /* Re-fetch on demand when another component bumps the trigger. Currently
+   * fired by FactoryCreate ~20s after a successful Advertise publish so the
+   * Connect page reflects the new vouch without the user having to click
+   * the manual Refresh button. The trigger starts at 0; skip the initial
+   * render to avoid a duplicate fetch immediately after mount. */
+  const vouchRefreshTrigger = useSelector(selectVouchRefreshTrigger);
+  useEffect(() => {
+    if (showSample) return;
+    if (vouchRefreshTrigger === 0) return;
+    refreshVouches();
+  }, [showSample, vouchRefreshTrigger, refreshVouches]);
 
   const activePubkey = activeProfile?.pubkey;
 

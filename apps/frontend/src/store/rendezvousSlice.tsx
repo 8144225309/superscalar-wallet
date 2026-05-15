@@ -52,6 +52,13 @@ const rendezvousSlice = createSlice({
     clearBrowseCache(state) {
       state.browseCache = {};
     },
+    /** Bump the refresh trigger to ask any subscribed component (currently
+     * ConnectList) to re-fetch the rendezvous list. Used after a successful
+     * advertise publish to close the loop without making the user remember
+     * to click the manual Refresh button. */
+    bumpVouchRefreshTrigger(state) {
+      state.vouchRefreshTrigger = (state.vouchRefreshTrigger || 0) + 1;
+    },
     clearRendezvousStore() {
       return defaultRendezvousState;
     },
@@ -66,6 +73,7 @@ export const {
   setVouchList,
   setBrowseCacheEntry,
   clearBrowseCache,
+  bumpVouchRefreshTrigger,
   clearRendezvousStore,
 } = rendezvousSlice.actions;
 

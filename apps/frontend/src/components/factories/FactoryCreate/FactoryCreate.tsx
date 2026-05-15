@@ -1,6 +1,7 @@
 import './FactoryCreate.scss';
 import { useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { bumpVouchRefreshTrigger } from '../../../store/rendezvousSlice';
 import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { FactoriesService, RendezvousService } from '../../../services/http.service';
@@ -124,6 +125,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
 
   const [advertiseOnNostr, setAdvertiseOnNostr] = useState(FACTORY_PLAN_DEFAULTS.advertiseOnNostr);
   const nodeInfo = useSelector(selectNodeInfo);
+  const dispatch = useDispatch();
   const [advertiseNetwork, setAdvertiseNetwork] = useState<AdvertiseNetwork>(() =>
     mapClnNetwork(nodeInfo?.network),
   );
@@ -315,6 +317,11 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
           setResponseMessage(
             `LSP advertised on ${advertiseNetwork}: vouch DM accepted by ${okCount}/${total} relays. Coordinator typically publishes the kind-38101 vouch within ~15s.`,
           );
+          /* The coord publishes the kind-38101 vouch ~15s after receiving the
+           * proof DM. Schedule a rendezvous-list refresh ~20s after publish
+           * so the Connect page picks up the new vouch without making the
+           * user remember to click the manual Refresh button. */
+          setTimeout(() => dispatch(bumpVouchRefreshTrigger()), 20000);
           setTimeout(() => onClose(), CLEAR_STATUS_ALERT_DELAY);
         }
       } catch (err: any) {
