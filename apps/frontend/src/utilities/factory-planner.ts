@@ -18,7 +18,7 @@ export const FACTORY_PLAN_DEFAULTS = {
   leafChannelType: 'pseudo-spilman' as 'pseudo-spilman' | 'ln-penalty',
   psSubfactoryArity: 1,
   lifetimeBlocks: 4320,
-  dyingPeriodBlocks: 288,
+  dyingPeriodBlocks: 432,
   epochCount: 6,
   blockEarlyCount: 144,
   ladderCadenceHours: 24,
@@ -31,6 +31,34 @@ export const FACTORY_PLAN_DEFAULTS = {
   htlcMinSat: 1,
   htlcMaxSat: 0,
   advertiseOnNostr: false,
+};
+
+/**
+ * Lifetime presets grounded in ZmnSCPxj's SuperScalar design posts
+ * (delvingbitcoin.org/t/.../1143 and /1242).
+ *
+ * 'production' matches the only concrete recommendation in either post:
+ *   "I would mildly suggest an active period of 30 days and a dying period
+ *    of 3 days; an LSP would then need to maintain 33 different factories
+ *    at any time."
+ *
+ * 'demo' matches the smaller worked example used to illustrate the math
+ * (7-day active + 2-day dying = 9 concurrent factories). Useful for
+ * early-mainnet or testnet operation when a 33-factory ladder is too
+ * much capital exposure.
+ */
+export type LifetimePresetId = 'production' | 'demo' | 'custom';
+export const LIFETIME_PRESETS: Record<Exclude<LifetimePresetId, 'custom'>, { lifetimeBlocks: number; dyingPeriodBlocks: number; label: string }> = {
+  production: {
+    lifetimeBlocks: 4320,
+    dyingPeriodBlocks: 432,
+    label: 'Production (30+3 days, design-recommended)',
+  },
+  demo: {
+    lifetimeBlocks: 1008,
+    dyingPeriodBlocks: 288,
+    label: 'Demo / early-mainnet (7+2 days, smaller exposure)',
+  },
 };
 
 export type FactoryPlanInputs = {
