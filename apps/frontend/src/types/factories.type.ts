@@ -45,6 +45,37 @@ export type Factory = {
   channels: FactoryChannel[];
 };
 
+export type FactoryAllocation = {
+  node_id: string;
+  capacity_sat: number;
+};
+
+export type FactoryCreateOptions = {
+  leaf_arity?: number;
+  leaf_channel_type?: 'pseudo-spilman' | 'ln-penalty';
+  epoch_count?: number;
+  lifetime_blocks?: number;
+  dying_period_blocks?: number;
+  block_early_count?: number;
+  lsp_fee_sat?: number;
+  lsp_fee_ppm?: number;
+  allocations?: FactoryAllocation[];
+};
+
+export type FactoryLocalPrefs = {
+  label?: string;
+  autoHostNext: boolean;
+  autoFinalizeOnDying: boolean;
+  autoRotatePeriodically: boolean;
+  autoAcceptJoiners: boolean;
+  banlist: string[];
+  allowBolt12: boolean;
+  allowAmp: boolean;
+  htlcMinSat: number;
+  htlcMaxSat: number;
+  advertiseOnNostr: boolean;
+};
+
 export type FactoryCreateResponse = {
   instance_id: string;
   n_clients: number;
