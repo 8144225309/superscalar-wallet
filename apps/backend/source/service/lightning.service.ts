@@ -1,4 +1,6 @@
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as net from 'net';
 import https from 'https';
 import axios, { AxiosHeaders } from 'axios';
 import Lnmessage from 'lnmessage';
@@ -36,6 +38,12 @@ export class LightningService {
   /** True once the WS connection has been established at least once. Prevents
    *  the initial 'disconnected' status from lnmessage from marking a fresh service dead. */
   private wasConnected: boolean = false;
+  /** Local Unix-socket path (lightning-rpc) when known. Lets signMessage
+   *  bypass commando-over-WebSocket on co-located CLN deployments where
+   *  the local lnmessage library can't reliably deliver RPCs against
+   *  newer CLN versions. Falls back to commando when not set or socket
+   *  is unreachable. */
+  private socketPath?: string;
 
   constructor(skipInit?: typeof SKIP_INIT) {
     if (skipInit === SKIP_INIT) {
@@ -111,6 +119,7 @@ export class LightningService {
     svc.clnService = new Lnmessage(config);
     svc.clnService.connect();
     svc.rune = profile.rune;
+    svc.socketPath = profile.sourcePath;
     // Subscribe to connection status so we can mark the service dead when the WS closes.
     // lnmessage emits 'disconnected' when the underlying WebSocket goes away.
     try {
@@ -204,6 +213,27 @@ export class LightningService {
   signMessage = async (
     message: string,
   ): Promise<{ zbase: string; signature: string; pubkey?: string }> => {
+    /* Try the Unix socket first when the wallet is co-located with CLN.
+     * lnmessage 0.2.9 commando hangs against newer CLN versions in some
+     * configurations (WS handshake completes, commando RPCs never reply);
+     * the local lightning-rpc socket bypasses that path entirely. */
+    if (this.socketPath && fs.existsSync(this.socketPath)) {
+      try {
+        const res: any = await this.rpcViaSocket('signmessage', [message]);
+        if (!res || typeof res.zbase !== 'string') {
+          throw new LightningError(
+            HttpStatusCode.LIGHTNING_SERVER,
+            'signmessage (socket) returned no zbase field',
+          );
+        }
+        return { zbase: res.zbase, signature: res.signature, pubkey: res.pubkey };
+      } catch (err: any) {
+        logger.warn(
+          'signMessage via socket ' + this.socketPath + ' failed (' +
+            (err.message || err) + '); falling back to commando',
+        );
+      }
+    }
     const res: any = await this.call('signmessage', [message]);
     if (!res || typeof res.zbase !== 'string') {
       throw new LightningError(
@@ -213,6 +243,37 @@ export class LightningService {
     }
     return { zbase: res.zbase, signature: res.signature, pubkey: res.pubkey };
   };
+
+  /** Send a JSON-RPC call directly over the CLN lightning-rpc Unix socket.
+   * Mirrors NodeProfilesService.rpcCall — kept private here so signMessage
+   * has a path that doesn't depend on lnmessage/commando. */
+  private rpcViaSocket(method: string, params: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (!this.socketPath) {
+        reject(new Error('no socketPath on this LightningService instance'));
+        return;
+      }
+      const client = net.createConnection({ path: this.socketPath }, () => {
+        const id = Math.floor(Math.random() * 1000000);
+        client.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+      });
+      let data = '';
+      client.on('data', chunk => {
+        data += chunk.toString();
+        try {
+          const parsed = JSON.parse(data);
+          client.destroy();
+          if (parsed.error) {
+            reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
+          } else {
+            resolve(parsed.result);
+          }
+        } catch { /* partial JSON, wait for more */ }
+      });
+      client.on('error', err => { client.destroy(); reject(err); });
+      client.setTimeout(5000, () => { client.destroy(); reject(new Error('socket RPC timeout')); });
+    });
+  }
 
   call = async (method: string, methodParams: any[]) => {
     switch (APP_CONSTANTS.APP_CONNECT) {

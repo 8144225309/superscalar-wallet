@@ -118,6 +118,7 @@ export class NodeManager {
           network: candidate.network,
           blockheight: candidate.blockheight,
           lastSeen: Date.now(),
+          sourcePath: candidate.sourcePath,
         };
         if (!existing) {
           this.profilesService.addProfile(profile);
