@@ -483,30 +483,36 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                       <option value='ln-penalty'>LN-Penalty (Poon-Dryja)</option>
                     </Form.Select>
                   </Col>
-                  <Col xs={6}>
-                    <Form.Label className='text-light mb-1'>Leaf arity</Form.Label>
-                    <Form.Select value={leafArity} onChange={(e) => setLeafArity(e.target.value)} disabled={isBusy}>
-                      <option value='2'>2 (default — two clients share a leaf)</option>
-                      <option value='4'>4</option>
-                      <option value='8'>8</option>
-                    </Form.Select>
-                  </Col>
-                  <Col xs={6}>
-                    <Form.Label className='text-light mb-1'>
-                      PS subfactory arity (k, wide-leaf)
-                      <InfoIcon text='k=1 = flat: each leaf is one PS channel. k≥2 = wide-leaf: each leaf is a k×k subfactory holding k² clients. Use k≥2 only when you need to host more clients than a flat tree can fit under BIP-68 CSV stack limits (typically >~100 clients). Requires leaf type = pseudo-spilman.' />
-                    </Form.Label>
-                    <Form.Select
-                      value={psSubfactoryArity}
-                      onChange={(e) => setPsSubfactoryArity(e.target.value)}
-                      disabled={isBusy}
-                    >
-                      <option value='1'>1 (flat — one PS channel per leaf, recommended)</option>
-                      <option value='2'>2 (wide-leaf: 4 clients per outer leaf)</option>
-                      <option value='3'>3 (wide-leaf: 9 clients per outer leaf)</option>
-                      <option value='4'>4 (wide-leaf: 16 clients per outer leaf)</option>
-                    </Form.Select>
-                  </Col>
+                  {leafChannelType === 'pseudo-spilman' ? (
+                    <Col xs={6}>
+                      <Form.Label className='text-light mb-1'>
+                        Wide-leaf factor (k)
+                        <InfoIcon text='k=1 = flat: each leaf is one PS channel. k≥2 = wide-leaf: each outer leaf is a k×k subfactory holding k² clients. Use k≥2 only when you need to host more clients than a flat tree can fit under BIP-68 CSV stack limits (typically >~100 clients).' />
+                      </Form.Label>
+                      <Form.Select
+                        value={psSubfactoryArity}
+                        onChange={(e) => setPsSubfactoryArity(e.target.value)}
+                        disabled={isBusy}
+                      >
+                        <option value='1'>1 — flat (one PS channel per leaf, recommended)</option>
+                        <option value='2'>2 — wide-leaf (4 clients per outer leaf)</option>
+                        <option value='3'>3 — wide-leaf (9 clients per outer leaf)</option>
+                        <option value='4'>4 — wide-leaf (16 clients per outer leaf)</option>
+                      </Form.Select>
+                    </Col>
+                  ) : (
+                    <Col xs={6}>
+                      <Form.Label className='text-light mb-1'>
+                        Clients per leaf
+                        <InfoIcon text='Number of clients sharing a single leaf in the Decker-Wattenhofer tree. 2 = standard binary leaves. Higher values reduce tree depth at the cost of larger per-leaf signing ceremonies.' />
+                      </Form.Label>
+                      <Form.Select value={leafArity} onChange={(e) => setLeafArity(e.target.value)} disabled={isBusy}>
+                        <option value='2'>2 — binary (default)</option>
+                        <option value='4'>4 — quad</option>
+                        <option value='8'>8 — octal</option>
+                      </Form.Select>
+                    </Col>
+                  )}
                   <Col xs={12}>
                     <div className='text-light'>
                       Derived leaves: <span className='fw-bold text-dark'>{plan.derived.nLeaves}</span>
