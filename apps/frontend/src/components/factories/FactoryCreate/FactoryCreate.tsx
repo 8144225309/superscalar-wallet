@@ -11,9 +11,11 @@ import {
   BLOCKS_PER_HOUR,
   blocksToDuration,
   planFactory,
+  FactoryPlanWarning,
 } from '../../../utilities/factory-planner';
 import { FactoryAllocation, FactoryCreateOptions, FactoryLocalPrefs } from '../../../types/factories.type';
 import { selectNodeInfo } from '../../../store/rootSelectors';
+import { isCompressedPubkey, truncatePubkey } from '../../../utilities/validators';
 
 type AdvertiseNetwork = 'bitcoin' | 'signet' | 'testnet4';
 const ADVERTISE_NETWORKS: AdvertiseNetwork[] = ['bitcoin', 'signet', 'testnet4'];
@@ -97,27 +99,77 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   const [responseStatus, setResponseStatus] = useState(CallStatus.NONE);
   const [responseMessage, setResponseMessage] = useState('');
 
-  const clientNodeIds = useMemo(() => clientPubkeysRaw
-    .split(/\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0), [clientPubkeysRaw]);
+  const clientPubkeyParse = useMemo(() => {
+    const items = clientPubkeysRaw.split(/\s+/).map(s => s.trim()).filter(s => s.length > 0);
+    return {
+      valid: items.filter(isCompressedPubkey),
+      invalid: items.filter(s => !isCompressedPubkey(s)),
+    };
+  }, [clientPubkeysRaw]);
+  const clientNodeIds = clientPubkeyParse.valid;
 
-  const banlist = useMemo(() => banlistRaw
-    .split(/\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 0), [banlistRaw]);
+  const banlistParse = useMemo(() => {
+    const items = banlistRaw.split(/\s+/).map(s => s.trim()).filter(s => s.length > 0);
+    return {
+      valid: items.filter(isCompressedPubkey),
+      invalid: items.filter(s => !isCompressedPubkey(s)),
+    };
+  }, [banlistRaw]);
+  const banlist = banlistParse.valid;
 
-  const parsedAllocations: FactoryAllocation[] = useMemo(() => {
-    if (!useAllocationOverride) return [];
-    return allocationOverrideRaw
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0)
-      .map(line => {
-        const [node_id, capStr] = line.split(/[,\s]+/);
-        return { node_id: node_id || '', capacity_sat: parseInt(capStr, 10) || 0 };
-      });
+  const allocationParse = useMemo(() => {
+    if (!useAllocationOverride) return { valid: [] as FactoryAllocation[], lineErrors: [] as Array<{ line: number; reason: string }> };
+    const lines = allocationOverrideRaw.split('\n').map(l => l.trim());
+    const valid: FactoryAllocation[] = [];
+    const lineErrors: Array<{ line: number; reason: string }> = [];
+    lines.forEach((line, idx) => {
+      if (line.length === 0) return;
+      const parts = line.split(/[,\s]+/).filter(p => p.length > 0);
+      const [node_id, capStr] = [parts[0] || '', parts[1] || ''];
+      if (!isCompressedPubkey(node_id)) {
+        lineErrors.push({ line: idx + 1, reason: `node_id "${truncatePubkey(node_id) || '<missing>'}" is not a valid compressed pubkey` });
+        return;
+      }
+      const capacity_sat = parseInt(capStr, 10);
+      if (!Number.isFinite(capacity_sat) || capacity_sat <= 0) {
+        lineErrors.push({ line: idx + 1, reason: `capacity "${capStr || '<missing>'}" is not a positive integer` });
+        return;
+      }
+      valid.push({ node_id, capacity_sat });
+    });
+    return { valid, lineErrors };
   }, [useAllocationOverride, allocationOverrideRaw]);
+  const parsedAllocations = allocationParse.valid;
+
+  const inputWarnings: FactoryPlanWarning[] = useMemo(() => {
+    const warnings: FactoryPlanWarning[] = [];
+    if (clientPubkeyParse.invalid.length > 0) {
+      const samples = clientPubkeyParse.invalid.slice(0, 3).map(s => truncatePubkey(s)).join(', ');
+      const more = clientPubkeyParse.invalid.length > 3 ? `, +${clientPubkeyParse.invalid.length - 3} more` : '';
+      warnings.push({
+        id: 'client_pubkey_invalid',
+        severity: 'error',
+        message: `${clientPubkeyParse.invalid.length} client pubkey(s) invalid: ${samples}${more}. Each must be 64 hex chars starting with 02 or 03.`,
+      });
+    }
+    if (banlistParse.invalid.length > 0) {
+      const samples = banlistParse.invalid.slice(0, 3).map(s => truncatePubkey(s)).join(', ');
+      const more = banlistParse.invalid.length > 3 ? `, +${banlistParse.invalid.length - 3} more` : '';
+      warnings.push({
+        id: 'banlist_invalid',
+        severity: 'error',
+        message: `${banlistParse.invalid.length} banlist entry(ies) invalid: ${samples}${more}. Each must be 64 hex chars starting with 02 or 03.`,
+      });
+    }
+    allocationParse.lineErrors.forEach(err => {
+      warnings.push({
+        id: `allocation_line_${err.line}`,
+        severity: 'error',
+        message: `Allocation line ${err.line}: ${err.reason}.`,
+      });
+    });
+    return warnings;
+  }, [clientPubkeyParse, banlistParse, allocationParse]);
 
   const plan = useMemo(() => planFactory({
     fundingSats: numOrDefault(fundingSats, 0),
@@ -137,6 +189,9 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   }), [fundingSats, nClients, perClientCapacity, lspReservePerLeaf, leafArity, leafChannelType,
     psSubfactoryArity, lifetimeBlocks, dyingPeriodBlocks, epochCount, blockEarlyCount, ladderCadenceHours,
     parsedAllocations, clientNodeIds]);
+
+  const allWarnings = useMemo(() => [...inputWarnings, ...plan.warnings], [inputWarnings, plan.warnings]);
+  const canSubmit = plan.canSubmit && inputWarnings.length === 0;
 
   const persistLocalPrefs = (instanceId: string) => {
     const prefs: FactoryLocalPrefs = {
@@ -222,7 +277,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
       setResponseMessage('Client count must be at least 1');
       return;
     }
-    if (!plan.canSubmit) {
+    if (!canSubmit) {
       setResponseStatus(CallStatus.ERROR);
       setResponseMessage('Fix the errors in the summary panel before hosting.');
       return;
@@ -727,9 +782,9 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
             </Row>
           </section>
 
-          {plan.warnings.length > 0 && (
+          {allWarnings.length > 0 && (
             <section className='mt-2'>
-              {plan.warnings.map(w => (
+              {allWarnings.map(w => (
                 <Alert key={w.id} variant={w.severity === 'error' ? 'danger' : w.severity === 'warning' ? 'warning' : 'info'} className='py-2 px-3 mb-2'>
                   {w.message}
                 </Alert>
@@ -746,7 +801,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
         <button
           className='btn-rounded bg-primary'
           onClick={handleCreate}
-          disabled={isBusy || (!advertiseOnNostr && !plan.canSubmit) || (advertiseOnNostr && !nodeInfo?.id)}
+          disabled={isBusy || (!advertiseOnNostr && !canSubmit) || (advertiseOnNostr && !nodeInfo?.id)}
           data-testid='button-submit-create-factory'
         >
           {isBusy ? <Spinner animation='border' size='sm' className='me-2' /> : null}
