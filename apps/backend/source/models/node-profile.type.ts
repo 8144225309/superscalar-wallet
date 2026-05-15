@@ -9,6 +9,11 @@ export interface NodeProfile {
   alias?: string; // from getinfo
   blockheight?: number; // from getinfo
   lastSeen?: number; // unix timestamp
+  /** Local Unix-socket path (lightning-rpc) when the wallet is co-located
+   * with the CLN node. Lets the wallet bypass commando-over-WebSocket
+   * for RPCs that the local lnmessage library can't reliably deliver
+   * against newer CLN versions. */
+  sourcePath?: string;
 }
 
 export interface NodeProfilesConfig {

@@ -102,6 +102,7 @@ export class NodeProfilesService {
     network?: string;
     alias?: string;
     blockheight?: number;
+    sourcePath?: string;
   }): NodeProfile {
     const config = this.loadProfiles();
     const profileId = this.generateProfileId(params.pubkey, params.wsHost, params.wsPort);
@@ -124,6 +125,7 @@ export class NodeProfilesService {
       existing.alias = params.alias || existing.alias;
       existing.blockheight = params.blockheight || existing.blockheight;
       existing.lastSeen = Date.now();
+      if (params.sourcePath) existing.sourcePath = params.sourcePath;
       this.saveProfiles(config);
       return existing;
     }
@@ -139,6 +141,7 @@ export class NodeProfilesService {
       alias: params.alias,
       blockheight: params.blockheight,
       lastSeen: Date.now(),
+      sourcePath: params.sourcePath,
     };
 
     config.profiles.push(profile);
