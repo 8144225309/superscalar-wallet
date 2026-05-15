@@ -173,9 +173,9 @@ A field's strength flows from what part of the system observes it:
 
 | Strength | Fields |
 |---|---|
-| `hard` | `lifetime_blocks`, `dying_period_blocks`, `block_early_count`, `confirm_timeout_sec`, `arity_mode`, `leaf_arity`, `leaf_channel_type`, `ps_subfactory_arity`, `epoch_count`, `n_layers`, `dw_step_blocks`, `static_near_root_layers`, `per_client_capacity_sat`, `lsp_reserve_per_leaf_sat`, `lsp_initial_balance_pct`, `lsp_fee_sat`, `lsp_fee_ppm`, `max_accepted_htlcs`, `max_advance_count_per_leaf` |
-| `joiner_enforceable_hard` | `htlc_min_sat`, `htlc_max_sat`, `max_concurrent_htlcs_per_channel`, `max_in_flight_msat_per_channel`, `min_final_cltv_expiry_delta`, `cltv_expiry_delta_forward`, `min_capacity_per_join_sat`, `max_capacity_per_join_sat`, `proof_tier_required`, `rotation_interval_blocks`, `allow_tier_b_rollover`, `state_replay_defense_window_blocks` |
-| `soft` | `allow_bolt12`, `allow_amp`, `allow_blinded_paths`, `auto_accept_joiners`, `banlist`, `allowlist`, `auto_finalize_on_dying`, `joiner_admission_window_blocks`, `join_fee_sat`, `watchtower_mode`, `poison_tx_strategy`, `breach_response_fee_rate_sat_per_kvb`, `wt_startup_scan_depth_blocks`, `reorg_alarm_depth_blocks`, `reorg_response_strategy`, `advance_dust_warning_threshold_sat`, `fee_rate_strategy`, `min_fee_rate_sat_per_kvb`, `migration_paths_supported`, `allow_splice`, `allow_jit_fallback`, `forward_fee_policy`, `forward_fee_base_msat`, `forward_fee_ppm`, `lsp_self_routing_allowed`, `auto_host_next`, `ladder_cadence_blocks`, `auto_rotate_periodically`, `expected_rotation_blocks` |
+| `hard` | `schema_version`, `protocol_id`, `lifetime_blocks`, `dying_period_blocks`, `block_early_count`, `confirm_timeout_sec`, `arity_mode`, `leaf_arity`, `leaf_channel_type`, `ps_subfactory_arity`, `epoch_count`, `n_layers`, `dw_step_blocks`, `static_near_root_layers`, `per_client_capacity_sat`, `lsp_reserve_per_leaf_sat`, `lsp_initial_balance_pct`, `max_accepted_htlcs` |
+| `joiner_enforceable_hard` | `htlc_min_sat`, `htlc_max_sat`, `max_concurrent_htlcs_per_channel`, `max_in_flight_msat_per_channel`, `min_final_cltv_expiry_delta`, `cltv_expiry_delta_forward`, `min_capacity_per_join_sat`, `max_capacity_per_join_sat`, `rotation_interval_blocks`, `allow_tier_b_rollover`, `state_replay_defense_window_blocks` |
+| `soft` | `allow_bolt12`, `allow_amp`, `allow_blinded_paths`, `auto_accept_joiners`, `banlist`, `allowlist`, `auto_finalize_on_dying`, `joiner_admission_window_blocks`, `watchtower_mode`, `poison_tx_strategy`, `breach_response_fee_rate_sat_per_kvb`, `wt_startup_scan_depth_blocks`, `reorg_alarm_depth_blocks`, `reorg_response_strategy`, `advance_dust_warning_threshold_sat`, `fee_rate_strategy`, `min_fee_rate_sat_per_kvb`, `migration_paths_supported`, `allow_splice`, `allow_jit_fallback`, `forward_fee_policy`, `forward_fee_base_msat`, `forward_fee_ppm`, `lsp_self_routing_allowed`, `auto_host_next`, `ladder_cadence_blocks`, `auto_rotate_periodically`, `expected_rotation_blocks` |
 
 ### 4.0.3 TLV ID ranges
 
@@ -439,7 +439,9 @@ How long the LSP waits for client signatures on a state advance before giving up
 
 ---
 
-### 4.4 Economics (8 fields)
+### 4.4 Economics (5 fields)
+
+**Revenue model — v1 is pure-routing.** The LSP earns from per-HTLC forwarding fees (`forward_fee_*` in §4.12), not from any one-time setup fee at admission. Capacity moves from L-stock to a client's A&L channel for free; the LSP recoups capital cost via routing fee accumulation over the factory's lifetime. This matches the Phoenix-style LSP model. Earlier drafts of this spec included `lsp_fee_sat`/`lsp_fee_ppm`/`join_fee_sat` (one-time setup fees); they were removed in draft 4 because (a) no SuperScalar CLI flag implements them today and (b) the lib has no setup-fee accounting infrastructure. Operators wanting one-time setup fees are a v2 design question.
 
 #### 4.4.1 `per_client_capacity_sat`
 
@@ -452,10 +454,12 @@ How long the LSP waits for client signatures on a state advance before giving up
 | Mutability | immutable |
 | Joiner-relevant | advertised |
 | Enforced at | allocation builder, MuSig2 ceremony |
-| Enforced by | lib + plugin |
+| Enforced by | plugin |
 | On violation | allocation > capacity → ceremony abort with `allocation_exceeds_per_client_cap` |
 
-The default per-client channel capacity. Joiners see this as the maximum they can claim before override.
+**Default per-client channel capacity.** When `allocations[]` (factory state, NOT policy) is empty at factory creation, every initial client receives `per_client_capacity_sat` as their A&L channel capacity. When `allocations[]` is present, the array overrides per-client values for the named pubkeys — but each entry must satisfy `min_capacity_per_join_sat ≤ allocation ≤ max_capacity_per_join_sat`. For late joiners (admission after factory creation), the joiner can request any value in `[min, max]`; their actual capacity is drawn from L-stock subject to L-stock availability.
+
+**Boundary with state:** `allocations[]` is factory state (returned by `factory-list-public` alongside the policy, not part of the policy diff). The policy field constrains the state.
 
 #### 4.4.2 `lsp_reserve_per_leaf_sat`
 
@@ -489,55 +493,7 @@ Per-leaf L-stock output value. Lets the LSP sell inbound liquidity later without
 
 The percentage of funding the LSP retains for itself at factory creation. `100` means clients start with zero balance (must buy from L-stock); `0` means LSP retains nothing (clients fully funded at creation). **This field caused the TS1 v1 bug** where `--demo` overrode it to 50 silently; making it explicit prevents recurrence.
 
-#### 4.4.4 `lsp_fee_sat`
-
-| Attribute | Value |
-|---|---|
-| TLV ID | 0x0303 |
-| Type | u64 |
-| Default | 0 |
-| Range | 0 – 1000000 |
-| Mutability | immutable |
-| Joiner-relevant | advertised |
-| Enforced at | allocation builder, joiner admission |
-| Enforced by | lib + plugin |
-| On violation | joiner attempts join with insufficient fee → reject |
-
-Flat per-client fee paid at factory creation, withheld from allocations.
-
-#### 4.4.5 `lsp_fee_ppm`
-
-| Attribute | Value |
-|---|---|
-| TLV ID | 0x0304 |
-| Type | u32 |
-| Default | 0 |
-| Range | 0 – 1000000 (≤ 100%) |
-| Mutability | immutable |
-| Joiner-relevant | advertised |
-| Enforced at | allocation builder, joiner admission |
-| Enforced by | lib + plugin |
-| On violation | as above |
-
-Parts-per-million of each client's allocated capacity, paid at factory creation. Added to `lsp_fee_sat`.
-
-#### 4.4.6 `join_fee_sat`
-
-| Attribute | Value |
-|---|---|
-| TLV ID | 0x0305 |
-| Type | u64 |
-| Default | 0 |
-| Range | 0 – 1000000 |
-| Mutability | mutable_lsp_only (since this only affects future joins) |
-| Joiner-relevant | advertised |
-| Enforced at | joiner admission |
-| Enforced by | plugin |
-| On violation | join request without payment → reject |
-
-Separate from `lsp_fee_sat`. Charged per-join, not per-channel. A v1 LSP can use this to charge a "membership fee" for joining a running factory.
-
-#### 4.4.7 `min_capacity_per_join_sat`
+#### 4.4.4 `min_capacity_per_join_sat`
 
 | Attribute | Value |
 |---|---|
@@ -553,7 +509,7 @@ Separate from `lsp_fee_sat`. Charged per-join, not per-channel. A v1 LSP can use
 
 Floor on what a joiner can request. Prevents dust spam.
 
-#### 4.4.8 `max_capacity_per_join_sat`
+#### 4.4.5 `max_capacity_per_join_sat`
 
 | Attribute | Value |
 |---|---|
@@ -714,6 +670,8 @@ Different from `block_early_count`: this is the CLTV delta added to invoices gen
 
 For routing payments **through** this factory's channels. Also identified by the CLN fork audit as missing.
 
+**The `40` is provisional and inherited from CLN's default per-hop `cltv_expiry_delta` for ordinary (non-factory) routing — not a SuperScalar-specific optimization.** The optimal value balances (a) HTLC routing reliability (longer deltas survive more reorgs and propagation delays), (b) capital efficiency (shorter deltas free funds faster), and (c) the factory's own DW unwind window. The trustless-safety analysis of CLTV deltas for factory channels is open research; operators running SuperScalar on mainnet should evaluate this value against their specific deployment's reorg-depth tolerance and routing latency profile. v1.x may revise this default as operational experience accumulates. Also note: when running with significantly shortened `block_early_count` for testing (e.g., regtest with 6-block CLTV), the absolute `+40` constant becomes a large fraction of the total — operators on test networks may want to override to a proportionally smaller value.
+
 #### 4.6.5 `max_accepted_htlcs`
 
 | Attribute | Value |
@@ -732,7 +690,7 @@ Echoes the BOLT-2 `max_accepted_htlcs` channel parameter. Locked at creation.
 
 ---
 
-### 4.7 Joiner admission (7 fields)
+### 4.7 Joiner admission (6 fields)
 
 #### 4.7.1 `auto_accept_joiners`
 
@@ -781,23 +739,9 @@ Pubkeys here are rejected even when `auto_accept_joiners == true`. Stored as a T
 
 When non-empty, ONLY these pubkeys can join (even if `auto_accept_joiners == true`). Use for invite-only factories. New v1 field (not in PR #11 dialog yet — should be added).
 
-#### 4.7.4 `proof_tier_required`
+(Note — `proof_tier_required` was removed in v1 draft 4. The proof tier is a property of the LSP's coordinator vouch — it's intrinsic to the LSP's Nostr identity, not configurable per-factory. Wallet-side filtering by tier is a wallet preference setting (see `RendezvousSettings.showPeerTier` and `tierCaps`), not factory policy.)
 
-| Attribute | Value |
-|---|---|
-| TLV ID | 0x0603 |
-| Type | enum u8 |
-| Default | `PROOF_TIER_CHANNEL = 0` (highest — chain-anchored via LN announced channel) |
-| Range | `PROOF_TIER_CHANNEL = 0`, `PROOF_TIER_UTXO = 1`, `PROOF_TIER_PEER = 2` |
-| Mutability | mutable_lsp_only |
-| Joiner-relevant | advertised |
-| Enforced at | plugin join handler |
-| Enforced by | plugin |
-| On violation | reject join with `proof_tier_insufficient` |
-
-Minimum proof tier (per soup-rendezvous spec) a joiner must produce. Strict matching: only tiers at or stronger than this are accepted. Defaults to strictest — chain-anchored channel proof required.
-
-#### 4.7.5 `auto_finalize_on_dying`
+#### 4.7.4 `auto_finalize_on_dying`
 
 | Attribute | Value |
 |---|---|
@@ -812,7 +756,7 @@ Minimum proof tier (per soup-rendezvous spec) a joiner must produce. Strict matc
 
 When `true`, plugin runs one last rotation + signs the distribution TX on entry to dying period. Costs one nSequence slot but ensures clean wind-down.
 
-#### 4.7.6 `allow_tier_b_rollover`
+#### 4.7.5 `allow_tier_b_rollover`
 
 | Attribute | Value |
 |---|---|
@@ -827,7 +771,7 @@ When `true`, plugin runs one last rotation + signs the distribution TX on entry 
 
 PR-D Tier B allowed allocation changes mid-factory without full re-signing. Some operators may prefer full re-signing for security; this flag controls preference.
 
-#### 4.7.7 `joiner_admission_window_blocks`
+#### 4.7.6 `joiner_admission_window_blocks`
 
 | Attribute | Value |
 |---|---|
@@ -941,31 +885,40 @@ Reorg depth at which the system surfaces alerts to the operator. Smaller = more 
 | Enforced by | plugin |
 | On violation | (no violation) |
 
-What to do when a reorg of depth ≥ `reorg_alarm_depth_blocks` is detected. `REBROADCAST` re-sends still-in-flight TXs; `WAIT` pauses broadcasts; `ALERT_ONLY` does neither.
+What to do when a reorg of depth ≥ `reorg_alarm_depth_blocks` is detected.
+
+**Strategy semantics:**
+
+- **`REORG_REBROADCAST = 0` (default)**: on detection of reorg ≥ `reorg_alarm_depth_blocks`, re-broadcast all in-flight TXes into the new chain view. Resume normal operations once chain stabilizes. Best for operators who want hands-off automatic recovery.
+
+- **`REORG_WAIT = 1`**: pause NEW outgoing broadcasts for at least `reorg_alarm_depth_blocks × 2` blocks. In-flight TXes remain in mempool unaffected; do NOT re-broadcast them automatically (unlike REBROADCAST). At each new block, check whether chain has stabilized — definition: no reorg of depth ≥ `reorg_alarm_depth_blocks` has occurred in the previous `reorg_alarm_depth_blocks` blocks. If stabilized, resume normal broadcasts. If reorg deepens, continue waiting and escalate alert level. Best for operators who prefer to handle reorg recovery manually rather than have the plugin re-broadcast aggressively.
+
+- **`REORG_ALERT_ONLY = 2`**: no behavioral change to broadcasts; emit operator alert and let the operator choose response. Best for highly customized deployments.
+
+**Scope clarification — applies to ORDINARY broadcasts only.** This strategy controls rotation TXes, cooperative close TXes, and factory creation broadcasts. It does **NOT** apply to penalty/breach-response TXes — those are always re-broadcast aggressively with fee bumps by the watchtower module, regardless of `reorg_response_strategy`. This is intentional: breach response is loss-sensitive and not safely configurable to anything less than maximum urgency.
+
+**Prior art and design provisionality.** These strategies are v1 starting points informed by Lightning Network's existing handling of analogous concerns:
+- 0-conf channel funding (BOLT-2): factory channels reuse the established 0-conf treatment, accepting that funding-tx reorgs are absorbed without protocol-level escalation
+- Standard force-close TX broadcasts (BOLT-3): commitment and HTLC transaction handling in CLN's onchaind already includes reorg detection and rebroadcast logic; SuperScalar's `REORG_REBROADCAST` mirrors that pattern
+- CL6 same-height-reorg detection (still maturing): the underlying detection layer is in active development; v1 strategies will refine as detection coverage improves
+
+Reorg resistance for offchain factory operations is an evolving design area. v1.x revisions may introduce more sophisticated strategies (fee-bumped rebroadcast on reorg, hybrid timed-wait-then-rebroadcast, depth-adaptive responses) as testnet4 + mainnet experience accumulates. Operators should expect the available strategy set and their semantics to evolve with each minor version.
 
 ---
 
-### 4.9 PS chain policy (3 fields)
+### 4.9 PS chain policy (2 fields)
 
 Only meaningful when `arity_mode == ARITY_PS`. v1 deployments using DW (ARITY_1, ARITY_2) can omit these from the wire diff entirely.
 
-#### 4.9.1 `max_advance_count_per_leaf`
+**Why chaining instead of replacement** (pre-APO security context). The PS leaf design uses chained transactions (chain[N+1] spends chain[N]'s output) rather than replacement-style state updates (the way Poon-Dryja revokes old commitments). This is required for multi-party MuSig2 safety pre-APO: a naïve replacement scheme leaks partial signatures across states in ways that compromise N-party sub-factories. Chaining ensures state K+1 is causally dependent on state K — publishing K cannot occur without K+1's signatures being constructable, and the pre-signed poison TX redistributes L-stock to clients if the LSP attempts to broadcast an old state. The trade-off is O(N) chain length in force-close blockspace and persistence. When BIP-118 `SIGHASH_ANYPREVOUT` activates and eltoo-style supersession becomes available, the leaf design migrates to O(1) state count (see `superscalar-docs/extensions/apo-integration.md`); the entire PS chain policy section becomes deprecated at that point.
 
-| Attribute | Value |
-|---|---|
-| TLV ID | 0x0800 |
-| Type | u16 |
-| Default | 10 |
-| Range | 1 – 1000 |
-| Mutability | immutable |
-| Joiner-relevant | advertised |
-| Enforced at | `factory-ps-advance` RPC |
-| Enforced by | plugin + lib |
-| On violation | reject with `ps_advance_count_exceeded` |
+**Operational bound (v1).** Chain length is bounded only by:
+1. Bitcoin's 546-sat dust limit (physical floor — L-stock output can't shrink below dust on next advance)
+2. LSP's operational discretion (storage, force-close blockspace, anti-DoS rate limiting at RPC level — none of these are policy concerns; they're owned by the operator)
 
-Safety cap on how many chained advances a PS leaf can accumulate before forcing a migration. Each advance shrinks the L-stock output; at some point dust limit makes further advances impossible.
+No static count cap exists in v1 — earlier drafts proposed `max_advance_count_per_leaf` (default 50) but it was removed in draft 4 because (a) the dust limit is the natural physical bound, (b) operational concerns are operator-private (storage / force-close cost), and (c) a static cap is arbitrary relative to actual L-stock depletion economics.
 
-#### 4.9.2 `advance_dust_warning_threshold_sat`
+#### 4.9.1 `advance_dust_warning_threshold_sat`
 
 | Attribute | Value |
 |---|---|
@@ -979,9 +932,9 @@ Safety cap on how many chained advances a PS leaf can accumulate before forcing 
 | Enforced by | plugin |
 | On violation | next advance returns warning with `ps_advance_dust_imminent`; UI surfaces "migrate soon" prompt |
 
-When the L-stock output would drop below this on the NEXT advance, surface warning.
+When the L-stock output would drop below this on the NEXT advance, surface warning. The hard physical floor is the 546-sat Bitcoin dust limit; this threshold provides a configurable warning above that floor so operators have time to plan migration or open a JIT fallback channel.
 
-#### 4.9.3 `state_replay_defense_window_blocks`
+#### 4.9.2 `state_replay_defense_window_blocks`
 
 | Attribute | Value |
 |---|---|
@@ -1241,6 +1194,58 @@ The LSP's *intended* typical rotation cadence. Distinct from `rotation_interval_
 
 ---
 
+### 4.14 Cross-field invariants
+
+These invariants are enforced at validation time (`ss_policy_validate_struct`). Any policy that violates an invariant is **rejected** before persistence or advertising. The diff-from-default wire format does NOT carry invalid combinations because they're refused at config time.
+
+#### 4.14.1 Tree-shape coherence
+
+| Invariant | Rule |
+|---|---|
+| **A** | `arity_mode = AUTO` is config-input-only. Plugin resolves to one of `ARITY_1` / `ARITY_2` / `ARITY_PS` at factory-create and persists the resolved value. `AUTO` never appears on the wire. |
+| **B** | When `arity_mode == ARITY_PS`: `leaf_arity` MUST be set to 1. (Each PS leaf hosts 1 client + LSP; non-1 values are nonsensical for PS topology and validator rejects.) |
+| **C** | When `arity_mode == ARITY_PS`: `leaf_channel_type` MUST be `PSEUDO_SPILMAN`. Combination with `LN_PENALTY` is invalid. |
+| **D** | When `arity_mode != ARITY_PS`: `ps_subfactory_arity` MUST be 0 (ignored). Validator may accept any value but plugin should normalize to 0 before wire encoding. |
+| **E** | `epoch_count` MUST be expressible as `states_per_layer^n_layers` for integer `states_per_layer ≥ 2`. E.g., (epoch_count=16, n_layers=2) → states_per_layer=4 ✓. (epoch_count=8, n_layers=2) → states_per_layer ≈ 2.83 ✗ rejected. |
+
+#### 4.14.2 Lifecycle and capacity bounds
+
+| Invariant | Rule |
+|---|---|
+| **F1** | `dying_period_blocks < lifetime_blocks` (dying must fit inside active period) |
+| **F2** | `block_early_count < lifetime_blocks - dying_period_blocks` (early-warning must be inside non-dying portion to be useful) |
+| **F3** | `joiner_admission_window_blocks ≤ lifetime_blocks - dying_period_blocks` (can't admit during dying period) |
+| **F4** | `min_capacity_per_join_sat ≤ per_client_capacity_sat ≤ max_capacity_per_join_sat` (default capacity must satisfy joiner bounds) |
+| **F5** | Sum of all allocations + `lsp_reserve_per_leaf_sat × n_leaves` ≤ `funding_sats` (allocation math must close at factory creation) |
+
+#### 4.14.3 Joiner admission coherence
+
+| Invariant | Rule |
+|---|---|
+| **I** | A pubkey MUST NOT appear in BOTH `banlist` AND `allowlist`. Operator error if it does; validator rejects the policy struct. |
+| **M** | `migration_paths_supported != 0` (at least one migration path must be enabled; a factory with no migration paths cannot wind down gracefully and is rejected). |
+
+#### 4.14.4 Lifecycle commitment coherence
+
+| Invariant | Rule |
+|---|---|
+| **N1** | If `auto_rotate_periodically == true`: `rotation_interval_blocks >= 144` (~1 day minimum; smaller would burn nSequence slots too fast and stress joiner uptime). |
+| **N2** | `rotation_interval_blocks ≤ lifetime_blocks - dying_period_blocks` (rotation can't be scheduled to fire after the active period ends). |
+| **N3** | If `expected_rotation_blocks != 0`: `expected_rotation_blocks >= rotation_interval_blocks` (expected cadence cannot violate the hard minimum). |
+| **N4** | `ladder_cadence_blocks ≤ lifetime_blocks - dying_period_blocks` (next factory in ladder should be available before this one's dying period ends; soft advisory — wallet renders warning if violated, not a hard reject). |
+
+#### 4.14.5 Routing and forwarding coherence
+
+| Invariant | Rule |
+|---|---|
+| **R1** | If `forward_fee_policy == NO_FORWARD`: `forward_fee_base_msat` and `forward_fee_ppm` are ignored. Validator accepts any value but plugin should normalize to defaults for clarity. |
+
+#### 4.14.6 General principle
+
+**Validators reject invalid configurations.** Any cross-field combination not listed above is allowed. Diff-from-default wire encoding ensures common-case policies (most fields at default) transmit only the deltas; receivers reconstruct the full policy by filling in defaults from §9 for every absent field. Invariants are checked AFTER reconstruction: receivers MUST run validation on the reconstructed full policy before treating it as authoritative.
+
+---
+
 ## 5. Wire format
 
 ### 5.1 Outer envelope
@@ -1349,9 +1354,6 @@ If `instance_id` is omitted, returns the public policy for every factory the LSP
           "per_client_capacity_sat": 100000,
           "lsp_reserve_per_leaf_sat": 50000,
           "lsp_initial_balance_pct": 100,
-          "lsp_fee_sat": 0,
-          "lsp_fee_ppm": 0,
-          "join_fee_sat": 0,
           "min_capacity_per_join_sat": 10000,
           "max_capacity_per_join_sat": 100000
         },
@@ -1373,7 +1375,6 @@ If `instance_id` is omitted, returns the public policy for every factory the LSP
           "auto_accept_joiners": false,
           "banlist": [],
           "allowlist": [],
-          "proof_tier_required": "channel",
           "auto_finalize_on_dying": true,
           "allow_tier_b_rollover": true,
           "joiner_admission_window_blocks": 3888
@@ -1387,7 +1388,6 @@ If `instance_id` is omitted, returns the public policy for every factory the LSP
           "reorg_response_strategy": "rebroadcast"
         },
         "ps_chain": {
-          "max_advance_count_per_leaf": 10,
           "advance_dust_warning_threshold_sat": 1000,
           "state_replay_defense_window_blocks": 4320
         },
@@ -1431,15 +1431,16 @@ The policy struct + validators live in plugin code, not the lib. The plugin vali
 
 int ss_policy_validate_struct(const ss_factory_policy_t *p,
                                ss_validation_error_t *err);
-/* Range-checks every field. Cross-field invariants:
- *   - allocation_sum + lsp_reserve_per_leaf_sat * n_leaves +
- *     lsp_fee_sat * n_clients + (per_client_capacity * lsp_fee_ppm / 1e6) * n_clients
- *     <= funding_sats
+/* Range-checks every field. Cross-field invariants (full list in §4.14):
+ *   - allocation_sum + lsp_reserve_per_leaf_sat * n_leaves <= funding_sats
  *   - epoch_count must factor as states^n_layers
- *   - block_early_count < lifetime_blocks
+ *   - block_early_count < lifetime_blocks - dying_period_blocks
  *   - min_capacity <= per_client_capacity <= max_capacity
  *   - dying_period < lifetime
- *   - ladder_cadence_blocks <= lifetime_blocks - dying_period_blocks (overlap)
+ *   - banlist + allowlist must not overlap
+ *   - migration_paths_supported != 0
+ *   - auto_rotate_periodically=true implies rotation_interval_blocks >= 144
+ *   - if arity_mode == ARITY_PS: leaf_arity == 1, leaf_channel_type == PSEUDO_SPILMAN
  */
 
 int ss_policy_validate_advance(const ss_factory_policy_t *p,
@@ -1451,8 +1452,9 @@ int ss_policy_validate_advance(const ss_factory_policy_t *p,
  *   - joiner_pubkey not in banlist
  *   - if allowlist non-empty: joiner_pubkey in allowlist
  *   - if Tier B rotation: allow_tier_b_rollover == true
- *   - if PS advance: max_advance_count_per_leaf not exceeded
- *   - blocks_since_last_rotation >= rotation_interval_blocks (joiner refuses too-frequent rotations)
+ *   - if PS advance: next_L_stock_value >= dust limit (546 sats)
+ *   - blocks_since_last_rotation >= rotation_interval_blocks
+ *     (joiner refuses too-frequent rotations)
  */
 
 int ss_policy_validate_join_request(const ss_factory_policy_t *p,
@@ -1461,10 +1463,9 @@ int ss_policy_validate_join_request(const ss_factory_policy_t *p,
                                      ss_validation_error_t *err);
 /* Called by LSP before admitting a joiner.
  *   - block_height < factory_creation_block + joiner_admission_window_blocks
- *   - proof_tier_supplied >= proof_tier_required (CHANNEL strongest)
  *   - capacity_requested in [min_capacity_per_join_sat, max_capacity_per_join_sat]
- *   - join_fee_paid >= join_fee_sat
- *   - LSP fee structure honored
+ *   - joiner_pubkey not in banlist
+ *   - if allowlist non-empty: joiner_pubkey in allowlist
  */
 
 int ss_policy_validate_htlc(const ss_factory_policy_t *p,
@@ -1534,8 +1535,6 @@ void ss_node_free(ss_node_t *node);
  *     .per_client_capacity_sat = policy->per_client_capacity_sat,
  *     .lsp_reserve_per_leaf_sat = policy->lsp_reserve_per_leaf_sat,
  *     .lsp_initial_balance_pct = policy->lsp_initial_balance_pct,
- *     .lsp_fee_sat = policy->lsp_fee_sat,
- *     .lsp_fee_ppm = policy->lsp_fee_ppm,
  *     .allocations = policy_allocations,
  *   };
  *   factory_create(&args, &factory_out, &err);
@@ -1635,9 +1634,6 @@ For quick lookup. All values are v1.0 defaults.
 | Economics | `per_client_capacity_sat` | 100000 |
 | Economics | `lsp_reserve_per_leaf_sat` | 50000 |
 | Economics | `lsp_initial_balance_pct` | 100 |
-| Economics | `lsp_fee_sat` | 0 |
-| Economics | `lsp_fee_ppm` | 0 |
-| Economics | `join_fee_sat` | 0 |
 | Economics | `min_capacity_per_join_sat` | 10000 |
 | Economics | `max_capacity_per_join_sat` | `per_client_capacity_sat` |
 | Channel | `allow_bolt12` | true |
@@ -1653,7 +1649,6 @@ For quick lookup. All values are v1.0 defaults.
 | Joiner | `auto_accept_joiners` | false |
 | Joiner | `banlist` | empty |
 | Joiner | `allowlist` | empty |
-| Joiner | `proof_tier_required` | `CHANNEL` |
 | Joiner | `auto_finalize_on_dying` | true |
 | Joiner | `allow_tier_b_rollover` | true |
 | Joiner | `joiner_admission_window_blocks` | `lifetime_blocks - dying_period_blocks - 144` |
@@ -1663,7 +1658,6 @@ For quick lookup. All values are v1.0 defaults.
 | Watchtower | `wt_startup_scan_depth_blocks` | 144 |
 | Watchtower | `reorg_alarm_depth_blocks` | 2 |
 | Watchtower | `reorg_response_strategy` | `REBROADCAST` |
-| PS chain | `max_advance_count_per_leaf` | 10 |
 | PS chain | `advance_dust_warning_threshold_sat` | 1000 |
 | PS chain | `state_replay_defense_window_blocks` | `lifetime_blocks` |
 | Fee | `fee_rate_strategy` | `FEE_BLOCKS` |
@@ -1696,7 +1690,6 @@ Where each field is sourced from, today:
 | `lifetime_blocks` | PR #11 dialog | persisted, validated |
 | `dying_period_blocks` | PR #11 dialog | persisted, validated |
 | `block_early_count` | PR #11 dialog | persisted, validated (CLN-fork-native eventually) |
-| `lsp_fee_sat` / `lsp_fee_ppm` | PR #11 dialog | persisted, validated at admission |
 | `auto_accept_joiners` | PR #11 dialog → localStorage **(not enforced today)** | persisted as policy, **plugin enforces** |
 | `banlist` | PR #11 dialog → localStorage **(not enforced)** | as above |
 | `allow_bolt12`, `allow_amp`, `htlc_min_sat`, `htlc_max_sat` | PR #11 → localStorage **(not enforced)** | as above |
@@ -1717,7 +1710,7 @@ Where each field is sourced from, today:
 | `breach_response_fee_rate_sat_per_kvb` | `SS_DEFAULT_FEE_RATE_SAT_PER_KVB = 1000` | exposed as policy |
 | `wt_startup_scan_depth_blocks` | post-Gap 4 fix | exposed as policy |
 | `reorg_alarm_depth_blocks`, `reorg_response_strategy` | post-CL6 | exposed as policy |
-| `max_advance_count_per_leaf`, `advance_dust_warning_threshold_sat` | implicit dust-limit check today | exposed as policy |
+| `advance_dust_warning_threshold_sat` | implicit dust-limit check today | exposed as policy |
 | `state_replay_defense_window_blocks` | post-CL3 | exposed as policy |
 | `fee_rate_strategy` | `superscalar_sdk.h` enum | exposed as policy |
 | `min_fee_rate_sat_per_kvb` | post-#163 clamp | exposed as policy |
@@ -1728,12 +1721,11 @@ Where each field is sourced from, today:
 | `min_capacity_per_join_sat`, `max_capacity_per_join_sat` | not modeled today | new in v1 |
 | `min_final_cltv_expiry_delta`, `cltv_expiry_delta_forward` | not modeled today | new in v1 — closes CLN fork audit gaps |
 | `allow_blinded_paths` | not modeled today | new in v1 |
-| `proof_tier_required` | implicit (LSP just trusts what coord vouched at) | new in v1 |
 | `allowlist` | not modeled today | new in v1 |
 | `joiner_admission_window_blocks` | not modeled today | new in v1 |
 | `max_concurrent_htlcs_per_channel`, `max_in_flight_msat_per_channel`, `max_accepted_htlcs` | inherited from CLN core BOLT-2 defaults | exposed as policy |
 
-**Bottom line:** 35 of the 62 fields come from existing dialog levers, CLI flags, or recent code that wasn't yet exposed as a policy field. 27 are net-new — most of them filling gaps the audit surfaced (CLTV inflation, joiner admission rules, migration paths, routing fees, lifecycle commitments).
+**Bottom line:** 32 of the 57 fields come from existing dialog levers, CLI flags, or recent code that wasn't yet exposed as a policy field. 25 are net-new — most of them filling gaps the audit surfaced (CLTV inflation, joiner admission rules, migration paths, routing fees, lifecycle commitments).
 
 ---
 
@@ -1778,16 +1770,15 @@ Sources audited: `tools/superscalar_lsp.c` (argparser line ~1320–1700), `tools
 | `block_early_count` | LSP `--cltv-timeout N` | ⚠ | Existing `--cltv-timeout` may serve this purpose; verify semantics match. If not, add `--block-early-count N`. Plugin must surface this on TLV 65600 (`factory_early_warning_time`) regardless |
 | `confirm_timeout_sec` | LSP `--confirm-timeout N` | ✅ | Default 86400 sec |
 
-### 10.5.4 Economics (8 fields)
+### 10.5.4 Economics (5 fields)
+
+v1 is pure-routing (see §4.4). No setup-fee flags.
 
 | Policy field | Existing flag(s) | Status | Notes |
 |---|---|---|---|
-| `per_client_capacity_sat` | LSP `--amount N` ÷ `--clients M` | 📦 derived | Today: `--amount` is total funding; per-client = amount/clients. Suggest making this explicit with `--per-client-capacity N` and computing total funding from it + reserve + fees |
+| `per_client_capacity_sat` | LSP `--amount N` ÷ `--clients M` | 📦 derived | Today: `--amount` is total funding; per-client = amount/clients. Suggest making this explicit with `--per-client-capacity N` and computing total funding from it + reserve from it |
 | `lsp_reserve_per_leaf_sat` | — | ❌ | Add LSP `--lsp-reserve-per-leaf N` |
 | `lsp_initial_balance_pct` | LSP `--lsp-balance-pct N` | ✅ | The TS1 v1 bug source; default 100 (LSP retains all) |
-| `lsp_fee_sat` | — | ❌ | Add LSP `--lsp-fee-sat N` |
-| `lsp_fee_ppm` | LSP `--routing-fee-ppm N` | ⚠ | Existing `--routing-fee-ppm` is for *forwarding* (see §10.5.12). The factory-creation FEE per joiner is distinct — add LSP `--lsp-fee-ppm N` |
-| `join_fee_sat` | — | ❌ | Add LSP `--join-fee-sat N` |
 | `min_capacity_per_join_sat` | — | ❌ | Add LSP `--min-capacity-per-join N` |
 | `max_capacity_per_join_sat` | — | ❌ | Add LSP `--max-capacity-per-join N` |
 
@@ -1813,14 +1804,15 @@ All of these currently exist only in the wallet's `localStorage` (per PR #11). N
 | `cltv_expiry_delta_forward` | — | ❌ | Add LSP `--cltv-expiry-delta-forward N` (defaults block_early_count + 40) |
 | `max_accepted_htlcs` | — | ❌ | Add LSP `--max-accepted-htlcs N`; default 483 BOLT-2 |
 
-### 10.5.7 Joiner admission (7 fields)
+### 10.5.7 Joiner admission (6 fields)
+
+Proof tier is a property of the coordinator's vouch (see §4.7), not configurable per-factory; no flag.
 
 | Policy field | Existing flag(s) | Status | Notes |
 |---|---|---|---|
 | `auto_accept_joiners` | — | ❌ | Add LSP `--auto-accept-joiners`. Today only in wallet localStorage |
 | `banlist` | — | ❌ | Add LSP `--banlist <file>` or `--ban-pubkey <hex>` repeatable. Today only in wallet localStorage |
 | `allowlist` | — | ❌ | Add LSP `--allowlist <file>` or `--allow-pubkey <hex>` repeatable |
-| `proof_tier_required` | — | ❌ | Add LSP `--proof-tier-required channel\|utxo\|peer` |
 | `auto_finalize_on_dying` | — | ❌ | Add LSP `--auto-finalize-on-dying \| --no-auto-finalize-on-dying`. Today only in wallet localStorage |
 | `allow_tier_b_rollover` | — | ❌ | Add LSP `--allow-tier-b-rollover \| --no-allow-tier-b-rollover` (`--test-tier-b-rollover` is test-only, distinct) |
 | `joiner_admission_window_blocks` | — | ❌ | Add LSP `--joiner-admission-window N` |
@@ -1836,11 +1828,12 @@ All of these currently exist only in the wallet's `localStorage` (per PR #11). N
 | `reorg_alarm_depth_blocks` | — | ❌ | Add WT `--reorg-alarm-depth N`. Today: implicit via CL6 detection logic |
 | `reorg_response_strategy` | — | ❌ | Add WT `--reorg-response rebroadcast\|wait\|alert-only` |
 
-### 10.5.9 PS chain policy (3 fields)
+### 10.5.9 PS chain policy (2 fields)
+
+Chain length is dust-bounded, not statically capped (see §4.9). No max-count flag.
 
 | Policy field | Existing flag(s) | Status | Notes |
 |---|---|---|---|
-| `max_advance_count_per_leaf` | LSP `--advance-count N` | ⚠ | Existing `--advance-count` is a test-harness flag that DRIVES multi-state advances. The policy field is the MAXIMUM allowed; semantically distinct. Add `--max-advances-per-leaf N` |
 | `advance_dust_warning_threshold_sat` | — | ❌ | Add LSP `--advance-dust-warning-threshold N` |
 | `state_replay_defense_window_blocks` | — | ❌ | Add LSP `--state-replay-defense-window N`. Today: implicit (state retention = factory lifetime) |
 
@@ -1883,20 +1876,20 @@ All of these currently exist only in the wallet's `localStorage` (per PR #11). N
 | Status | Count | Categories |
 |---|---|---|
 | ✅ existing 1:1 (or close) | **10 fields** | mostly tree shape + lifecycle basics |
-| ⚠ partial / needs extension or rename | **9 fields** | `leaf_arity`, `block_early_count`, `per_client_capacity_sat`, `lsp_fee_ppm`, `breach_response_fee_rate_sat_per_kvb`, `max_advance_count_per_leaf`, `min_fee_rate_sat_per_kvb`, `migration_paths_supported`, `auto_host_next` |
-| ❌ no existing flag; new flag required | **41 fields** | mostly channel options, HTLC policy, joiner admission, watchtower policy, routing, lifecycle commitments |
-| 📦 derived from other flags (no own flag) | **2 fields** | `schema_version`, `protocol_id`, plus `epoch_count` (computed from `states_per_layer` × `n_layers`) |
+| ⚠ partial / needs extension or rename | **7 fields** | `leaf_arity`, `block_early_count`, `per_client_capacity_sat`, `breach_response_fee_rate_sat_per_kvb`, `min_fee_rate_sat_per_kvb`, `migration_paths_supported`, `auto_host_next` |
+| ❌ no existing flag; new flag required | **37 fields** | mostly channel options, HTLC policy, joiner admission, watchtower policy, routing, lifecycle commitments |
+| 📦 derived from other flags (no own flag) | **3 fields** | `schema_version`, `protocol_id`, plus `epoch_count` (computed from `states_per_layer` × `n_layers`) |
 
-**~85% of the v1 policy field set requires new CLI flags or extensions.** This isn't surprising — the lib was built for the LSP-operator-runs-everything pattern, with most policy choices either hardcoded or implicit. Promoting these to explicit configurable parameters is the lib's main implementation work for v1.
+**~80% of the v1 policy field set requires new CLI flags or extensions.** This isn't surprising — the lib was built for the LSP-operator-runs-everything pattern, with most policy choices either hardcoded or implicit. Promoting these to explicit configurable parameters is the lib's main implementation work for v1.
 
 ### 10.5.15 Lib-side checklist (the punchlist)
 
 Concrete deliverable for the lib developer:
 
-1. **Add ~41 new CLI flags** across the three binaries (LSP: ~32, watchtower: ~6, client: ~3). Each backed by a new field in the relevant config struct (`ss_config_t` extensions, new `ss_factory_create_args_t`, new `ss_watchtower_config_t`).
+1. **Add ~37 new CLI flags** across the three binaries (LSP: ~29, watchtower: ~6, client: ~2). Each backed by a new field in the relevant config struct (`ss_config_t` extensions, new `ss_factory_create_args_t`, new `ss_watchtower_config_t`).
 2. **Split `--arity` into `--arity` (mode) + `--leaf-arity` (DW leaf count)** where the new field disambiguates.
 3. **Make hardcoded values configurable**: DW step (currently `--step-blocks` already works), n_layers, confirm_timeout (already `--confirm-timeout`), watchtower scan depth, reorg alarm depth, oracular vs lazy poison strategy.
-4. **Rename `--routing-fee-ppm`** is fine where it is (forwarding); add separate `--lsp-fee-ppm` for the creation-time fee.
+4. **No setup-fee flags** — v1 is pure-routing (see §4.4). `--routing-fee-ppm` keeps its forwarding-fee meaning.
 5. **Update `--help` text** on all three binaries to reflect new flags.
 6. **No `ss_factory_policy_t` in the lib.** No policy validators. Just discrete parameters and well-named struct fields.
 
@@ -1909,8 +1902,9 @@ Not in v1, but worth tracking:
 - **`lsp_advertises_via_liquidity_ad`** — BOLT-12 liquidity ads as an alternative to Nostr vouches. Duplicative for now.
 - **`min_joiner_uptime_proof`** — Would require a separate uptime-proof protocol. Defer.
 - **`max_conn_rate` / `max_handshakes`** — Currently CLI flags; LSP operational only. Could become advertised in v2 if useful.
-- **Per-rotation policy changes** — Some fields could be mutable across rotations (e.g., updating `lsp_fee_ppm` for new joiners while preserving existing clients' rates). v1 keeps these immutable for simplicity.
-- **Time-of-day / day-of-week pricing** — `lsp_fee_ppm` could vary by time. Defer.
+- **Per-rotation policy changes** — Some fields could be mutable across rotations (e.g., updating `forward_fee_ppm` for new joiners while preserving existing clients' rates). v1 keeps these immutable for simplicity.
+- **Setup fees** — v1 is pure-routing; a one-time admission fee (`lsp_fee_sat` / `lsp_fee_ppm` / `join_fee_sat`) was prototyped in earlier drafts but removed because it has no lib infrastructure. Could return in v2 with proper accounting.
+- **Time-of-day / day-of-week pricing** — `forward_fee_ppm` could vary by time. Defer.
 - **Failover / multi-LSP** — A policy that lets a joiner's channel migrate between LSPs operating the same factory. Out of scope for v1.
 - **Reputation system** — Joiner-side trust scoring of LSPs based on prior behavior. Wallet-local for now; not factory policy.
 
@@ -1924,10 +1918,10 @@ Not in v1, but worth tracking:
 
 The lib has **no `ss_factory_policy_t`, no policy validators, no TLV codec.** It only needs to expose discrete parameters that the plugin will populate from its policy struct.
 
-- [ ] **Add the ~41 new CLI flags** enumerated in §10.5 across the three binaries:
-  - `tools/superscalar_lsp.c` — ~32 new flags (tree shape extensions, lifecycle, economics, channel options, HTLC policy, joiner admission, watchtower, PS chain, migration, routing, lifecycle commitments)
+- [ ] **Add the ~37 new CLI flags** enumerated in §10.5 across the three binaries:
+  - `tools/superscalar_lsp.c` — ~29 new flags (tree shape extensions, lifecycle, economics, channel options, HTLC policy, joiner admission, watchtower, PS chain, migration, routing, lifecycle commitments)
   - `tools/superscalar_watchtower.c` — ~6 new flags (watchtower mode, poison strategy, scan depth, reorg alarm, reorg response, breach response fee rate)
-  - `tools/superscalar_client.c` — ~3 new flags (client-side mirrors for policy fields the client validates: rotation_interval_blocks, proof_tier_required, max_capacity_per_join_sat for client's own admission)
+  - `tools/superscalar_client.c` — ~2 new flags (client-side mirrors for policy fields the client validates: rotation_interval_blocks, max_capacity_per_join_sat for client's own admission)
 - [ ] **Extend `ss_config_t`** (`include/superscalar/superscalar_sdk.h`) with any runtime-config fields not currently parameterized (e.g., for fee strategy + min rate, watchtower mode, etc.)
 - [ ] **Add `ss_factory_create_args_t`** (or extend whatever struct factory_create takes today) to accept all tree shape + lifecycle + economics fields. **Do not collapse into a single "policy" struct** — keep parameters discrete; that's the layer boundary
 - [ ] **Add `ss_watchtower_config_t`** struct passed to `watchtower_init` carrying watchtower-policy-derived parameters (mode, poison strategy, fee rate, scan depth, reorg config)
@@ -1949,7 +1943,7 @@ Everything policy-related lives here.
 - [ ] **Populate lib config structs from policy** at every lib-call site (per the sketch in §7.2)
 - [ ] **Wire policy lookup** into `htlc_accepted` hook, `openchannel` hook, `block_added` hook, `custommsg` handlers
 - [ ] **Update `CONFORMANCE.md`** to cite policy spec
-- [ ] **Add plugin-side unit tests** for every validator path (cross-field invariants, range checks, banlist, allowlist, proof tier, dust threshold, rotation cadence enforcement)
+- [ ] **Add plugin-side unit tests** for every validator path (cross-field invariants, range checks, banlist, allowlist, dust threshold, rotation cadence enforcement)
 
 ### 12.3 Wallet (`superscalar-wallet`) — TS mirror + UI
 
@@ -1958,7 +1952,7 @@ Everything policy-related lives here.
 - [ ] **ConnectList row fill-in logic** that calls the above and populates capacity/slots/fees/lifecycle columns
 - [ ] **Wallet-local filter UI**: "show only factories matching my preferences" (uses `RendezvousState.browseCache`)
 - [ ] **Display policy in selected-row drawer** with section headers (one per category)
-- [ ] **Extend Host Factory dialog** (PR #11) with new sections: Joiner admission (allowlist + proof_tier_required), Watchtower (mode + strategies), PS chain caps, Migration paths, Routing/forwarding, Lifecycle commitments
+- [ ] **Extend Host Factory dialog** (PR #11) with new sections: Joiner admission (allowlist + ban list), Watchtower (mode + strategies), PS chain settings, Migration paths, Routing/forwarding, Lifecycle commitments
 - [ ] **"Required reachability" derived metric** UX (per §3.1) — single user-facing number derived from policy fields
 - [ ] **CI check**: TypeScript types stay in sync with plugin's `factory-list-public` JSON schema
 
@@ -1989,6 +1983,13 @@ Estimated effort with dedicated developers: lib ~1-2 weeks (mostly mechanical fl
 - **v1 draft 2** (2026-05-14): expanded to 62 fields. Corrected exclusion of three "LSP-operational" fields (`auto_host_next`, `ladder_cadence_blocks`, `auto_rotate_periodically`) — joiner-uptime impact makes them advertised soft commitments. Added two paired hard-floor fields: `rotation_interval_blocks` (joiner-enforceable hard backstop on rotation frequency) and `expected_rotation_blocks` (soft informational hint). Added new "enforcement strength" taxonomy (§4.0.1) distinguishing `hard` / `soft` / `joiner_enforceable_hard` with field-to-strength lookup (§4.0.2). Added new TLV range 0x0C00–0x0CFF for the Lifecycle commitments category (§4.13). Added per-ceremony timeout clarification to §4.3.4. Added §3.1 signer-count table per arity_mode and per ceremony type to disambiguate the "do all signers need to be online?" question.
 
 - **v1 draft 3** (2026-05-14): **architectural layer correction.** The `ss_factory_policy_t` struct, validators, and TLV codec move from "lib responsibility" to **plugin responsibility**. The lib has no concept of "policy" — it accepts discrete parameters (via CLI flags + extended `ss_config_t` + new `ss_factory_create_args_t` and `ss_watchtower_config_t`). The plugin owns the policy struct and populates lib config at each call site. Affected sections: §3 (architecture note), §7 (validators relocated from §7.1 lib to §7.1 plugin; new §7.2 "Lib parameter touch points"), §12 (lib checklist becomes flag-addition list; plugin checklist absorbs all policy-struct work). Added new §10.5 "CLI and lib API parameter mapping" — 62-row table enumerating every policy field against existing CLI flags on `superscalar_lsp`, `superscalar_client`, `superscalar_watchtower`. Audit reveals ~10 fields covered by existing flags, ~9 partially covered (need extension/rename), ~41 require new CLI flags, ~2 derived. §10.5.15 is the lib developer's punchlist.
+
+- **v1 draft 4** (2026-05-14): **field-count rationalization (62 → 57) + cross-field invariants section.** Dropped 5 fields after design review:
+  - `lsp_fee_sat`, `lsp_fee_ppm`, `join_fee_sat` (§4.4 Economics): v1 is **pure-routing**. Users do not pay to join a factory; they pay LN routing fees on the resulting channels. Setup-fee fields removed; §4.4 preamble documents the revenue model. The existing `--routing-fee-ppm` CLI flag retains its forwarding-fee meaning (§10.5.12 / `forward_fee_ppm`).
+  - `proof_tier_required` (§4.7 Joiner admission): proof tier is a property of the LSP's coordinator vouch (proof-of-channel ⊂ proof-of-utxo ⊂ proof-of-peer, transitively visible via Nostr kind 38101), not a per-factory policy setting. Wallets filter on tier when browsing the rendezvous list; LSPs do not advertise it in the factory policy.
+  - `max_advance_count_per_leaf` (§4.9 PS chain): chain length is **dust-bounded**, not statically capped. The combination of `advance_dust_warning_threshold_sat` and the LSP's per-advance discretion is sufficient; a static cap is the wrong abstraction.
+  - Added new **§4.14 Cross-field invariants** documenting validator-enforced relationships between fields: tree-shape coherence (arity_mode ↔ arity values), lifecycle/capacity bounds, joiner admission coherence, lifecycle commitment coherence, and routing coherence. Spells out which combinations the plugin validator must reject.
+  - Updated §4.0.2 enforcement-strength lookup, §4.3.4 ceremony scope, §4.4 economics, §4.6.4 cltv research caveat, §4.7 joiner admission count, §4.8.6 reorg strategy semantics, §4.9 PS chain rationale (pre-APO multi-party signature leakage as why chains chain), §6 JSON example, §7.1 validator pseudo-code, §7.2 lib API populate sketch, §9 defaults table, §10 code mapping (35 → 32 of 57 from existing sources), §10.5.4 / .7 / .9 mapping subsections, §10.5.14 summary (was ~41 ❌, now ~37), §10.5.15 punchlist.
 
 - v1.1 candidates: any new fields surfacing during implementation review.
 
