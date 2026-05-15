@@ -152,7 +152,22 @@ const ConnectList = () => {
   }, [settings, dispatch]);
 
   const refreshVouches = useCallback(async () => {
-    if (!settings || !network || activeCoordinators.length === 0) return;
+    // DIAGNOSTIC: trace why vouches may not be returning
+    // eslint-disable-next-line no-console
+    console.log('[rendezvous-diag] refreshVouches called:', {
+      settings: !!settings,
+      network,
+      activeProfileNetwork: activeProfile?.network,
+      coordCount: activeCoordinators.length,
+      coords: activeCoordinators.map(c => c.npub),
+      relays: enabledRelays,
+      showSample,
+    });
+    if (!settings || !network || activeCoordinators.length === 0) {
+      // eslint-disable-next-line no-console
+      console.warn('[rendezvous-diag] refreshVouches BAILED early — settings/network/coords missing');
+      return;
+    }
     const includePeer = !!settings.showPeerTier?.[network];
     dispatch(setVouchListLoading(true));
     try {
@@ -160,6 +175,17 @@ const ConnectList = () => {
         tierCaps: settings.tierCaps,
         maxEntries: settings.maxEntries,
         includePeer,
+      });
+      // eslint-disable-next-line no-console
+      console.log('[rendezvous-diag] fetchVouches returned:', {
+        vouchCount: result.vouches.length,
+        byCoordinator: result.byCoordinator,
+        errors: result.errors,
+        firstVouch: result.vouches[0] ? {
+          tier: result.vouches[0].tier,
+          ln_node_id: result.vouches[0].ln_node_id,
+          coord: result.vouches[0].coordinator,
+        } : null,
       });
       dispatch(setVouchList({
         vouches: result.vouches,
