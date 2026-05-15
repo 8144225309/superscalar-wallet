@@ -1871,27 +1871,142 @@ Chain length is dust-bounded, not statically capped (see §4.9). No max-count fl
 | `rotation_interval_blocks` | — | ❌ | Add LSP `--rotation-interval-blocks N` |
 | `expected_rotation_blocks` | — | ❌ | Add LSP `--expected-rotation-blocks N` (informational; not enforced) |
 
-### 10.5.14 Summary
+### 10.5.14 Summary (revised in draft 5 — replaces the inflated draft-3/4 numbers)
 
-| Status | Count | Categories |
+The earlier "~37 new CLI flags" claim was wrong. A second pass — auditing the actual `tools/superscalar_*.c` argparsers, `src/`, and `include/superscalar/superscalar_sdk.h` against each policy field — gives this corrected picture:
+
+| Bucket | Count | Meaning |
 |---|---|---|
-| ✅ existing 1:1 (or close) | **10 fields** | mostly tree shape + lifecycle basics |
-| ⚠ partial / needs extension or rename | **7 fields** | `leaf_arity`, `block_early_count`, `per_client_capacity_sat`, `breach_response_fee_rate_sat_per_kvb`, `min_fee_rate_sat_per_kvb`, `migration_paths_supported`, `auto_host_next` |
-| ❌ no existing flag; new flag required | **37 fields** | mostly channel options, HTLC policy, joiner admission, watchtower policy, routing, lifecycle commitments |
-| 📦 derived from other flags (no own flag) | **3 fields** | `schema_version`, `protocol_id`, plus `epoch_count` (computed from `states_per_layer` × `n_layers`) |
+| ✅ Covered today | **17 fields** | flag exists or value is correctly derived from existing flags |
+| ⚠ Hardcoded with no override (Bucket 2) | **12 fields** | code path implements the concept, but the value is hardcoded in `src/`; needs an override flag + replace the constant with a config field |
+| ⚠ Test-only or partial coverage (Bucket 3) | **~6–7 fields** | code exists behind a `--test-*`/`--cheat-*` flag, or a related flag covers part of the semantics; needs a production-mode flag |
+| ❌ Truly missing — new code required (Bucket 1) | **22 fields** | no flag and no code path; would require new `src/` work |
 
-**~80% of the v1 policy field set requires new CLI flags or extensions.** This isn't surprising — the lib was built for the LSP-operator-runs-everything pattern, with most policy choices either hardcoded or implicit. Promoting these to explicit configurable parameters is the lib's main implementation work for v1.
+The "covered today" 17 includes the 16 fields with 1:1 or derived-from-existing-flag mappings, plus `leaf_channel_type` which the policy doc earlier listed as a separate field but which the lib couples with `arity_mode` via `--arity 1\|2\|3` (1/2 → LN-penalty leaves, 3 → pseudo-Spilman).
 
-### 10.5.15 Lib-side checklist (the punchlist)
+The "~6–7" Bucket-3 count is loose because the agent that did this audit and a manual recount disagreed by one — the lib team should re-verify when they sit down with the actual code.
 
-Concrete deliverable for the lib developer:
+**For the lib's actual scope, the layer split matters:** of the 22 truly-missing fields, only ~7 belong in the lib. The rest are plugin- or CLN-attribute-level concerns. The detailed split is in §10.5.15 (lib) and §10.5.16 (plugin) below.
 
-1. **Add ~37 new CLI flags** across the three binaries (LSP: ~29, watchtower: ~6, client: ~2). Each backed by a new field in the relevant config struct (`ss_config_t` extensions, new `ss_factory_create_args_t`, new `ss_watchtower_config_t`).
-2. **Split `--arity` into `--arity` (mode) + `--leaf-arity` (DW leaf count)** where the new field disambiguates.
-3. **Make hardcoded values configurable**: DW step (currently `--step-blocks` already works), n_layers, confirm_timeout (already `--confirm-timeout`), watchtower scan depth, reorg alarm depth, oracular vs lazy poison strategy.
-4. **No setup-fee flags** — v1 is pure-routing (see §4.4). `--routing-fee-ppm` keeps its forwarding-fee meaning.
-5. **Update `--help` text** on all three binaries to reflect new flags.
-6. **No `ss_factory_policy_t` in the lib.** No policy validators. Just discrete parameters and well-named struct fields.
+### 10.5.15 Lib-side checklist (revised)
+
+What the SuperScalar lib (`8144225309/SuperScalar`) actually needs to do for v1:
+
+**Net-new code in `src/` (~7 capabilities, from Bucket 1):**
+
+| Field | Subsystem | Why missing today |
+|---|---|---|
+| `block_early_count` | HTLC handling | no early-rejection logic exists |
+| `lsp_reserve_per_leaf_sat` | factory funding TX | reserve is inferred from `--amount`, not carved explicitly |
+| `advance_dust_warning_threshold_sat` | PS chain advance | only the hard dust limit (546 sat) is checked |
+| `state_replay_defense_window_blocks` | state retention | implicit in nSequence decrement only |
+| `wt_startup_scan_depth_blocks` | watchtower init | scans from DB registration height, not configurable |
+| `reorg_alarm_depth_blocks` | **reorg detection** | **the capability doesn't exist in lib WT** — plugin's CL6 work covers part of this in the plugin layer |
+| `reorg_response_strategy` | **reorg response** | same — no response framework exists |
+
+**Override flags for hardcoded values (~12 capabilities, from Bucket 2):**
+
+Each of these is currently a hardcoded literal in `src/`. The lib team adds a CLI flag + a config field, replaces the constant with the field, default unchanged.
+
+| Field | Hardcoded site (today) |
+|---|---|
+| `htlc_min_sat` | `src/chan_open.c:119` (1 msat) |
+| `htlc_max_sat` | `src/chan_open.c:117` (90% capacity) |
+| `max_in_flight_msat_per_channel` | `src/chan_open.c:386` (unlimited) |
+| `min_final_cltv_expiry_delta` | `src/bolt11.c:225` (BOLT-11 default 18) |
+| `max_accepted_htlcs` | `src/chan_open.c:122` (BOLT-2 default 483) |
+| `cltv_expiry_delta_forward` | derived in `src/route_policy.c:126` |
+| `n_layers` | derived from tree_depth |
+| `epoch_count` | derived: `states_per_layer^n_layers` (already settable via `--states-per-layer`; expose explicit override if useful) |
+| `poison_tx_strategy` | implicit (oracular post-#208) |
+| `forward_fee_policy` | implicit via `--placement-mode` + `--economic-mode` |
+| `auto_rotate_periodically` | controlled by `--async-rotation`, semantics may need a separate flag |
+| `leaf_channel_type` | encoded inside `--arity` value (1/2 → LN-penalty, 3 → PS); doc-clarify, not a new flag |
+
+**Test-mode flags needing production promotion (~6–7, from Bucket 3):**
+
+| Field | Today | What to add |
+|---|---|---|
+| `allow_bolt12` | `--test-bolt12` exists | production `--allow-bolt12 \| --no-allow-bolt12` |
+| `allow_blinded_paths` | struct support in `include/superscalar/bolt12.h` | production toggle |
+| `allow_tier_b_rollover` | `--test-tier-b-rollover` | production `--allow-tier-b-rollover \| --no-` |
+| `watchtower_mode` | `--cheat-daemon` toggles standalone (test-only) | production `--watchtower-mode in-process\|standalone\|both` |
+| `breach_response_fee_rate_sat_per_kvb` | `--max-bump-fee` is budget cap, not target rate | add `--breach-response-fee-rate` for target |
+| `allow_splice` | `--test-splice` + `src/splice.c` | production `--allow-splice \| --no-` |
+| `auto_accept_joiners` | `--auto-accept-jit` (client-side, JIT only) | general LSP-side `--auto-accept-joiners` |
+
+**Total lib-side work: ~25 items, not ~37.**
+
+That's: 7 net-new + 12 hardcoded-override flags + 6 test-promotion flags. Plus 4 ⚠ semantic clarifications on existing flags (`--cltv-timeout` vs `block_early_count` semantics; `--fee-rate` clamp behavior; `--max-bump-fee` budget-vs-target naming; `--arity` documentation around mixed-arity comma syntax).
+
+The "split `--arity` into `--arity` + `--leaf-arity`" claim from draft 3/4 is **wrong** — `--arity` already accepts comma-separated `2,4,8` for mixed-arity trees per `cli_parse_arity_spec()`. No split needed; just doc-clarify.
+
+**Out of the lib's scope** — these are plugin or CLN concerns and the lib developer should ignore them:
+
+- HTLC count caps that are CLN-level (`max_concurrent_htlcs_per_channel`)
+- AMP support (`allow_amp`)
+- Joiner admission gates (`banlist`, `allowlist`, `auto_finalize_on_dying`, `joiner_admission_window_blocks`, `min_capacity_per_join_sat`, `max_capacity_per_join_sat`)
+- Lifecycle commitments (`auto_host_next`, `ladder_cadence_blocks`, `rotation_interval_blocks`, `expected_rotation_blocks`, `lsp_self_routing_allowed`)
+- Migration path negotiation (`migration_paths_supported`)
+- Per-channel forwarding base fee (`forward_fee_base_msat` — CLN `setchannel feebase`)
+
+### 10.5.16 Plugin-side checklist (new in draft 5)
+
+What `superscalar-cln` owns on top of the policy struct + TLV codec + validators already enumerated in §7.1 and §12.2:
+
+**Net-new plugin logic for fields in Bucket 1 (12 capabilities):**
+
+| Field | Plugin responsibility |
+|---|---|
+| `min_capacity_per_join_sat`, `max_capacity_per_join_sat` | reject `factory-create` RPC or inbound JOIN_REQUEST if out of bounds |
+| `banlist` | maintain pubkey ban list; reject inbound JOIN_REQUEST from banned pubkeys (data structure + `--ban-pubkey`/`--banlist-file` flags) |
+| `allowlist` | maintain pubkey allowlist; reject inbound JOIN_REQUEST not on allowlist (data structure + flags) |
+| `auto_finalize_on_dying` | block-height-triggered behavior in `block_added` hook |
+| `joiner_admission_window_blocks` | reject inbound JOIN_REQUEST after window closes |
+| `lsp_self_routing_allowed` | plugin-side routing decision (don't pay through own factory) |
+| `auto_host_next` | scheduler: schedule next factory creation after this one's dying-phase |
+| `ladder_cadence_blocks` | scheduler input |
+| `auto_rotate_periodically` | scheduler input — paired with `rotation_interval_blocks` |
+| `rotation_interval_blocks` | reject too-frequent rotation proposals (joiner-enforceable hard floor) |
+| `expected_rotation_blocks` | advertised informational value, no enforcement |
+| `migration_paths_supported` | negotiation logic at end-of-life rotation; honor allow/deny per path |
+
+**CLN attribute plumbing (3 capabilities) — plugin reads policy value and calls CLN:**
+
+| Field | CLN mechanism |
+|---|---|
+| `allow_amp` | CLN feature flag at channel open |
+| `max_concurrent_htlcs_per_channel` | CLN attribute (BOLT-2) |
+| `forward_fee_base_msat` | CLN `setchannel feebase` post-channel-open |
+
+**Already enumerated in §12.2:** policy struct, validators (`ss_policy_validate_*`), TLV codec, persistence in CLN datastore, `factory-create` RPC extensions, `factory-list-public` RPC, custommsg dispatch for `SS_SUBMSG_FACTORY_INFO_REQUEST/RESPONSE`. Those don't change.
+
+### 10.5.17 Sign-time enforcement gaps (new in draft 5)
+
+The policy doc tags ~15 fields as `joiner_enforceable_hard` (§4.0.2) — meaning the joiner is supposed to refuse signing if the LSP violates the field. The audit revealed that **the client today has no sign-time check for most of them**:
+
+| `joiner_enforceable_hard` field | Client check exists? |
+|---|---|
+| Tree-shape fields (`arity_mode`, `leaf_arity`, `n_layers`, `epoch_count`, `dw_step_blocks`, `static_near_root_layers`, `ps_subfactory_arity`) | ✅ parsed and verified at `src/client.c:1392+` against the FACTORY_PROPOSE message |
+| `lifetime_blocks` (via cltv_timeout) | ⚠ implicit in cltv_timeout check |
+| `htlc_min_sat`, `htlc_max_sat` | ❌ not in FACTORY_PROPOSE; client signs blind |
+| `min_final_cltv_expiry_delta`, `cltv_expiry_delta_forward` | ❌ BOLT defaults hardcoded; no client-side policy check |
+| `max_concurrent_htlcs_per_channel`, `max_in_flight_msat_per_channel`, `max_accepted_htlcs` | ❌ CLN BOLT defaults; no policy check |
+| `state_replay_defense_window_blocks` | ⚠ implicit in nSequence decrement only |
+| `allow_tier_b_rollover` | ❌ not implemented (Tier B always enabled) |
+| `rotation_interval_blocks` | ❌ not a discrete check; only via epoch_count math |
+| `block_early_count` | ❌ not implemented |
+| `lsp_reserve_per_leaf_sat`, `lsp_initial_balance_pct`, `per_client_capacity_sat` | ❌ not in FACTORY_PROPOSE wire; client can't see the LSP's claim, let alone verify |
+| `min_capacity_per_join_sat`, `max_capacity_per_join_sat` | ❌ not implemented |
+
+**Implication:** the security model around `joiner_enforceable_hard` is aspirational. A v1 implementation that ships the policy schema without these client checks gives joiners no protection — the LSP can advertise anything and joiners will sign anyway.
+
+**For v1, the choice is:**
+- **(a)** ship the policy schema as documented and accept that "joiner_enforceable_hard" means "joiner *can* enforce in v2 once the client checks land" (be explicit about this gap)
+- **(b)** delay v1 until the wire schema carries every joiner_enforceable_hard field AND `superscalar_client.c` has matching pre-sign validation hooks
+- **(c)** downgrade most `joiner_enforceable_hard` fields to `soft` (LSP advertises, no cryptographic enforcement) — most honest, smallest implementation gap
+
+The choice is a v1 scope decision, not a technical one. Recommend (a) with a CONFORMANCE.md note + a v1.1 plan to add the wire fields and client checks.
 
 ---
 
@@ -1918,16 +2033,18 @@ Not in v1, but worth tracking:
 
 The lib has **no `ss_factory_policy_t`, no policy validators, no TLV codec.** It only needs to expose discrete parameters that the plugin will populate from its policy struct.
 
-- [ ] **Add the ~37 new CLI flags** enumerated in §10.5 across the three binaries:
-  - `tools/superscalar_lsp.c` — ~29 new flags (tree shape extensions, lifecycle, economics, channel options, HTLC policy, joiner admission, watchtower, PS chain, migration, routing, lifecycle commitments)
-  - `tools/superscalar_watchtower.c` — ~6 new flags (watchtower mode, poison strategy, scan depth, reorg alarm, reorg response, breach response fee rate)
-  - `tools/superscalar_client.c` — ~2 new flags (client-side mirrors for policy fields the client validates: rotation_interval_blocks, max_capacity_per_join_sat for client's own admission)
-- [ ] **Extend `ss_config_t`** (`include/superscalar/superscalar_sdk.h`) with any runtime-config fields not currently parameterized (e.g., for fee strategy + min rate, watchtower mode, etc.)
-- [ ] **Add `ss_factory_create_args_t`** (or extend whatever struct factory_create takes today) to accept all tree shape + lifecycle + economics fields. **Do not collapse into a single "policy" struct** — keep parameters discrete; that's the layer boundary
+**Scope revised in draft 5.** The lib's actual work is ~25 items (not ~37), broken down by §10.5.15. The split:
+
+- [ ] **Net-new src/ code (~7 items, Bucket 1):** `block_early_count` HTLC rejection, `lsp_reserve_per_leaf_sat` funding TX carve-out, `advance_dust_warning_threshold_sat` early warning, `state_replay_defense_window_blocks` retention, `wt_startup_scan_depth_blocks` config, **reorg detection in WT** (`reorg_alarm_depth_blocks` + `reorg_response_strategy` — the capability itself doesn't exist today)
+- [ ] **Override flags for hardcoded constants (~12 items, Bucket 2):** see §10.5.15 table — each replaces a literal in `src/` with a config-struct field
+- [ ] **Promote test-mode flags to production (~6–7 items, Bucket 3):** `--test-bolt12` → `--allow-bolt12`, `--test-tier-b-rollover` → `--allow-tier-b-rollover`, `--test-splice` → `--allow-splice`, etc.
+- [ ] **Semantic clarifications (~4 items, ⚠ partial):** doc-clarify `--cltv-timeout` vs `block_early_count`; `--fee-rate` clamp behavior; `--max-bump-fee` is budget cap (add `--breach-response-fee-rate` for target); `--arity` mixed-arity comma syntax already supports per-level
+- [ ] **Add `ss_factory_create_args_t`** struct passed to `factory_create()` bundling all per-factory params (tree shape + lifecycle + economics). **Do not collapse into a single "policy" struct** — keep parameters discrete; that's the layer boundary
 - [ ] **Add `ss_watchtower_config_t`** struct passed to `watchtower_init` carrying watchtower-policy-derived parameters (mode, poison strategy, fee rate, scan depth, reorg config)
-- [ ] **Split `--arity` into `--arity` (mode) + `--leaf-arity`** where appropriate (see §10.5.2)
+- [ ] **Extend `ss_config_t`** with the two node-level new fields: `advance_dust_warning_threshold_sat`, `state_replay_defense_window_blocks`
 - [ ] **Update `--help` text** on all three binaries
 - [ ] **Add unit tests** that the new flags parse + propagate to lib structs correctly
+- [ ] **`--arity` does NOT need splitting into `--arity` + `--leaf-arity`** — it already accepts comma-separated mixed-arity per `cli_parse_arity_spec()` in `tools/superscalar_lsp.c`. Earlier draft-3/4 split claim was wrong. Just doc-clarify the mixed-arity syntax in `--help`.
 - [ ] **No changes to slim extraction list** in plugin's `build-plugin.sh` — the lib doesn't gain new modules, just new flag parsing + struct fields
 
 ### 12.2 Plugin (`superscalar-cln`) — owns the policy
@@ -1990,6 +2107,17 @@ Estimated effort with dedicated developers: lib ~1-2 weeks (mostly mechanical fl
   - `max_advance_count_per_leaf` (§4.9 PS chain): chain length is **dust-bounded**, not statically capped. The combination of `advance_dust_warning_threshold_sat` and the LSP's per-advance discretion is sufficient; a static cap is the wrong abstraction.
   - Added new **§4.14 Cross-field invariants** documenting validator-enforced relationships between fields: tree-shape coherence (arity_mode ↔ arity values), lifecycle/capacity bounds, joiner admission coherence, lifecycle commitment coherence, and routing coherence. Spells out which combinations the plugin validator must reject.
   - Updated §4.0.2 enforcement-strength lookup, §4.3.4 ceremony scope, §4.4 economics, §4.6.4 cltv research caveat, §4.7 joiner admission count, §4.8.6 reorg strategy semantics, §4.9 PS chain rationale (pre-APO multi-party signature leakage as why chains chain), §6 JSON example, §7.1 validator pseudo-code, §7.2 lib API populate sketch, §9 defaults table, §10 code mapping (35 → 32 of 57 from existing sources), §10.5.4 / .7 / .9 mapping subsections, §10.5.14 summary (was ~41 ❌, now ~37), §10.5.15 punchlist.
+
+- **v1 draft 5** (2026-05-15): **audit-grounded rewrite of §10.5.14, §10.5.15, and §12.1.** The earlier "~37 new CLI flags" claim was incorrect — it came from naive name-matching against policy fields instead of reading the actual `tools/superscalar_*.c` argparsers and `src/` code. A two-pass audit (dual-side LSP + client + watchtower; bucket-each-field) reclassified:
+  - **17 fields covered today** (was 13 in draft 4 — adds `leaf_channel_type`, which the lib couples with `arity_mode` via `--arity 1\|2\|3`, not a separate axis; doc previously listed them as independent fields)
+  - **22 fields truly missing** (Bucket 1 — need new `src/` code): only ~7 of these belong in the lib (`block_early_count`, `lsp_reserve_per_leaf_sat`, `advance_dust_warning_threshold_sat`, `state_replay_defense_window_blocks`, `wt_startup_scan_depth_blocks`, `reorg_alarm_depth_blocks`, `reorg_response_strategy`). Reorg detection in the WT doesn't exist as a capability at all. The other 15 are plugin or CLN-attribute concerns
+  - **12 fields hardcoded with no override** (Bucket 2 — `htlc_min_sat`, `htlc_max_sat`, `max_in_flight_msat_per_channel`, BOLT-11/BOLT-2 defaults, `epoch_count`, `n_layers`, `poison_tx_strategy`, etc.): each needs flag + replace constant
+  - **6–7 fields are test-only / partial** (Bucket 3 — `--test-bolt12`, `--test-splice`, `--test-tier-b-rollover`, `--cheat-daemon` for WT mode, etc.): need production-mode promotion
+  - Added new **§10.5.16 Plugin-side checklist** distinguishing plugin-decision fields (~12) from CLN-attribute-plumbing fields (~3). Plugin team's punchlist on top of §12.2's policy/codec/validator/RPC work.
+  - Added new **§10.5.17 Sign-time enforcement gaps** documenting that ~15 `joiner_enforceable_hard` fields have no client-side validation in `superscalar_client.c` today — wire schema doesn't carry them, BOLT defaults are hardcoded, etc. Calls out v1 scope decision: ship anyway with caveat (current plan), delay until full enforcement lands, or downgrade most fields to `soft`.
+  - Corrected the "split `--arity` into `--arity` + `--leaf-arity`" claim from drafts 3/4: `cli_parse_arity_spec()` already accepts comma-separated mixed-arity (`--arity 2,4,8`). Just needs `--help` doc-clarify, not a flag split.
+  - Updated §12.1 lib checklist to reflect ~25 items (7 net-new + 12 hardcoded-override + 6 test-promotion), not ~37.
+  - Other section content (§4 field defs, §9 defaults table, per-category §10.5.1–.13 mapping tables) NOT re-verified in this pass — they need an independent audit when the lib team starts implementing. Numbers in those sections may still drift; treat them as provisional.
 
 - v1.1 candidates: any new fields surfacing during implementation review.
 
