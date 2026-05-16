@@ -267,7 +267,22 @@ export async function publishSignedEvent(
   const pool = getPool();
   const promises: Promise<RelayPublishResult>[] = pool.publish(relays, event).map((p, idx) =>
     p
-      .then(() => ({ relay: relays[idx], status: 'ok' as const }))
+      .then((result: unknown) => {
+        // nostr-tools' SimplePool.publish() *resolves* (not rejects) with a
+        // string of the form "connection failure: <err>" when its internal
+        // ensureRelay() throws — CSP block, DNS failure, network down,
+        // handshake timeout, etc. The previous `.then(() => 'ok')` swallowed
+        // those as successes, which is what produced the "4/4 relays
+        // accepted" false-positive while the browser console showed every
+        // wss:// blocked by CSP. Detect that one specific resolved-string
+        // shape and downgrade it to a real failure result. Genuine OK
+        // resolutions come back as the relay's OK-reason (usually empty
+        // string ""), which never starts with "connection failure".
+        if (typeof result === 'string' && result.startsWith('connection failure')) {
+          return { relay: relays[idx], status: 'failed' as const, error: result };
+        }
+        return { relay: relays[idx], status: 'ok' as const };
+      })
       .catch((err: any) => ({
         relay: relays[idx],
         status: 'failed' as const,
