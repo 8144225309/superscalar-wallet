@@ -129,21 +129,410 @@ for incoming.
 > peer plugin → peer CLN RPC → peer reaction. The goal is that by the end of
 > each walkthrough, the implementation surface for that flow is obvious.
 
+### 3.0 Plugin architecture and roles
+
+The plugin runs **identical code** on every CLN node that loads it, but
+per-factory it acts in one of two **roles**:
+
+- **LSP role** — the plugin created this factory (via
+  `factory-create-draft`). It runs as a persistent server: listens for
+  incoming JOIN_REQUESTs, queues them, watches block heights for
+  force-start triggers and expiry approach, orchestrates ceremonies,
+  retries REVOKEs.
+- **Client role** — the plugin received a `FACTORY_PROPOSE` from an
+  LSP and joined. It runs as a participant: responds to LSP-initiated
+  events when online, persists cryptographic state across disconnects,
+  doesn't run a queue.
+
+A single CLN node can be LSP for some factories and a client in others
+simultaneously. The role is per-factory state, derived from who
+created the factory, not a node-wide setting.
+
+#### Listeners on every running plugin
+
+```
+   Plugin event loop (always running while CLN is up):
+
+   Listeners registered with CLN:
+     - custommsg hook  (incoming 33001 → dispatch by submsg_id)
+     - connect notification (peer comes online → resume any pending
+         state for that peer, like retrying REVOKE)
+     - block_added notification (new block → check force-start
+         deadlines, expiry-rotation triggers, ladder cadence)
+     - openchannel hook (open_channel arrives → check TLV 65600 for
+         factory-channel context)
+     - htlc_accepted hook (HTLC arrives → route via alias SCIDs for
+         factory sub-channels)
+
+   JSON-RPC commands registered:
+     - factory-* RPCs (see §5)
+```
+
+#### Persistent state (in CLN's datastore under `superscalar/...`)
+
+The plugin persists everything that must survive plugin reload, CLN
+restart, or peer disconnect:
+
+- **Factory instance records** keyed by `instance_id` — role,
+  lifecycle, participant set, ceremony state, expiry block, policy
+- **Per-participant records** under each instance — peer_id,
+  factory_pubkey, leaf assignment, status (active/departing/departed),
+  last_seen_block, pending REVOKE epoch
+- **Pending join queues** per draft factory — JOIN_REQUEST records
+  awaiting auto-accept evaluation or ceremony start
+- **Outstanding REVOKEs** that haven't been acknowledged by their
+  target client yet
+- **Ladder schedule** — block height of next factory creation (for
+  auto-host-next)
+- **Active ceremony state** — current round, nonces collected so
+  far, partial sigs collected so far, retry counts
+
+Datastore keys follow the convention
+`superscalar/<instance_id>/<sub-key>`. Bulk read/write via standard
+CLN `listdatastore` / `datastore` RPCs.
+
+#### What happens on plugin restart
+
+1. Plugin starts, enumerates `superscalar/*` datastore entries
+2. For each factory instance: reconstruct in-memory state, determine
+   where in its lifecycle it sits
+3. Resume listening hooks; previously-pending operations (REVOKEs,
+   ceremony rounds) replayed from persisted state
+4. No data lost across restart; clients can pick up where they left
+   off
+
+This makes the plugin **safe to upgrade**: rebuild the binary,
+restart CLN, all in-flight factories resume cleanly.
+
 ### 3.1 LSP creates a factory and makes it discoverable
 
-*To be filled in.*
+Goal: from a clean-slate wallet, get to a state where clients can
+browse this LSP's factories and submit JOIN_REQUESTs.
+
+#### Step 1 — LSP advertises itself on Nostr (existing)
+
+This already works (PR #11 and prior). The wallet calls
+`POST /v1/rendezvous/prepare-vouch-event`, signs it with the LSP's
+Nostr identity key, publishes to enabled relays. The coordinator sees
+the advertisement, verifies the proof tier, and publishes a
+kind-38101 vouch. Other wallets see the vouch in their Connect tab.
+
+At this point the LSP is **discoverable as a host** but has no
+factories yet. Clicking the LSP's row in another wallet's Connect tab
+returns an empty factory list (once browse is wired — §3.2).
+
+#### Step 2 — LSP creates a draft factory
+
+User clicks **Host Factory** in the wallet UI. The dialog
+(`FactoryCreate.tsx`) collects policy parameters and calls:
+
+```
+   wallet UI → POST /v1/rendezvous/create-draft-factory {policy}
+   backend → CLN RPC: factory-create-draft
+   plugin → creates new factory instance with lifecycle = "drafting"
+            persists initial state to CLN datastore
+            schedules force_start_block = current + force_start_offset
+            returns instance_id to caller
+   backend → returns instance_id to UI
+   UI shows the new draft in "My Factories" list
+```
+
+The plugin does **not** generate nonces, build a tree, or lock funding
+UTXOs at this point. Those happen at ceremony-start time (step 5).
+The draft is just a record saying "I'm willing to host a factory with
+these parameters, and I'll accept up to `max_clients` JOIN_REQUESTs
+until the force-start block."
+
+#### Step 3 — Draft factory appears in browse responses
+
+Now that the draft exists in the LSP's plugin state, any client
+browsing the LSP will see it. The plugin's `FACTORY_INFO_RESPONSE`
+handler enumerates active factories (drafting + forming + active) and
+includes them in the response.
+
+The draft factory's wire representation:
+- `instance_id: <new>`
+- `lifecycle: "drafting"`
+- `slots_open: max_clients`
+- `slots_total: max_clients`
+- `force_start_block: <current + offset>`
+- `accepting_joins: true`
+- `policy: {...}`
+
+#### Step 4 — Clients submit JOIN_REQUESTs (collected over time)
+
+As clients hit Join in their wallets, `JOIN_REQUEST` wire messages
+arrive at the LSP. The plugin's handler:
+
+1. Validates the request (peer connected, factory_protocol_id matches,
+   params within the factory's policy)
+2. Checks `autoAcceptJoiners` policy: if true and request within
+   bounds, immediately accept
+3. If auto-accept'd: add peer to factory's participant list, return
+   `JOIN_RESPONSE = "accepted, ceremony at block X"`
+4. If manual: enqueue for operator review, return
+   `JOIN_RESPONSE = "queued"`
+5. Persist state to datastore
+
+The factory's `slots_open` decrements per accepted join. LSP-operator
+UI sees the queue updating in real time (poll via
+`factory-incoming-joins`).
+
+#### Step 5 — Force-start trigger fires
+
+Two conditions can fire the ceremony:
+
+1. **Slots full** — `slots_open` reaches 0; plugin immediately fires
+   ceremony (no need to wait for deadline)
+2. **Block deadline reached** — `current_block >= force_start_block`;
+   plugin fires ceremony with however many participants are accepted,
+   *provided* `accepted_count >= min_clients_to_start`. If fewer, the
+   ceremony aborts and the LSP operator is notified
+
+When the trigger fires:
+
+1. Plugin broadcasts `CEREMONY_HEARTBEAT` (0x0144) to all accepted
+   participants: "ceremony starts in 30 s, confirm presence"
+2. Participants reply with `CEREMONY_HEARTBEAT_ACK` (0x0145)
+3. Plugin waits 30 s for ACKs (configurable); peers who don't ACK
+   are dropped
+4. Plugin builds the factory tree from policy + participant list,
+   picks funding UTXOs, generates LSP's MuSig2 nonce
+5. Plugin broadcasts `FACTORY_PROPOSE` (0x0100) — the ceremony begins
+
+From this point, the existing ceremony machinery in `ceremony.h` takes
+over (`FACTORY_PROPOSE` → `NONCE_BUNDLE` → `ALL_NONCES` →
+`PSIG_BUNDLE` → `FACTORY_READY` → `DIST_*`).
+
+#### Step 6 — Factory becomes active
+
+After `FACTORY_READY`, the factory transitions to
+`lifecycle = "active"`. Sub-channels are open via the existing
+TLV-65600 channel-open flow. Day-to-day HTLC routing is factory-blind.
+The LSP runs background tasks (breach scans, expiry checks, leaf
+advance scheduler) per the existing plugin code.
 
 ### 3.2 User browses a host's factories
 
-*To be filled in.*
+Goal: user clicks a vouched host in the Connect tab and sees what
+factories that host is offering.
+
+#### Pre-conditions
+
+- User's wallet sees the LSP's vouch in Connect tab (existing
+  kind-38101 flow)
+- User's CLN node speaks bLIP-56 (feature bit 270/271 advertised in
+  `init`)
+- LSP's CLN node also speaks bLIP-56 (peer advertised TLV 512 entry
+  for `"SuperScalar/v1"`)
+- A connection between the two nodes either exists or can be
+  established
+
+#### The wire round-trip
+
+```
+   User UI                  User CLN                 LSP CLN
+   ─────────                ──────────               ────────
+   click "Browse"
+   on host row
+        │
+        │ POST /v1/rendezvous/browse-host {node_id}
+        ▼
+   wallet backend
+        │
+        │ RPC: factory-browse-host {node_id}
+        ▼
+   plugin (client role)
+        │
+        │ 1. ensure peer is connected
+        │    (listpeers → if not, connect node_id@addr)
+        │ 2. check supported_factory_protocols handshake
+        │    (if not done, send 0x0002, wait for theirs)
+        │ 3. build FACTORY_INFO_REQUEST (0x0140) inside
+        │    factory_piggyback (0x0004) w/ protocol_id
+        │ 4. sendcustommsg ────── wire ─────────────►  custommsg hook
+        │                                              │
+        │                                              │ dispatch by submsg_id
+        │                                              │ to FACTORY_INFO_REQUEST
+        │                                              │ handler
+        │                                              │
+        │                                              │ enumerate own factories,
+        │                                              │ filter by since_block,
+        │                                              │ build response
+        │                                              │
+        │  ◄── FACTORY_INFO_RESPONSE (0x0141) ────┤  sendcustommsg back
+        │
+        │ custommsg hook fires on our side
+        │ 5. correlate by request_id
+        │ 6. parse, return JSON to backend
+        ▼
+   backend → UI
+        │
+        ▼
+   UI renders factory list under host row
+```
+
+#### End-to-end latency
+
+| Path | Time |
+|---|---|
+| Peer connected + handshake done | ~200-500 ms (one round-trip) |
+| Peer not connected | + ~500-1000 ms (connect + handshake) |
+| Peer unreachable | 5 s timeout, UI shows "unreachable" |
+
+#### Caching
+
+Browse responses are cached client-side for ~2 minutes. Same-host
+re-browse within window returns cached response with a "last updated"
+indicator. Cache invalidates on:
+
+- Manual refresh click
+- User-explicit re-browse
+- Any JOIN_REQUEST to that host (stale after join)
 
 ### 3.3 User joins a factory
 
-*To be filled in.*
+Goal: user picks a factory from the browse list, clicks Join, and
+either gets auto-accepted into a participant slot or queued for the
+LSP operator's review.
+
+#### The wire round-trip
+
+```
+   User UI                  User CLN                 LSP CLN
+   ─────────                ──────────               ────────
+   click "Join Factory"
+            │
+            │ confirmation dialog:
+            │ - expected ceremony at block X (~5h)
+            │ - policy summary
+            │ - "wallet must be online during ceremony"
+            │
+            │ user confirms
+            │
+            │ POST /v1/rendezvous/join-host {
+            │   node_id, instance_id, params
+            │ }
+            ▼
+   wallet backend
+            │
+            │ RPC: factory-join-request {...}
+            ▼
+   plugin (client role)
+            │
+            │ 1. reuse peer connection (just browsed)
+            │ 2. build JOIN_REQUEST (0x0142) with
+            │    request_id, instance_id, client params,
+            │    optional proof TLV
+            │ 3. sendcustommsg ──── wire ──────────►  custommsg hook
+            │                                          │
+            │                                          │ dispatch to
+            │                                          │ JOIN_REQUEST handler
+            │                                          │
+            │                                          │ validate:
+            │                                          │ - factory exists
+            │                                          │ - accepting & slots_open > 0
+            │                                          │ - params within policy
+            │                                          │
+            │                                          │ if autoAcceptJoiners:
+            │                                          │   add to participant set,
+            │                                          │   decrement slots_open,
+            │                                          │   persist to datastore
+            │                                          │ else:
+            │                                          │   enqueue for operator
+            │                                          │
+            │  ◄── JOIN_RESPONSE (0x0143) ──────────┤  build response
+            │      { status: "accepted",
+            │        instance_id,
+            │        ceremony_start_block,
+            │        leaf_assignment,
+            │        participant_index }
+            │
+            │ custommsg hook, correlate by request_id
+            │ 4. persist local pending-join record
+            │ 5. return JSON to backend
+            ▼
+   backend → UI
+            │
+            ▼
+   UI: "Join accepted — ceremony at block X (~5h)"
+   subscribes to ceremony-start push notification
+```
+
+#### What happens between accept and ceremony
+
+Both sides persist the pending-join state. The LSP's plugin tracks
+the participant in its factory record; the client's plugin tracks the
+pending ceremony participation. Either side can disconnect, restart,
+or change IPs — the state survives.
+
+When the force-start trigger fires (step 5 in §3.1), the LSP sends
+`CEREMONY_HEARTBEAT` to all participants. The client plugin's
+handler receives it, replies with `HEARTBEAT_ACK`, and waits for
+`FACTORY_PROPOSE`.
+
+#### Edge cases
+
+| Condition | JOIN_RESPONSE.status | Client behavior |
+|---|---|---|
+| Factory already started ceremony | `"rejected_ceremony_active"` | Try a different factory |
+| Slots full but factory pre-ceremony | `"queued_for_next"` + `expected_block` | Wait for next factory creation (Strategy B) |
+| Factory `lifecycle=active`, LSP supports late-join | `"queued_for_next_rotation"` + `expected_block` | Wait for rotation |
+| Factory `lifecycle=active`, LSP no-late-join | `"rejected_no_late_join"` | Try a different factory |
+| Params outside policy bounds | `"rejected_policy_mismatch"` + `reason` | Adjust params or different factory |
+| Pubkey on banlist | `"rejected_banned"` | (terminal — user can't recover) |
 
 ### 3.4 Ceremony progress reflected in UI
 
-*To be filled in.*
+Goal: from the moment ceremony starts (`FACTORY_PROPOSE` arrives)
+until it completes (`FACTORY_READY` received), the user sees clear
+progress in the wallet UI.
+
+#### Polling pattern
+
+Wallet polls the plugin's `factory-ceremony-status` RPC every 1-2
+seconds while a ceremony is active. RPC returns:
+
+- `state` — enum: `IDLE`, `PROPOSED`, `NONCES_COLLECTED`,
+  `PSIGS_COLLECTED`, `COMPLETE`, `FAILED`
+- `current_round` — 1, 2, or "distribution"
+- `participants_total`
+- `participants_responded_this_round`
+- `time_remaining_seconds` — until round timeout
+- `error` — non-null only if state == `FAILED`
+
+UI renders:
+
+- A progress bar across the 5 ceremony stages
+- "3 of 7 participants have submitted nonces" subtitle
+- Estimated time remaining
+- Cancel-ceremony button (only useful LSP-side, only before round 2)
+
+#### Push notification trigger
+
+Two events deserve OS-level notifications because users may not have
+the wallet in focus:
+
+1. **`CEREMONY_HEARTBEAT` received** — "Factory ceremony starting in
+   30 seconds, keep wallet open"
+2. **`FACTORY_READY` received** — "Factory ceremony complete, your
+   sub-channel is open"
+
+These push via the browser/OS notification API (`Notification` web
+API on desktop, push subscriptions on mobile). User must have granted
+notification permission during onboarding.
+
+#### Recovery from ceremony failure
+
+If ceremony fails (timeout, abort, signature verification failure):
+
+- UI shows "Ceremony failed — reason: <reason>"
+- LSP-side: factory returns to `lifecycle = "drafting"` with the
+  participant list intact (minus the non-responsive party). Operator
+  can manually re-trigger if appropriate.
+- Client-side: pending-join record updated with
+  `status: "ceremony_failed"`. User can retry against a different
+  factory.
 
 ### 3.5 Rotation (LSP-driven)
 
@@ -260,11 +649,488 @@ realistic UX for consumer wallets.
 
 ### 3.6 Cooperative close
 
-*To be filled in.*
+Goal: factory winds down cleanly, all participants sign the close,
+on-chain settlement happens.
+
+This is the existing `factory-close` RPC + ceremony flow
+(`CLOSE_PROPOSE` → `CLOSE_NONCE` → `CLOSE_ALL_NONCES` → `CLOSE_PSIG`
+→ `CLOSE_DONE`). No new wire surface needed.
+
+#### When it fires
+
+- LSP operator manually invokes `factory-close` (e.g., end of
+  factory's useful life)
+- Factory's `autoFinalizeOnDying` is true and expiry is approaching
+  with no rotation scheduled
+
+#### What participants see
+
+Same as a regular all-online ceremony — `CEREMONY_HEARTBEAT` first,
+then the close ceremony. About 3-5 minutes wall-clock time. Final
+on-chain transaction settles funds to each participant's keys.
+
+#### Departed participants
+
+Participants who already exited via TURNOVER are absent from the
+close ceremony. The LSP's plugin tracks who's still active vs
+departed via the participant_record status field. Close ceremony
+only invites active participants.
 
 ---
 
-## 4. Where the data lives at each layer
+## 4. Wire format spec — the 6 new submsgs
+
+All payloads are inside `factory_piggyback` (bLIP-56 submsg `0x0004`)
+with `protocol_id = "SuperScalar/v1"` (32 bytes ASCII zero-padded).
+Big-endian everywhere. Hand-rolled in plugin C using `towire_u*` /
+`fromwire_u*` from `common/towire.h`. Fixed-layout for required
+fields; trailing TLV stream for optional/extensible fields.
+
+### 4.1 FACTORY_INFO_REQUEST (0x0140)
+
+Client asks: "what factories do you have?"
+
+```
+   Inside factory_piggyback payload (after protocol_id[32]):
+   ┌──────────────────────────────────────────────────────┐
+   │ u16   app_submsg_id        = 0x0140                  │
+   │ u64   request_id           (correlation id; echoed   │
+   │                              in response)            │
+   │ u32   since_block          (0 = all factories;       │
+   │                              else only created       │
+   │                              after this block)       │
+   ├──────────────────────────────────────────────────────┤
+   │ Trailing TLV stream (all optional):                  │
+   │   TLV 1: only_accepting_joins (1 byte: 0/1)          │
+   │   TLV 3: min_slots_open_filter (u8)                  │
+   │   TLV 5: max_results (u16, default 32)               │
+   └──────────────────────────────────────────────────────┘
+
+   Fixed bytes: 2 + 8 + 4 = 14 bytes
+   Plus 32-byte protocol_id from piggyback wrapper = 46 bytes total
+   inside the 33001 wire payload.
+```
+
+### 4.2 FACTORY_INFO_RESPONSE (0x0141)
+
+LSP replies with its factory list.
+
+```
+   Inside factory_piggyback payload:
+   ┌──────────────────────────────────────────────────────┐
+   │ u16   app_submsg_id        = 0x0141                  │
+   │ u64   request_id           (echoes request)          │
+   │ u32   snapshot_block       (height when assembled)   │
+   │ u8    n_factories                                    │
+   │                                                      │
+   │ Repeated n_factories times — factory_entry:          │
+   │   ┌──────────────────────────────────────────────┐  │
+   │   │ u8[16]  instance_id                           │  │
+   │   │ u8      lifecycle  (enum byte:               │  │
+   │   │           0=drafting, 1=forming, 2=active,   │  │
+   │   │           3=rotating, 4=closing, 5=expired)  │  │
+   │   │ u32     created_block                         │  │
+   │   │ u32     expiry_block                          │  │
+   │   │ u32     force_start_block  (0 if no deadline) │  │
+   │   │ u8      slots_open                            │  │
+   │   │ u8      slots_total                           │  │
+   │   │ u8      min_clients_to_start                  │  │
+   │   │ u8      accepting_joins      (0/1)            │  │
+   │   │ u16     trailing_tlv_len                      │  │
+   │   │ ... policy summary TLVs ...                   │  │
+   │   └──────────────────────────────────────────────┘  │
+   │                                                      │
+   │ Trailing TLV stream at the response level:           │
+   │   TLV 1: host_accepting_new_factories (1 byte 0/1)   │
+   │   TLV 3: host_alias_utf8 (variable, up to 32B)       │
+   │   TLV 5: next_factory_creation_block (u32)           │
+   └──────────────────────────────────────────────────────┘
+```
+
+Each `factory_entry`'s policy TLV stream carries (TLV types are
+SuperScalar-internal, scoped to this submsg):
+
+| TLV type | Field | Type | Meaning |
+|---|---|---|---|
+| 0 | `M` | u8 | Max channel count per leaf |
+| 1 | `L_epochs` | u8 | Lifetime in epochs |
+| 2 | `R_blocks` | u32 | Rotation cadence buffer |
+| 3 | `wide_leaf_arity` | u8 | k for k² subfactory (1 = flat) |
+| 4 | `leaf_arity` | u8 | 1 or 2 |
+| 5 | `leaf_channel_type` | u8 | 0=PS, 1=LN-penalty |
+| 6 | `fee_msat_per_channel` | u64 | LSP's fee |
+| 7 | `min_client_capital_sat` | u64 | Min stake required from joiner |
+| 8 | `early_warning_blocks` | u16 | Safety-baseline pre-rotation notice |
+
+### 4.3 JOIN_REQUEST (0x0142)
+
+Client requests participation in a specific factory.
+
+```
+   Inside factory_piggyback payload:
+   ┌──────────────────────────────────────────────────────┐
+   │ u16    app_submsg_id   = 0x0142                       │
+   │ u64    request_id       (correlation)                 │
+   │ u8[16] instance_id      (which factory)               │
+   │ u64    client_capital_sat   (how much they stake)     │
+   │ u8[33] client_factory_pubkey (their MuSig2 share)     │
+   │ u8[33] client_channel_pubkey (their channel partner   │
+   │                                key)                   │
+   │ u32    expires_at_block  (request stale after this    │
+   │                            block; LSP rejects)        │
+   │ u16    trailing_tlv_len                               │
+   │                                                       │
+   │ Trailing TLV stream (all optional):                   │
+   │   TLV 1: client_alias_utf8 (variable, up to 32B)      │
+   │   TLV 3: preferred_leaf_index (u8, hint only)          │
+   │   TLV 5: proof_of_capital (TLV stream — UTXO proof,   │
+   │            channel-control proof, or vouch-id-echo)    │
+   │   TLV 7: contact_addr_hint (string — for offline      │
+   │            re-contact, e.g. "1.2.3.4:9735")           │
+   └──────────────────────────────────────────────────────┘
+```
+
+`client_factory_pubkey` and `client_channel_pubkey` are the public
+keys the joiner commits to using in the upcoming ceremony. Once
+JOIN_REQUEST is accepted, the LSP locks these into the factory tree
+state at ceremony start.
+
+### 4.4 JOIN_RESPONSE (0x0143)
+
+LSP responds: accepted, queued, or rejected.
+
+```
+   Inside factory_piggyback payload:
+   ┌──────────────────────────────────────────────────────┐
+   │ u16    app_submsg_id   = 0x0143                       │
+   │ u64    request_id       (echoes request)              │
+   │ u8     status           (enum byte:                   │
+   │           0 = accepted                                │
+   │           1 = queued_for_next_factory                 │
+   │           2 = queued_for_next_rotation                │
+   │           3 = rejected_ceremony_active                │
+   │           4 = rejected_policy_mismatch                │
+   │           5 = rejected_no_late_join                   │
+   │           6 = rejected_banned                         │
+   │           7 = rejected_capacity_full                  │
+   │           8 = rejected_proof_invalid                  │
+   │           9 = rejected_protocol_unsupported           │
+   │           255 = rejected_other                        │
+   │           )                                           │
+   │ u32    ceremony_start_block  (0 if rejected/queued    │
+   │                                without known block)   │
+   │ u8     participant_index (0-127 if accepted, 0xff     │
+   │                            otherwise)                 │
+   │ u16    trailing_tlv_len                               │
+   │                                                       │
+   │ Trailing TLV stream:                                  │
+   │   TLV 1: rejection_reason_utf8 (only present when    │
+   │           status indicates rejection or queueing)    │
+   │   TLV 3: leaf_index (u8, present when accepted)       │
+   │   TLV 5: expected_unlock_block (u32, when queued)     │
+   └──────────────────────────────────────────────────────┘
+```
+
+### 4.5 CEREMONY_HEARTBEAT (0x0144)
+
+LSP to all participants: "ceremony begins in N seconds, confirm
+presence."
+
+```
+   Inside factory_piggyback payload:
+   ┌──────────────────────────────────────────────────────┐
+   │ u16    app_submsg_id   = 0x0144                       │
+   │ u8[16] instance_id     (which factory's ceremony)     │
+   │ u8     ceremony_type   (0=create, 1=rotate, 2=close,  │
+   │                          3=leaf_advance,              │
+   │                          4=leaf_realloc)              │
+   │ u32    expected_propose_block                         │
+   │ u16    ack_window_seconds                             │
+   │ u8     participants_total                             │
+   │ u16    trailing_tlv_len                               │
+   │                                                       │
+   │ Trailing TLV (optional):                              │
+   │   TLV 1: abort_block (u32 — if not all ACK by this    │
+   │           block, ceremony aborts)                      │
+   └──────────────────────────────────────────────────────┘
+```
+
+### 4.6 CEREMONY_HEARTBEAT_ACK (0x0145)
+
+Participant to LSP: "I'm here, ready."
+
+```
+   Inside factory_piggyback payload:
+   ┌──────────────────────────────────────────────────────┐
+   │ u16    app_submsg_id   = 0x0145                       │
+   │ u8[16] instance_id                                    │
+   │ u8     participant_index                              │
+   │ u32    current_block_height (tells LSP our view of    │
+   │                                chain tip)             │
+   │ u16    trailing_tlv_len                               │
+   │                                                       │
+   │ (No TLVs defined in v1.)                              │
+   └──────────────────────────────────────────────────────┘
+```
+
+### 4.7 TLV 514 — per-protocol feature bitfield (new in handshake)
+
+Added to the existing `supported_factory_protocols` submsg (0x0002)
+alongside TLV 512. Same submsg, additive TLV — old peers without 514
+parsing skip it without breakage.
+
+```
+   TLV 514 value layout — repeated tuples:
+
+   ┌──────────────────────────────────────────────────────┐
+   │ For each protocol_id the sender supports:            │
+   │   ┌─────────────────────────────────────────────┐   │
+   │   │ u8[32]  protocol_id                          │   │
+   │   │ u8      bitfield_byte_count   (0-32)         │   │
+   │   │ byte[]  bitfield                             │   │
+   │   └─────────────────────────────────────────────┘   │
+   │                                                      │
+   │ Concatenated; no separator.                          │
+   └──────────────────────────────────────────────────────┘
+```
+
+Feature bit allocations for `"SuperScalar/v1"` (BOLT-9-style even/odd
+pairs — even = required, odd = optional/may-ignore):
+
+| Bit | Pair | Feature |
+|---|---|---|
+| 0 / 1 | wide_leaf | k≥2 subfactory support (ARITY_2) |
+| 2 / 3 | ptlc_turnover | PTLC-based key turnover for exits |
+| 4 / 5 | per_leaf_advance | Cheaper 2-of-2 leaf re-sign optimization |
+| 6 / 7 | per_leaf_realloc | 2-of-2 value transfer without chain advance |
+| 8 / 9 | per_leaf_realloc_3of3 | 3-of-3 variant for ARITY_2 leaves |
+| 10 / 11 | buy_liquidity | Post-create capacity purchase |
+| 12 / 13 | auto_host_next | Ladder-cadence auto-spawn next factory |
+| 14 / 15 | auto_rotate | Scheduled rotation regardless of need |
+| 16+ | reserved | Future v1 features |
+
+Handshake processing rule: A's required bits ⊆ B's all bits **and**
+B's required bits ⊆ A's all bits → handshake succeeds, optional
+features taken from intersection of optionals. Otherwise → connection
+fails with explicit error.
+
+---
+
+## 5. RPC payload shapes — JSON for each new command
+
+These are wallet-side contracts: what the wallet's plugin-RPC client
+sends and what it parses on the way back. Stable across protocol
+versions; submsg numbering can evolve independently underneath.
+
+### 5.1 factory-create-draft
+
+LSP creates a draft factory accepting joiners (no ceremony yet).
+
+```jsonc
+// request
+{
+  "method": "factory-create-draft",
+  "params": {
+    "max_clients": 32,
+    "min_clients_to_start": 4,
+    "force_start_block_offset": 36,
+    "policy": {
+      "M": 3, "L_epochs": 30, "R_blocks": 432,
+      "wide_leaf_arity": 1, "leaf_arity": 1,
+      "leaf_channel_type": "pseudo-spilman",
+      "fee_msat_per_channel": 250000,
+      "min_client_capital_sat": 100000,
+      "early_warning_blocks": 144
+    },
+    "auto_accept_joiners": true,
+    "banlist": []  // optional: list of hex pubkeys to always reject
+  }
+}
+
+// response
+{
+  "result": {
+    "instance_id": "f3a1c...",   // 16-byte hex
+    "force_start_block": 879312
+  }
+}
+```
+
+### 5.2 factory-browse-host
+
+```jsonc
+// request
+{
+  "method": "factory-browse-host",
+  "params": {
+    "node_id": "03ac03ff...",
+    "timeout_ms": 5000,
+    "since_block": 0,       // optional, filter
+    "max_results": 32       // optional, default 32
+  }
+}
+
+// response
+{
+  "result": {
+    "host_node_id": "03ac03ff...",
+    "host_accepting_new_factories": true,
+    "snapshot_block": 879237,
+    "factories": [
+      {
+        "instance_id": "f3a1...",
+        "lifecycle": "drafting",
+        "created_block": 879200,
+        "expiry_block": 0,           // 0 until ceremony fires
+        "force_start_block": 879312,
+        "slots_open": 28,
+        "slots_total": 32,
+        "min_clients_to_start": 4,
+        "accepting_joins": true,
+        "policy": { /* ... */ }
+      }
+    ]
+  }
+}
+```
+
+### 5.3 factory-join-request
+
+```jsonc
+// request
+{
+  "method": "factory-join-request",
+  "params": {
+    "node_id": "03ac03ff...",          // target LSP
+    "instance_id": "f3a1...",
+    "client_capital_sat": 450000,
+    "client_factory_pubkey": "02...",
+    "client_channel_pubkey": "03...",
+    "expires_at_block": 879500,
+    "contact_addr_hint": "vps3.me:9735",  // optional
+    "preferred_leaf_index": null            // optional hint
+  }
+}
+
+// response
+{
+  "result": {
+    "request_id": "abcd1234...",   // u64 hex, for status polling
+    "status": "accepted",          // or queued_*/rejected_*
+    "instance_id": "f3a1...",
+    "ceremony_start_block": 879312,
+    "participant_index": 12,
+    "leaf_index": 6,
+    "rejection_reason": null
+  }
+}
+```
+
+### 5.4 factory-join-status
+
+```jsonc
+// request
+{ "method": "factory-join-status", "params": { "request_id": "abcd1234..." } }
+
+// response
+{
+  "result": {
+    "request_id": "abcd1234...",
+    "status": "pending_ceremony", // or ceremony_in_progress, completed, failed
+    "instance_id": "f3a1...",
+    "ceremony_start_block": 879312,
+    "current_block": 879309,
+    "blocks_remaining_until_ceremony": 3
+  }
+}
+```
+
+### 5.5 factory-incoming-joins (LSP-side)
+
+```jsonc
+// request
+{ "method": "factory-incoming-joins", "params": { "instance_id": null } }
+// instance_id null = all factories' queues
+
+// response
+{
+  "result": {
+    "queues": [
+      {
+        "instance_id": "f3a1...",
+        "pending_joins": [
+          {
+            "request_id": "...",
+            "peer_id": "02ab...",
+            "client_capital_sat": 450000,
+            "requested_at_unix": 1716000000,
+            "auto_accept_decision": "accepted",   // or queued/rejected
+            "rejection_reason": null
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 5.6 factory-decide-join (LSP manual override)
+
+```jsonc
+// request
+{
+  "method": "factory-decide-join",
+  "params": {
+    "request_id": "abcd1234...",
+    "decision": "accepted",     // or "rejected"
+    "reason": null              // optional rejection reason
+  }
+}
+
+// response
+{ "result": { "ok": true } }
+```
+
+### 5.7 factory-trigger-ceremony (LSP manual override)
+
+```jsonc
+// request
+{ "method": "factory-trigger-ceremony", "params": { "instance_id": "f3a1..." } }
+
+// response
+{
+  "result": {
+    "ok": true,
+    "ceremony_start_block": 879310,
+    "participants_count": 7
+  }
+}
+```
+
+### 5.8 factory-ceremony-status (both sides)
+
+```jsonc
+// request
+{ "method": "factory-ceremony-status", "params": { "instance_id": "f3a1..." } }
+
+// response
+{
+  "result": {
+    "instance_id": "f3a1...",
+    "ceremony_type": "create",
+    "state": "NONCES_COLLECTED",
+    "current_round": 2,
+    "participants_total": 7,
+    "participants_responded_this_round": 5,
+    "time_remaining_seconds": 48,
+    "error": null
+  }
+}
+```
+
+---
+
+## 6. Where the data lives at each layer
 
 Reference for walking through flows. Each piece of state has exactly one
 authoritative owner; everything else is a derived/cached view.
@@ -281,7 +1147,7 @@ authoritative owner; everything else is a derived/cached view.
 
 ---
 
-## 5. Open design choices to make as we walk through
+## 7. Open design choices to make as we walk through
 
 These are decisions we still need to make. Listed here so they don't get lost
 mid-walkthrough.
