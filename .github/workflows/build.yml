@@ -1,9 +1,14 @@
 name: Build
 
+# Inherited from upstream cln-application — runs on every PR plus manual
+# dispatch. The workflow file is unchanged in spirit; this header comment
+# is a one-time nudge after the fork because Actions on a freshly-forked
+# repo sometimes needs a workflow-file edit before pull_request triggers
+# start firing.
 on:
   pull_request:
   workflow_dispatch:
-  
+
 jobs:
   build:
     runs-on: ubuntu-22.04
