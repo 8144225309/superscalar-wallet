@@ -11,26 +11,28 @@ const EPOCH_CLIFF_THRESHOLD = 13;
 
 export const FACTORY_PLAN_DEFAULTS = {
   fundingSats: 1_000_000,
-  nClients: 2,
+  nClients: 32,
+  minClientsToStart: 4,
+  forceStartBlockOffset: 36,
   perClientCapacitySat: 450_000,
   lspReservePerLeafSat: 50_000,
-  leafArity: 2,
+  leafArity: 1,
   leafChannelType: 'pseudo-spilman' as 'pseudo-spilman' | 'ln-penalty',
   psSubfactoryArity: 1,
   lifetimeBlocks: 4320,
   dyingPeriodBlocks: 432,
-  epochCount: 6,
+  epochCount: 4,
   blockEarlyCount: 144,
-  ladderCadenceHours: 24,
+  ladderCadenceHours: 168,
   autoHostNext: true,
   autoFinalizeOnDying: true,
   autoRotatePeriodically: false,
-  autoAcceptJoiners: false,
+  autoAcceptJoiners: true,
   allowBolt12: true,
   allowAmp: false,
   htlcMinSat: 1,
   htlcMaxSat: 0,
-  advertiseOnNostr: false,
+  advertiseOnNostr: true,
 };
 
 /**
@@ -64,6 +66,10 @@ export const LIFETIME_PRESETS: Record<Exclude<LifetimePresetId, 'custom'>, { lif
 export type FactoryPlanInputs = {
   fundingSats: number;
   nClients: number;
+  /** Minimum joiners required before ceremony can fire (otherwise factory waits / aborts at deadline). */
+  minClientsToStart?: number;
+  /** Block-height offset from creation at which ceremony auto-starts with whoever has joined. */
+  forceStartBlockOffset?: number;
   perClientCapacitySat: number;
   lspReservePerLeafSat: number;
   leafArity: number;

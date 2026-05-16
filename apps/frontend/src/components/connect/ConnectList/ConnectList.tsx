@@ -498,7 +498,7 @@ const ConnectList = () => {
               </ListGroup>
               {showSample && (
                 <div className='connect-disclaimer text-center mt-2 mb-1 px-2'>
-                  Sample data — coordination server coming soon
+                  Sample data — configure a coordinator to see real vouches
                 </div>
               )}
             </PerfectScrollbar>

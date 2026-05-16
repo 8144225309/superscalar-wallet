@@ -579,16 +579,18 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                       <InputGroup.Text className='text-light'>{blocksToDuration(numOrDefault(dyingPeriodBlocks, 0))}</InputGroup.Text>
                     </InputGroup>
                   </Col>
-                  <Col xs={12} md={6}>
-                    <Form.Label className='text-light mb-1'>
-                      Max rotations (epochs)
-                      <InfoIcon text='SuperScalar reference design uses 4. With pseudo-Spilman leaves, payments do NOT consume epochs — only allocation changes do. Most operators do not need many.' />
-                    </Form.Label>
-                    <Form.Control type='number' value={epochCount} onChange={(e) => setEpochCount(e.target.value)} disabled={isBusy} />
-                    <Form.Text className='text-light'>
-                      Each rotation decrements a Decker-Wattenhofer nSequence slot at 144-block step. Burns {plan.derived.dwOverheadBlocks} blocks of CLTV budget.
-                    </Form.Text>
-                  </Col>
+                  {leafChannelType === 'ln-penalty' && (
+                    <Col xs={12} md={6}>
+                      <Form.Label className='text-light mb-1'>
+                        Max rotations (epochs)
+                        <InfoIcon text='SuperScalar reference design uses 4. Each rotation decrements a Decker-Wattenhofer nSequence slot.' />
+                      </Form.Label>
+                      <Form.Control type='number' value={epochCount} onChange={(e) => setEpochCount(e.target.value)} disabled={isBusy} />
+                      <Form.Text className='text-light'>
+                        Each rotation decrements a Decker-Wattenhofer nSequence slot at 144-block step. Burns {plan.derived.dwOverheadBlocks} blocks of CLTV budget.
+                      </Form.Text>
+                    </Col>
+                  )}
                   <Col xs={12} md={6}>
                     <Form.Label className='text-light mb-1'>
                       Block-early count
@@ -644,23 +646,22 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                     </span>
                   }
                 />
-                <Form.Check
-                  type='switch'
-                  id='auto-rotate-periodic'
-                  className='mb-1'
-                  checked={autoRotatePeriodically}
-                  onChange={(e) => setAutoRotatePeriodically(e.target.checked)}
-                  disabled={isBusy}
-                  label={
-                    <span>
-                      Auto-rotate periodically
-                      <InfoIcon text='Niche. Burns nSequence slots on a schedule even without an allocation change. Most operators leave this OFF.' />
-                    </span>
-                  }
-                />
-                <Form.Text className='text-light'>
-                  All three settings save locally per factory. Plugin enforcement may lag the wallet UI as hooks land.
-                </Form.Text>
+                {leafChannelType === 'ln-penalty' && (
+                  <Form.Check
+                    type='switch'
+                    id='auto-rotate-periodic'
+                    className='mb-1'
+                    checked={autoRotatePeriodically}
+                    onChange={(e) => setAutoRotatePeriodically(e.target.checked)}
+                    disabled={isBusy}
+                    label={
+                      <span>
+                        Auto-rotate periodically
+                        <InfoIcon text='Niche. Burns nSequence slots on a schedule even without an allocation change. Most operators leave this OFF.' />
+                      </span>
+                    }
+                  />
+                )}
               </Accordion.Body>
             </Accordion.Item>
 
@@ -691,7 +692,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   disabled={isBusy}
                 />
                 <Form.Text className='text-light'>
-                  Pubkeys here are rejected even if auto-accept is ON. Stored locally; future PR wires it into the join flow.
+                  Pubkeys listed here are always rejected, even when auto-accept is on.
                 </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
@@ -851,7 +852,7 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
               <Col xs={6} md={4}>
                 <div className='text-light d-flex align-items-center'>
                   Onchain kickoffs / mo
-                  <InfoIcon text='One kickoff transaction per new factory hosted. Rotations within an existing factory are offchain and do not count here. Sat estimate uses a placeholder feerate.' />
+                  <InfoIcon text='One kickoff transaction per new factory hosted. Rotations within an existing factory are offchain and do not count here. Sat estimate uses a conservative feerate baseline.' />
                 </div>
                 <div className='fs-18px fw-bold text-dark'>~{plan.derived.kickoffsPerMonth.toFixed(1)} <span className='text-light'>(~{fmtSat(plan.derived.approxOnchainCostPerMonthSat)} sat fees)</span></div>
               </Col>
