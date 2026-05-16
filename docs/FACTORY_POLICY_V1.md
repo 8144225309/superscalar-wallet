@@ -690,7 +690,7 @@ Echoes the BOLT-2 `max_accepted_htlcs` channel parameter. Locked at creation.
 
 ---
 
-### 4.7 Joiner admission (6 fields)
+### 4.7 Joiner admission (8 fields)
 
 #### 4.7.1 `auto_accept_joiners`
 
@@ -698,14 +698,14 @@ Echoes the BOLT-2 `max_accepted_htlcs` channel parameter. Locked at creation.
 |---|---|
 | TLV ID | 0x0600 |
 | Type | bool |
-| Default | false |
+| Default | **true** (consumer LSP shape — policy gate is the rest of the joiner-admission fields, not manual approval) |
 | Mutability | mutable_lsp_only |
 | Joiner-relevant | advertised |
 | Enforced at | plugin `factory-join-request` handler |
 | Enforced by | plugin |
 | On violation | (no violation — controls plugin behavior) |
 
-When `true`, qualifying join requests are admitted without manual operator approval. When `false`, requests queue in a "pending joiners" UI for the operator to review.
+When `true`, qualifying join requests are admitted without manual operator approval — the banlist + allowlist + policy bounds gate admission. When `false`, requests queue in a "pending joiners" UI for the operator to review. Default flipped from `false` to `true` after the consumer-LSP design discussion: making every join require human approval doesn't scale and isn't the friction users expect.
 
 #### 4.7.2 `banlist`
 
@@ -786,6 +786,49 @@ PR-D Tier B allowed allocation changes mid-factory without full re-signing. Some
 | On violation | reject with `joiner_admission_closed` |
 
 Block height window (relative to factory creation) during which new joins are accepted. After this, only existing clients can interact.
+
+#### 4.7.7 `min_clients_to_start`
+
+| Attribute | Value |
+|---|---|
+| TLV ID | 0x0607 |
+| Type | u8 |
+| Default | 4 |
+| Range | 2 – `max_clients` (this factory's `nClients` cap) |
+| Mutability | mutable_lsp_only (until ceremony fires; immutable after) |
+| Joiner-relevant | advertised |
+| Enforced at | plugin force-start trigger (block_added hook) |
+| Enforced by | plugin |
+| On violation | ceremony does NOT fire at deadline; factory drafts again (or LSP operator manually cancels) |
+
+Floor below which the LSP will not start the MuSig2 ceremony, even if the auto-start deadline has been reached. Prevents the LSP from inadvertently locking funding into a factory with too few participants to amortize on-chain cost.
+
+The factory's `slots_total` (advertised in `FACTORY_INFO_RESPONSE`) is `max_clients`. The plugin will fire the ceremony when **either** condition is true:
+
+1. **Capacity filled:** `accepted_count == max_clients` — fire immediately
+2. **Deadline reached AND minimum met:** `current_block >= force_start_block` AND `accepted_count >= min_clients_to_start` — fire with whoever's accepted
+
+If the deadline is reached but min not met, the factory automatically re-drafts (`force_start_block` is recalculated from current block + `force_start_block_offset`) and waits for more joiners.
+
+#### 4.7.8 `force_start_block_offset`
+
+| Attribute | Value |
+|---|---|
+| TLV ID | 0x0608 |
+| Type | u32 |
+| Default | 36 (≈6 hours on mainnet at 144 blocks/day) |
+| Range | 0 – 4032 (1 month max; 0 = manual trigger only) |
+| Mutability | mutable_lsp_only (until ceremony fires) |
+| Joiner-relevant | advertised |
+| Enforced at | plugin force-start trigger (block_added hook) |
+| Enforced by | plugin |
+| On violation | (no violation — controls plugin behavior) |
+
+Block-height offset from factory creation at which the ceremony auto-starts. Combined with `min_clients_to_start` per §4.7.7. The advertised `force_start_block` in `FACTORY_INFO_RESPONSE` is `created_block + force_start_block_offset`.
+
+`force_start_block_offset = 0` disables auto-start; the LSP operator must explicitly invoke `factory-trigger-ceremony` to fire. Useful for high-value operator-curated factories where the operator wants to vet every joiner manually before firing.
+
+For a small consumer LSP, 36 blocks (~6 hours) gives potential joiners enough time to discover the factory and join during any waking hour worldwide. Longer offsets (e.g. 144 ≈ 1 day) suit operators who want a fixed daily "ceremony slot" so users can predictably budget online time.
 
 ---
 

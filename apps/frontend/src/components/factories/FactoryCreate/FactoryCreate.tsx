@@ -82,6 +82,8 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   const [factoryLabel, setFactoryLabel] = useState('');
   const [fundingSats, setFundingSats] = useState(String(FACTORY_PLAN_DEFAULTS.fundingSats));
   const [nClients, setNClients] = useState(String(FACTORY_PLAN_DEFAULTS.nClients));
+  const [minClientsToStart, setMinClientsToStart] = useState(String(FACTORY_PLAN_DEFAULTS.minClientsToStart));
+  const [forceStartBlockOffset, setForceStartBlockOffset] = useState(String(FACTORY_PLAN_DEFAULTS.forceStartBlockOffset));
   const [perClientCapacity, setPerClientCapacity] = useState(String(FACTORY_PLAN_DEFAULTS.perClientCapacitySat));
   const [lspReservePerLeaf, setLspReservePerLeaf] = useState(String(FACTORY_PLAN_DEFAULTS.lspReservePerLeafSat));
   const [clientPubkeysRaw, setClientPubkeysRaw] = useState('');
@@ -374,6 +376,12 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     const blockEarly = numOrDefault(blockEarlyCount, FACTORY_PLAN_DEFAULTS.blockEarlyCount);
     if (blockEarly !== FACTORY_PLAN_DEFAULTS.blockEarlyCount) options.block_early_count = blockEarly;
 
+    const minToStart = numOrDefault(minClientsToStart, FACTORY_PLAN_DEFAULTS.minClientsToStart);
+    if (minToStart !== FACTORY_PLAN_DEFAULTS.minClientsToStart) options.min_clients_to_start = minToStart;
+
+    const forceStart = numOrDefault(forceStartBlockOffset, FACTORY_PLAN_DEFAULTS.forceStartBlockOffset);
+    if (forceStart !== FACTORY_PLAN_DEFAULTS.forceStartBlockOffset) options.force_start_block_offset = forceStart;
+
     if (useAllocationOverride && parsedAllocations.length > 0) {
       options.allocations = parsedAllocations;
     }
@@ -439,7 +447,10 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                 />
               </Col>
               <Col xs={6} md={3}>
-                <Form.Label className='text-light mb-1'>Clients</Form.Label>
+                <Form.Label className='text-light mb-1'>
+                  Max clients
+                  <InfoIcon text='Advertised capacity for this factory. Ceremony starts when slots fill OR when the deadline below is reached and the minimum threshold has been met.' />
+                </Form.Label>
                 <Form.Control
                   type='number'
                   min={1}
@@ -678,10 +689,54 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   label={
                     <span>
                       Auto-accept joiners
-                      <InfoIcon text='When ON, qualifying join requests are admitted without manual approval. OFF by default; you review each one in the Pending Joiners panel.' />
+                      <InfoIcon text='When ON, qualifying join requests are admitted without manual approval. ON by default; banned pubkeys and policy-violating requests still get rejected.' />
                     </span>
                   }
                 />
+
+                <Row className='g-2 mb-2'>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='text-light mb-1'>
+                      Minimum to start
+                      <InfoIcon text='Floor below which the ceremony will not fire. If the deadline below arrives with fewer than this many accepted joiners, the factory drafts again instead of starting with an under-filled cohort.' />
+                    </Form.Label>
+                    <Form.Control
+                      type='number'
+                      min={2}
+                      value={minClientsToStart}
+                      onChange={(e) => setMinClientsToStart(e.target.value)}
+                      disabled={isBusy}
+                    />
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <Form.Label className='text-light mb-1'>
+                      Auto-start deadline (blocks from now)
+                      <InfoIcon text='Ceremony fires automatically this many blocks after factory creation, accepting whoever has joined (if at least the minimum). 36 blocks ≈ 6 hours on mainnet. Set to 0 to require manual trigger.' />
+                    </Form.Label>
+                    <InputGroup>
+                      <Form.Control
+                        type='number'
+                        min={0}
+                        value={forceStartBlockOffset}
+                        onChange={(e) => setForceStartBlockOffset(e.target.value)}
+                        disabled={isBusy}
+                      />
+                      <InputGroup.Text className='text-light'>
+                        {numOrDefault(forceStartBlockOffset, 0) === 0
+                          ? 'manual'
+                          : `≈ ${(numOrDefault(forceStartBlockOffset, 0) / BLOCKS_PER_HOUR).toFixed(1)} h`}
+                      </InputGroup.Text>
+                    </InputGroup>
+                  </Col>
+                </Row>
+                <Form.Text className='text-light mb-2 d-block'>
+                  The ceremony fires whenever the first of these is true:
+                  capacity fills, or the deadline arrives with at least the
+                  minimum joiners. Users who hit Join after a ceremony fires
+                  are queued for the next factory (or rotation if the LSP
+                  supports late join).
+                </Form.Text>
+
                 <Form.Label className='text-light mb-1 mt-2'>Banlist (one pubkey per line)</Form.Label>
                 <Form.Control
                   as='textarea'

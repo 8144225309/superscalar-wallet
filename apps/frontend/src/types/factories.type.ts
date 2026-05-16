@@ -58,6 +58,10 @@ export type FactoryCreateOptions = {
   lifetime_blocks?: number;
   dying_period_blocks?: number;
   block_early_count?: number;
+  /** Floor: ceremony aborts at force-start deadline if fewer participants have joined. */
+  min_clients_to_start?: number;
+  /** Block-height offset from creation at which ceremony auto-starts with whoever has joined. */
+  force_start_block_offset?: number;
   allocations?: FactoryAllocation[];
 };
 
