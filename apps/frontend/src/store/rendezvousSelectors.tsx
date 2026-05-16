@@ -1,7 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit';
 import {
   RendezvousState,
-  Vouch,
   VouchTier,
   CoordinatorNetwork,
   CoordinatorEntry,

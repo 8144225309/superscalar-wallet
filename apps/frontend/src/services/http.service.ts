@@ -1,7 +1,7 @@
 import axios from 'axios';
 import moment from 'moment';
 import { ApplicationConfiguration, AuthResponse, Peer } from '../types/root.type';
-import { API_BASE_URL, API_VERSION, APP_WAIT_TIME, PaymentType, TimeGranularity, getTimestampWithGranularity, SATS_MSAT, SCROLL_PAGE_SIZE } from '../utilities/constants';
+import { API_BASE_URL, API_VERSION, PaymentType, TimeGranularity, getTimestampWithGranularity, SATS_MSAT, SCROLL_PAGE_SIZE } from '../utilities/constants';
 import { AccountEventsSQL, SatsFlowSQL, VolumeSQL } from '../utilities/bookkeeper-sql';
 import logger from './logger.service';
 import { convertArrayToAccountEventsObj, convertArrayToBTCTransactionsObj, convertArrayToLightningTransactionsObj, convertArrayToOffersObj, convertArrayToSatsFlowObj, convertArrayToVolumeObj } from './data-transform.service';

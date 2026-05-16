@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { NodeProfile, NodesState, ProfileHealth } from '../types/node.type';
+import { NodeProfile, ProfileHealth } from '../types/node.type';
 import { defaultNodesState } from './nodesSelectors';
 
 const nodesSlice = createSlice({

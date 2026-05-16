@@ -1,6 +1,6 @@
 import './FactoryDetail.scss';
 import { useState } from 'react';
-import { Card, Row, Col, ListGroup, Alert, Spinner, OverlayTrigger, Tooltip, Form } from 'react-bootstrap';
+import { Card, Row, Col, ListGroup, OverlayTrigger, Tooltip, Form } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
 import { FactoriesService } from '../../../services/http.service';
