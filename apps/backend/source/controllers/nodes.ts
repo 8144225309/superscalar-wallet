@@ -8,6 +8,10 @@ import { NodeProfile } from '../models/node-profile.type.js';
 
 /** Strip the rune field from a profile before sending to the frontend */
 function sanitizeProfile(profile: NodeProfile): Omit<NodeProfile, 'rune'> & { rune?: undefined } {
+  // The `rune` binding is intentionally unused — the destructure-rest is
+  // how we omit the field from `safe`. Disabling locally rather than
+  // relaxing no-unused-vars project-wide keeps the rule maximally strict.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { rune, ...safe } = profile;
   return safe;
 }
