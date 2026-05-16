@@ -367,7 +367,7 @@ const ConnectList = () => {
       <Card.Body className='py-0 px-1 channels-scroll-container'>
         {!showSample && !network && (
           <Row className='text-light fs-6 mt-3 mx-2 text-center'>
-            Active node's network ({activeProfile?.network ?? 'unknown'}) is not covered by any
+            Active node&apos;s network ({activeProfile?.network ?? 'unknown'}) is not covered by any
             configured coordinator. Switch to a signet, testnet4, or mainnet node to see vouches.
           </Row>
         )}
@@ -415,7 +415,7 @@ const ConnectList = () => {
                       <Row className='align-items-start mx-0'>
                         <Col xs={4} className='d-flex align-items-center gap-1 connect-name'>
                           {row.isSelf && (
-                            <OverlayTrigger placement='auto' overlay={<Tooltip>This is your active node — listed so you can verify your own advertisement is visible. You can't join yourself.</Tooltip>}>
+                            <OverlayTrigger placement='auto' overlay={<Tooltip>This is your active node — listed so you can verify your own advertisement is visible. You can&apos;t join yourself.</Tooltip>}>
                               <span className='badge bg-warning text-dark connect-badge-md me-1'>self</span>
                             </OverlayTrigger>
                           )}

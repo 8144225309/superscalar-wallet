@@ -12,7 +12,12 @@ describe('RouteTransition', () => {
     await renderWithProviders(<RouteTransition />, { initialRoute: ['/'] });
     const motionDiv = screen.getByTestId('route-transition');
     expect(motionDiv).toHaveStyle({ opacity: '0' });
-    expect(motionDiv.style.transform).toContain('translateY(20px)');
+    // The previous assertion checked for `translateY(20px)`. That matched
+    // the original component's `initial={{ y: 20, opacity: 0 }}` but the
+    // y-axis animation was removed (commit 73302e8 "Fix factories page
+    // scroll: remove overflow-hidden from route transition"); only opacity
+    // remains. The check is dropped rather than kept-as-skipped because
+    // the behavior it asserted is intentionally gone.
   });
 
   it('handles route transitions correctly', async () => {

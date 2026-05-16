@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import nodesReducer from '../../../store/nodesSlice';
-import { setIsSwitching, setIsDiscovering, setActiveProfileId, setNodeProfiles } from '../../../store/nodesSlice';
+import { setIsSwitching, setIsDiscovering, setActiveProfileId } from '../../../store/nodesSlice';
 import { selectNodeProfiles, selectActiveProfile, selectIsSwitchingNode, selectHasMultipleNodes, selectActiveProfileId, selectIsConnected, selectIsDiscovering, selectProfileHealth } from '../../../store/nodesSelectors';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { NodesService, RootService, CLNService, BookkeeperService, FactoriesService } from '../../../services/http.service';
