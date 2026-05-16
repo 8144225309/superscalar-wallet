@@ -31,8 +31,15 @@ jobs:
         uses: actions/cache@v3
         id: cache-npm-packages
         with:
-          path: node_modules
-          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+          # This is an npm-workspaces repo — workspace-local deps (e.g.
+          # nostr-tools in apps/frontend) live under apps/*/node_modules,
+          # not the root node_modules. Caching only the root path would
+          # restore an incomplete tree on cache hit and break workspace
+          # builds with "Module not found". Cache both.
+          path: |
+            node_modules
+            apps/*/node_modules
+          key: ${{ runner.OS }}-npm-v2-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install NPM dependencies
         if: steps.cache-npm-packages.outputs.cache-hit != 'true'

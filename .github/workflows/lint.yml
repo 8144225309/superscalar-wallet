@@ -25,8 +25,11 @@ jobs:
       uses: actions/cache@v3
       id: cache-npm-packages
       with:
-        path: node_modules
-        key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+        # See build.yml for why apps/*/node_modules must also be cached.
+        path: |
+          node_modules
+          apps/*/node_modules
+        key: ${{ runner.OS }}-npm-v2-${{ hashFiles('**/package-lock.json') }}
 
     - name: Install NPM dependencies
       if: steps.cache-npm-packages.outputs.cache-hit != 'true'
