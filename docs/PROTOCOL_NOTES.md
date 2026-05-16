@@ -1161,6 +1161,60 @@ mid-walkthrough.
 
 ---
 
+## 8. Phase tracker
+
+Implementation progress against the plan. Updated as phases complete.
+
+### Status table
+
+| # | Phase | Status | Where |
+|---|---|---|---|
+| 0 | Fork feature bit 270/271 advertisement | **✅ DONE** | `lightning` PR #3 merged into VPS deploy. Bit 271 now advertised on both signet daemons. Confirmed via `getinfo`. |
+| 1a | bLIP-56 substrate alive between two real signet nodes | **✅ DONE** | Handshake submsg 0x0002 fires bidirectionally between test-lsp-c and test-client-d. |
+| 1b | Existing ceremony works end-to-end | **✅ DONE** | Factory `b5579e70...` on signet has `ceremony: complete`, `dist_signed_txid` populated. Funding tx `2a8928f8...` in mempool. Original "failure" was operator error (over-ask vs balance), not lib bug. |
+| 2 | Plugin: browse — submsgs 0x0140/0x0141 + `factory-browse-host` RPC | **🟢 NEXT** | Mine. Wire-only, no on-chain spend. |
+| 3 | Plugin: join — submsgs 0x0142/0x0143 + `factory-join-request` RPC + LSP join queue | Not started | Mine. Wire-only. |
+| 4 | Plugin: force-start + heartbeat — submsgs 0x0144/0x0145 + `factory-trigger-ceremony` + preflight balance check + `feerate_perkw` param on 9 RPCs | Not started | Mine. **On-chain spend re-enters here; preflight check bundled to land in same PR.** |
+| 5 | Wallet: HTTP wrappers + UI for browse / join / ceremony progress / LSP-side queue panel | Not started | Mine. |
+
+### Key decisions captured
+
+- **Preflight balance check bundled into Phase 4**, not done first. Phases 2-3 are wire-only with no on-chain spend, so preflight isn't needed yet. Phase 4 is when ceremonies fire and `withdraw` is called — preflight lands in the same PR so on-chain re-entry and the safety net arrive together. No window of unsafe behavior.
+- **No lib-team message needed for the `factory_session_finalize_node` incident.** Traced to operator error (over-ask), not a lib bug. CLN's `withdraw` correctly refused. The single historic April 25 occurrence is from a 3-of-3 REALLOC ceremony, unrelated to recent work; flagged internally for context if it recurs.
+- **Lib stays wallet-blind by design.** Matches libsecp256k1 / libwally / LDK precedent. The integration layer (plugin) enforces balance + feerate. Wallet UI does pre-validation for UX polish. The lib only contributes structural math (tree shape → vsize, if it ever adds that helper).
+- **Plugin-side fixes folded into Phase 4 PR:**
+  - Pre-flight balance check via CLN `listfunds` at the top of all 9 funding RPCs
+  - Optional `feerate_perkw` parameter so wallet/operator can honor signet (0.1 sat/vb)
+  - Surface plugin's `**BROKEN**` log entries back through JSON-RPC response instead of only into the log file
+  - Cleaner ceremony-failure reasons exposed to caller
+
+### Signet test infrastructure (verified working)
+
+| Component | State | Notes |
+|---|---|---|
+| `cln-signet-c` (LSP, test-lsp-c, `03493661…`) | Running fork v25.12.1-58-g6442f9f + plugin loaded | bit 271 advertised, factory RPCs registered |
+| `cln-signet-d` (client, test-client-d, `02e07e9a…`) | Running fork v25.12.1-58-g6442f9f + plugin loaded | bit 271 advertised, factory RPCs registered |
+| Peer connection between them | Persistent | Already done bidirectional `supported_factory_protocols` handshake |
+| Wallet balance on signet-c | 99,834 confirmed + 49,679 unconfirmed | Note: 306 sat lost over policy to the 1M-sat over-ask retest (lesson learned) |
+| Plugin binary on VPS | Apr 29 build from `gap9-keyagg-cache-persistence@c107d0c` | Should rebuild from `main` when plugin team merges that branch — TBD |
+
+### Outstanding handoffs
+
+| Recipient | What | Status |
+|---|---|---|
+| Lib team | nothing | No action needed |
+| Plugin team (when not me) | Confirm canonical branch (`main` vs `gap9-keyagg-cache-persistence`) before I base browse/join PRs | Pending response |
+| Fork team | nothing | PR #3 merged into deploy |
+| Operator (you) | Schedule sub-channel open via `factory-open-channels` for factory `b5579e70...` once signet confirms its funding tx, if desired | Optional — proves end-to-end works on chain |
+
+### Memory rules in effect (saved in user's auto-memory)
+
+- Signet operations must use 0.1 sat/vbyte (`feerate=100perkw`); never lose sats
+- My scope: lib↔plugin↔wallet↔bLIP-56 adapter analysis + plugin + wallet implementation (NOT lib code, NOT dashboard rewrite)
+- Plugin uses ODD 33001 not EVEN 32800 — documented deviation
+
+---
+
 ## Cross-references
 
 - `docs/PROTOCOL_V1.md` (also unmerged) — the polished spec equivalent
