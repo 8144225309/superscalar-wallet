@@ -41,6 +41,8 @@ import {
 } from '../../../store/rendezvousSlice';
 import rendezvousReducer from '../../../store/rendezvousSlice';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
+import { FactoriesService } from '../../../services/http.service';
+import logger from '../../../services/logger.service';
 import { selectActiveProfile } from '../../../store/nodesSelectors';
 import { fetchVouches } from '../../../services/nostr.service';
 import { RendezvousService } from '../../../services/http.service';
@@ -68,6 +70,8 @@ interface FactoryRow {
   lnAddresses?: string[];
   coordinatorNpub?: string;
   verifiedAt?: number;
+  /** populated by factory-browse-host after the row's LSP responds */
+  factoryIidHex?: string;
 }
 
 const blocksToApproxDays = (blocks: number): string => {
@@ -133,6 +137,20 @@ const ConnectList = () => {
 
   const [showSample, setShowSample] = useState(false);
   const [joinRequests, setJoinRequests] = useState<Record<string, JoinStatus>>({});
+  /* Maps row.id -> the request_id the plugin assigned, so cancel can target it. */
+  const [joinRequestIds, setJoinRequestIds] = useState<Record<string, string>>({});
+  /* Per-row factory_instance_id_hex populated by factory-browse-host. */
+  const [browsedFactories, setBrowsedFactories] = useState<Record<string, {
+    factoryIidHex: string;
+    capacitySats: number | null;
+    minChannelSats: number | null;
+    opensInBlocks: number | null;
+  }>>({});
+  const [browsingId, setBrowsingId] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  /* Default contribution if user doesn't pick one. Mirrors a reasonable
+   * minChannelSats default; refined later when a UI input lands. */
+  const DEFAULT_CONTRIBUTION_SATS = 100_000;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('opens');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -308,21 +326,85 @@ const ConnectList = () => {
   const selectedIsSelf = !!selected?.isSelf;
   const selectedRequest = selected ? joinRequests[selected.id] : undefined;
 
-  const handleJoin = () => {
+  const handleBrowse = async () => {
+    if (!selected || selectedIsSelf || selected.source === 'sample') return;
+    setBrowsingId(selected.id);
+    setJoinError(null);
+    try {
+      const res = await FactoriesService.browseHost(selected.pubkey);
+      if (res.factories && res.factories.length > 0) {
+        /* Pick the first factory the LSP advertises. Future UX can list
+         * all of them and let the user pick. */
+        const f = res.factories[0];
+        setBrowsedFactories(prev => ({
+          ...prev,
+          [selected.id]: {
+            factoryIidHex: f.factory_instance_id_hex,
+            capacitySats: f.capacity_sats ?? null,
+            minChannelSats: null,
+            /* `force_start_block` is an absolute block height; the row
+             * doesn't have current_blockheight handy, so leave opensInBlocks
+             * null for now. UI can compute the delta when chain tip is
+             * threaded through. */
+            opensInBlocks: null,
+          },
+        }));
+      } else {
+        setJoinError(`LSP ${selected.pubkey.slice(0, 16)}… is not advertising any factories.`);
+      }
+    } catch (err: any) {
+      logger.error('factory-browse-host failed', err);
+      setJoinError(`Browse failed: ${err?.message || String(err)}`);
+    } finally {
+      setBrowsingId(null);
+    }
+  };
+
+  const handleJoin = async () => {
     if (!selected || selectedIsSelf || selectedRequest) return;
-    setJoinRequests(prev => ({ ...prev, [selected.id]: 'requested' }));
+    const browsed = browsedFactories[selected.id];
+    if (!browsed || !browsed.factoryIidHex) {
+      setJoinError('No factory selected — click Browse first to fetch the LSP\'s factories.');
+      return;
+    }
+    setJoinError(null);
+    /* Optimistic local state — flip on success only. */
+    try {
+      const res = await FactoriesService.joinRequest(
+        selected.pubkey,
+        browsed.factoryIidHex,
+        DEFAULT_CONTRIBUTION_SATS,
+      );
+      setJoinRequests(prev => ({ ...prev, [selected.id]: 'requested' }));
+      setJoinRequestIds(prev => ({ ...prev, [selected.id]: res.request_id }));
+    } catch (err: any) {
+      logger.error('factory-join-request failed', err);
+      setJoinError(`Join failed: ${err?.message || String(err)}`);
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!selected || selectedRequest !== 'requested') return;
-    setJoinRequests(prev => {
-      const next = { ...prev };
-      delete next[selected.id];
-      return next;
-    });
+    const requestId = joinRequestIds[selected.id];
+    if (!requestId) {
+      /* Should not happen post-join, but defensive: clear local state anyway. */
+      setJoinRequests(prev => { const next = { ...prev }; delete next[selected.id]; return next; });
+      return;
+    }
+    setJoinError(null);
+    try {
+      await FactoriesService.cancelJoin(requestId);
+    } catch (err: any) {
+      logger.error('factory-cancel-join failed', err);
+      setJoinError(`Cancel failed: ${err?.message || String(err)}`);
+      return;
+    }
+    setJoinRequests(prev => { const next = { ...prev }; delete next[selected.id]; return next; });
+    setJoinRequestIds(prev => { const next = { ...prev }; delete next[selected.id]; return next; });
   };
 
-  const canJoin = !!selected && !selectedIsSelf && !selectedRequest;
+  const canBrowse = !!selected && !selectedIsSelf && selected.source !== 'sample' && !browsedFactories[selected.id] && browsingId !== selected.id;
+  const canJoin = !!selected && !selectedIsSelf && !selectedRequest && (selected.source === 'sample' || !!browsedFactories[selected.id]);
   const canCancel = !!selected && selectedRequest === 'requested';
 
   const sortIndicator = (key: SortKey) => {
@@ -516,22 +598,43 @@ const ConnectList = () => {
         )}
       </Card.Body>
 
-      <Card.Footer className='d-flex justify-content-center align-items-center gap-2'>
-        <button
-          className='btn-rounded bg-primary btn-sm'
-          onClick={handleJoin}
-          disabled={!canJoin}
-          title={selectedIsSelf ? "You can't join your own factory." : undefined}
-        >
-          {selectedIsSelf ? 'Join (self — blocked)' : 'Join Factory'}
-        </button>
-        <button
-          className={`btn-rounded btn-sm ${canCancel ? 'bg-warning text-dark' : 'bg-secondary'}`}
-          onClick={handleCancel}
-          disabled={!canCancel}
-        >
-          Cancel Request
-        </button>
+      <Card.Footer className='d-flex flex-column align-items-center gap-2'>
+        {joinError && (
+          <div className='fs-7 text-danger text-center px-1 text-break' data-testid='connect-list-join-error'>
+            {joinError}
+          </div>
+        )}
+        <div className='d-flex justify-content-center align-items-center gap-2'>
+          <button
+            className='btn-rounded bg-info btn-sm'
+            onClick={handleBrowse}
+            disabled={!canBrowse}
+            title={!selected ? 'Select a row first' : selected.source === 'sample' ? 'Sample rows already include factory data' : browsedFactories[selected.id] ? 'Already browsed' : undefined}
+          >
+            {browsingId === selected?.id ? 'Browsing…' : (selected && browsedFactories[selected.id]) ? 'Browsed ✓' : 'Browse LSP'}
+          </button>
+          <button
+            className='btn-rounded bg-primary btn-sm'
+            onClick={handleJoin}
+            disabled={!canJoin}
+            title={
+              selectedIsSelf
+                ? "You can't join your own factory."
+                : selected && selected.source !== 'sample' && !browsedFactories[selected.id]
+                  ? 'Click Browse LSP first to fetch the available factories.'
+                  : undefined
+            }
+          >
+            {selectedIsSelf ? 'Join (self — blocked)' : 'Join Factory'}
+          </button>
+          <button
+            className={`btn-rounded btn-sm ${canCancel ? 'bg-warning text-dark' : 'bg-secondary'}`}
+            onClick={handleCancel}
+            disabled={!canCancel}
+          >
+            Cancel Request
+          </button>
+        </div>
       </Card.Footer>
     </Card>
   );

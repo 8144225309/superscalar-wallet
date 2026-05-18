@@ -111,11 +111,34 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     resetStatus();
   };
 
+  const handleTriggerCeremony = async () => {
+    setResponseStatus(CallStatus.PENDING);
+    setResponseMessage('Triggering signing ceremony...');
+    try {
+      const res = await FactoriesService.triggerCeremony(factory.instance_id);
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(
+        `Ceremony started: ${res.n_participants} participants, ceremony_id=${res.ceremony_id_hex}`,
+      );
+      FactoriesService.fetchFactoriesData();
+      resetStatus();
+    } catch (err: any) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage(typeof err === 'string' ? err : err.message || 'Trigger failed');
+      resetStatus();
+    }
+  };
+
   const canRotate = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE && !factory.rotation_in_progress;
   const canClose = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
   const canForceClose = factory.lifecycle !== FactoryLifecycle.EXPIRED;
   const canOpenChannels = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE;
   const canInvite = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
+  /* Trigger button shows only for LSPs whose factory was deferred-signed. */
+  const canTrigger = isLsp && (
+    factory.lifecycle === FactoryLifecycle.AWAITING_JOINS ||
+    factory.lifecycle === FactoryLifecycle.READY_TO_TRIGGER
+  );
 
   return (
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-detail'>
@@ -281,6 +304,11 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
         )}
       </Card.Body>
       <Card.Footer className='d-flex justify-content-center flex-wrap gap-2'>
+        {canTrigger && (
+          <button className='btn-rounded bg-success btn-sm' onClick={handleTriggerCeremony} disabled={responseStatus === CallStatus.PENDING} title="Start the MuSig2 signing ceremony with accepted joiners">
+            Trigger Ceremony
+          </button>
+        )}
         {canOpenChannels && (
           <button className='btn-rounded bg-success btn-sm' onClick={handleOpenChannels} disabled={responseStatus === CallStatus.PENDING}>
             Open Channels

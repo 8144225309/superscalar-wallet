@@ -3,6 +3,10 @@ export enum FactoryLifecycle {
   ACTIVE = 'active',
   DYING = 'dying',
   EXPIRED = 'expired',
+  /* PR 3 (plugin): decoupled create-then-trigger ceremony states. */
+  AWAITING_JOINS = 'awaiting_joins',
+  READY_TO_TRIGGER = 'ready_to_trigger',
+  CEREMONY_RUNNING = 'ceremony_running',
 }
 
 export enum FactoryCeremony {
@@ -63,6 +67,13 @@ export type FactoryCreateOptions = {
   /** Block-height offset from creation at which ceremony auto-starts with whoever has joined. */
   force_start_block_offset?: number;
   allocations?: FactoryAllocation[];
+  /**
+   * Defer the MuSig2 signing ceremony. When true, factory-create stops after
+   * setting up the factory state (lifecycle = AWAITING_JOINS) and waits for an
+   * explicit factory-trigger-ceremony call. Lets operators accumulate joiners
+   * before starting signing.
+   */
+  defer_signing?: boolean;
 };
 
 export type FactoryLocalPrefs = {
@@ -83,6 +94,56 @@ export type FactoryCreateResponse = {
   instance_id: string;
   n_clients: number;
   ceremony: FactoryCeremony;
+  /* Set when defer_signing=true */
+  factory_instance_id_hex?: string;
+  lifecycle?: FactoryLifecycle;
+  funding_sats?: number;
+  next_step?: string;
+};
+
+export type FactoryTriggerCeremonyResponse = {
+  factory_instance_id_hex: string;
+  ceremony_id_hex: string;
+  ceremony_type: string;
+  n_participants: number;
+  deadline_block: number;
+  lifecycle: FactoryLifecycle;
+  next_step?: string;
+};
+
+export type FactoryJoinRequestResponse = {
+  factory_instance_id_hex: string;
+  request_id: string;
+  status: string;
+};
+
+export type FactoryBrowsedFactory = {
+  factory_instance_id_hex: string;
+  capacity_sats?: number;
+  slots_open?: number;
+  slots_total?: number;
+  min_clients_to_start?: number;
+  force_start_block?: number;
+  lifecycle?: string;
+  feerate_perkw?: number;
+};
+
+export type FactoryBrowseHostResponse = {
+  host_node_id: string;
+  factories: FactoryBrowsedFactory[];
+};
+
+export type FactoryIncomingJoin = {
+  factory_instance_id_hex: string;
+  request_id: string;
+  peer_node_id: string;
+  contribution_sats: number;
+  status: string;
+  arrived_at_block: number;
+};
+
+export type FactoryIncomingJoinsResponse = {
+  joins: FactoryIncomingJoin[];
 };
 
 export type FactoryRotateResponse = {

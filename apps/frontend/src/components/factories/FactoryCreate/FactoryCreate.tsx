@@ -134,6 +134,10 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
 
   const [useAllocationOverride, setUseAllocationOverride] = useState(false);
   const [allocationOverrideRaw, setAllocationOverrideRaw] = useState('');
+  /* Defer signing: factory enters AWAITING_JOINS instead of starting MuSig2.
+   * Operator then accumulates joiners and triggers signing via the
+   * "Trigger Ceremony" button on FactoryDetail. */
+  const [deferSigning, setDeferSigning] = useState(false);
 
   const [responseStatus, setResponseStatus] = useState(CallStatus.NONE);
   const [responseMessage, setResponseMessage] = useState('');
@@ -385,6 +389,8 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
     if (useAllocationOverride && parsedAllocations.length > 0) {
       options.allocations = parsedAllocations;
     }
+
+    if (deferSigning) options.defer_signing = true;
 
     setResponseStatus(CallStatus.PENDING);
     setResponseMessage('Hosting factory...');
@@ -854,6 +860,27 @@ const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
                   this factory opens. Routing-fee policy (ppm + base) is set per-channel after the
                   factory confirms, not as a factory-wide policy. See{' '}
                   <code>FACTORY_POLICY_V1.md</code> §4.4 and §4.12.
+                </Form.Text>
+              </Accordion.Body>
+            </Accordion.Item>
+
+            <Accordion.Item eventKey='ceremony-timing'>
+              <Accordion.Header>Ceremony timing (advanced)</Accordion.Header>
+              <Accordion.Body>
+                <Form.Check
+                  type='switch'
+                  id='defer-signing'
+                  label='Defer signing — wait for joiners before MuSig2'
+                  checked={deferSigning}
+                  onChange={(e) => setDeferSigning(e.target.checked)}
+                  disabled={isBusy}
+                  className='mb-2'
+                />
+                <Form.Text className='text-light'>
+                  When on, factory is created in <strong>awaiting_joins</strong> state without
+                  starting the signing ceremony. Clients can browse/join over the next blocks;
+                  you trigger signing manually via the &quot;Trigger Ceremony&quot; button on the
+                  factory detail page once you have the participants you want.
                 </Form.Text>
               </Accordion.Body>
             </Accordion.Item>
