@@ -1,0 +1,19 @@
+{
+  "name": "soupwallet-cln-plugin",
+  "version": "0.0.1",
+  "description": "CLN plugin that exposes the wallet daemon's SQLite operations as RPCs the superscalar-cln plugin calls during ceremony coordination.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "11.5.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "20.x",
+    "typescript": "5.6.3"
+  }
+}
