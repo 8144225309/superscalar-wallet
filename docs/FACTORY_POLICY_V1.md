@@ -711,33 +711,39 @@ When `true`, qualifying join requests are admitted without manual operator appro
 
 | Attribute | Value |
 |---|---|
-| TLV ID | 0x0601 |
+| TLV ID | 0x0601 (reserved; entries never on wire) |
 | Type | array of byte[33] |
 | Default | empty |
 | Range | up to 256 pubkeys (8 KB cap) |
 | Mutability | mutable_lsp_only |
-| Joiner-relevant | advertised |
+| Joiner-relevant | **lsp_only** (changed 2026-05-17 from `advertised`) |
+| Advertised "banlist enforced" boolean | `advertised` (true iff banlist non-empty; entries hidden) |
 | Enforced at | plugin join handler |
 | Enforced by | plugin |
 | On violation | reject join with `joiner_banned` |
 
-Pubkeys here are rejected even when `auto_accept_joiners == true`. Stored as a TLV containing a sequence of 33-byte compressed pubkeys.
+Pubkeys here are rejected even when `auto_accept_joiners == true`. Stored as a TLV containing a sequence of 33-byte compressed pubkeys in the wallet's own SQLite (see CEREMONY_DESIGN.md §3.2 — server/client coordination state lives wallet-side); the entries themselves are never transmitted in `factory_piggyback`. Joiners discovering the factory see only an opaque `banlist_enforced` flag indicating whether *some* banlist exists.
+
+**Rationale for hiding entries (2026-05-17):** advertising specific banned pubkeys leaks information about prior peers and the LSP's curation history. Keeps entries private; boolean enforcement signal stays advertised so joiners aren't blindsided.
 
 #### 4.7.3 `allowlist`
 
 | Attribute | Value |
 |---|---|
-| TLV ID | 0x0602 |
+| TLV ID | 0x0602 (reserved; entries never on wire) |
 | Type | array of byte[33] |
 | Default | empty (= "open list", no allowlist enforced) |
 | Range | up to 256 pubkeys |
 | Mutability | mutable_lsp_only |
-| Joiner-relevant | advertised |
+| Joiner-relevant | **lsp_only** (changed 2026-05-17 from `advertised`) |
+| Advertised "allowlist enforced" boolean | `advertised` (true iff allowlist non-empty; entries hidden) |
 | Enforced at | plugin join handler |
 | Enforced by | plugin |
 | On violation | reject join with `joiner_not_in_allowlist` |
 
-When non-empty, ONLY these pubkeys can join (even if `auto_accept_joiners == true`). Use for invite-only factories. New v1 field (not in PR #11 dialog yet — should be added).
+When non-empty, ONLY these pubkeys can join (even if `auto_accept_joiners == true`). Use for invite-only factories. Entries stored in the wallet's own SQLite (see CEREMONY_DESIGN.md §3.2); never transmitted in `factory_piggyback`.
+
+**Rationale for hiding entries (2026-05-17):** the LSP may invite specific peers (manual invitation flow) or curate via automated rules. Revealing the allowlist would expose the operator's commercial relationships and curation strategy. Joiners see only an opaque `allowlist_enforced` flag.
 
 (Note — `proof_tier_required` was removed in v1 draft 4. The proof tier is a property of the LSP's coordinator vouch — it's intrinsic to the LSP's Nostr identity, not configurable per-factory. Wallet-side filtering by tier is a wallet preference setting (see `RendezvousSettings.showPeerTier` and `tierCaps`), not factory policy.)
 
@@ -791,12 +797,12 @@ Block height window (relative to factory creation) during which new joins are ac
 
 | Attribute | Value |
 |---|---|
-| TLV ID | 0x0607 |
+| TLV ID | 0x0607 (reserved, kept stable) |
 | Type | u8 |
 | Default | 4 |
 | Range | 2 – `max_clients` (this factory's `nClients` cap) |
 | Mutability | mutable_lsp_only (until ceremony fires; immutable after) |
-| Joiner-relevant | advertised |
+| Joiner-relevant | **lsp_only** (changed 2026-05-17 from `advertised` — see rationale below) |
 | Enforced at | plugin force-start trigger (block_added hook) |
 | Enforced by | plugin |
 | On violation | ceremony does NOT fire at deadline; factory drafts again (or LSP operator manually cancels) |
@@ -809,6 +815,18 @@ The factory's `slots_total` (advertised in `FACTORY_INFO_RESPONSE`) is `max_clie
 2. **Deadline reached AND minimum met:** `current_block >= force_start_block` AND `accepted_count >= min_clients_to_start` — fire with whoever's accepted
 
 If the deadline is reached but min not met, the factory automatically re-drafts (`force_start_block` is recalculated from current block + `force_start_block_offset`) and waits for more joiners.
+
+**Rationale for keeping this field LSP-private (2026-05-17):**
+
+Advertising `min_clients_to_start` lets prospective joiners game the join process. If an LSP advertises `min=4`, joiners may treat 4 as a target rather than a floor — joining only enough to push the count to 4 and then stopping, leaving the LSP stuck at the bare minimum when it would have preferred 8+. Or joiners may stay away thinking the threshold is already covered by others.
+
+Hiding the field lets the LSP curate participant count without joiners gaming the threshold. Joiners still see `slots_total`, `slots_available`, and the `force_start_block` deadline — they make their join decision based on observable supply/demand rather than gaming a numeric target.
+
+The TLV ID 0x0607 remains reserved in the registry (not reused) so the wire format stays stable. The field is simply never emitted in the TLV diff.
+
+**Wallet UI implications:** rendering text changes from "Will start with at least N clients" to "LSP will start the ceremony at its discretion before block H." This is a small UX change with a clear operational benefit.
+
+Stored in the wallet's own SQLite (see CEREMONY_DESIGN.md §3.2 — server/client coordination state is wallet-side). Configurable per-factory by the LSP operator via their wallet UI; the plugin reads the active value at trigger-decision time via wallet RPC.
 
 #### 4.7.8 `force_start_block_offset`
 
