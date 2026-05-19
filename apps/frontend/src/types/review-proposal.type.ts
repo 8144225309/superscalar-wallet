@@ -11,11 +11,10 @@
 
 import { ClientSigningPrefs } from './signing-prefs.type';
 
-export type ReviewProposalAllocation = {
-  pidx: number;
-  node_id: string;
-  allocation_sats: number;
-};
+/** Plugin emits this as a flat array of allocation_sats (number[]) — one
+ * per participant in pidx order. node_ids are not carried on the wire in
+ * V1; the participant set is implicit to the ceremony state. */
+export type ReviewProposalAllocation = number;
 
 export type AdvertisedPolicy = {
   /* HTLC + capacity fields the joiner cares about — mirrors the
@@ -57,10 +56,11 @@ export type ReviewProposalResponse = {
     funding_sats: number;
     n_participants: number;
     our_pidx: number;
-    our_allocation_sats: number;
+    /** Present only when our_pidx < n_allocs. */
+    our_allocation_sats?: number;
     all_allocations: ReviewProposalAllocation[];
-    /** Basis-points (x100), e.g. 1250 = 12.50% */
-    our_allocation_pct_x100: number;
+    /** Basis-points (x100), e.g. 1250 = 12.50%. Absent when funding_sats == 0. */
+    our_allocation_pct_x100?: number;
   };
   advertised_policy_known: boolean;
   advertised_policy?: AdvertisedPolicy;

@@ -238,32 +238,43 @@ function ReviewProposalModal({ instanceId, lspPeerId, show, onClose }: Props) {
             </div>
 
             <div className='section-header'>All allocations</div>
-            <Table size='sm' className='allocations-table' borderless>
-              <thead>
-                <tr>
-                  <th style={{ width: '60px' }}>pidx</th>
-                  <th>node_id</th>
-                  <th style={{ textAlign: 'right' }}>sats</th>
-                  <th style={{ textAlign: 'right' }}>%</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.proposed.all_allocations.map((a) => {
-                  const isOurs = a.pidx === data.proposed.our_pidx;
-                  const pct = data.proposed.funding_sats > 0
-                    ? (a.allocation_sats / data.proposed.funding_sats) * 100
-                    : 0;
-                  return (
-                    <tr key={a.pidx} className={isOurs ? 'ours' : ''}>
-                      <td>{a.pidx}{isOurs && ' ←'}</td>
-                      <td><code style={{ fontSize: '0.8rem' }}>{truncate(a.node_id, 10, 6)}</code></td>
-                      <td style={{ textAlign: 'right' }}>{formatSats(a.allocation_sats)}</td>
-                      <td style={{ textAlign: 'right' }}>{pct.toFixed(2)}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
+            {data.proposed.all_allocations.length === 0 ? (
+              <div style={{ fontSize: '0.85rem', color: '#6c757d', paddingLeft: '0.5rem' }}>
+                LSP did not carry per-participant allocations in this proposal
+                (defaults to even split: {formatSats(Math.floor(data.proposed.funding_sats / data.proposed.n_participants))} sat each).
+              </div>
+            ) : (
+              <Table size='sm' className='allocations-table' borderless>
+                <thead>
+                  <tr>
+                    <th style={{ width: '60px' }}>pidx</th>
+                    <th>participant</th>
+                    <th style={{ textAlign: 'right' }}>sats</th>
+                    <th style={{ textAlign: 'right' }}>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.proposed.all_allocations.map((sats, pidx) => {
+                    const isOurs = pidx === data.proposed.our_pidx;
+                    const pct = data.proposed.funding_sats > 0
+                      ? (sats / data.proposed.funding_sats) * 100
+                      : 0;
+                    return (
+                      <tr key={pidx} className={isOurs ? 'ours' : ''}>
+                        <td>{pidx}{isOurs && ' ←'}</td>
+                        <td>
+                          <span style={{ fontSize: '0.85rem', fontStyle: isOurs ? 'normal' : 'italic', color: isOurs ? 'inherit' : '#6c757d' }}>
+                            {isOurs ? 'you' : pidx === 0 ? 'LSP' : `peer #${pidx}`}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>{formatSats(sats)}</td>
+                        <td style={{ textAlign: 'right' }}>{pct.toFixed(2)}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            )}
 
             <div className='section-header'>
               Advertised policy vs your prefs
