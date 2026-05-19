@@ -634,6 +634,44 @@ export class FactoriesService {
     return HttpService.clnCall('factory-open-channels', { instance_id: instanceId });
   }
 
+  /**
+   * Client-side: fetch the persisted signing preference thresholds that
+   * the plugin's pre-sign validator checks against. Returns canonical
+   * defaults if the user has never customized them.
+   *
+   * Plugin RPC: client-signing-prefs-get. Until that lands, the call
+   * rejects and the UI shows defaults with a warning banner.
+   */
+  static async getClientSigningPrefs(): Promise<import('../types/signing-prefs.type').GetSigningPrefsResponse> {
+    return HttpService.clnCall('client-signing-prefs-get');
+  }
+
+  /**
+   * Client-side: persist updated signing preference thresholds.
+   * Plugin RPC: client-signing-prefs-set.
+   */
+  static async setClientSigningPrefs(
+    prefs: import('../types/signing-prefs.type').ClientSigningPrefs,
+  ): Promise<import('../types/signing-prefs.type').SetSigningPrefsResponse> {
+    return HttpService.clnCall('client-signing-prefs-set', { prefs });
+  }
+
+  /**
+   * Client-side: pull a structured review of a pending factory proposal
+   * for the pre-sign confirmation modal. Includes allocations, the
+   * LSP's advertised policy, the active user prefs, and the validator
+   * outcome. Plugin RPC: factory-review-proposal (shipped in
+   * superscalar-cln PR #63).
+   */
+  static async reviewProposal(
+    instanceIdHex: string,
+    lspPeerId?: string,
+  ): Promise<any> {
+    const params: Record<string, any> = { instance_id: instanceIdHex };
+    if (lspPeerId) params.lsp_peer_id = lspPeerId;
+    return HttpService.clnCall('factory-review-proposal', params);
+  }
+
   static async fetchFactoriesData() {
     const state = appStore.getState() as AppState;
     if (state.root.authStatus.isAuthenticated) {
