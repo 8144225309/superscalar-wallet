@@ -1161,7 +1161,82 @@ mid-walkthrough.
 
 ---
 
-## 8. Phase tracker
+## 8. Privacy & Tor recommendations
+
+Factory participation has a stronger privacy footprint than ordinary Lightning
+payments. We need to be honest about this in the wallet UX so users opt in
+knowingly.
+
+### What an LSP learns about a client who joins a factory
+
+| Datum                                   | When the LSP learns it                                          | Mitigation                                                  |
+| --------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
+| Client's node_id                        | Required for BOLT-8 handshake                                   | Use a per-factory ephemeral node_id (not currently spec'd)  |
+| Client's IP address                     | TCP layer reveals it on direct connect                          | Tor (.onion) on both sides                                  |
+| Client's stake amount + funding output  | Funding TX is on chain                                          | None — public chain                                         |
+| Client's leaf position + co-leaf peers  | Required for MuSig2 ceremony                                    | Inherent to design                                          |
+| Persistent identity binding over time   | Same node_id appears across rotation events                     | Per-factory ephemeral node_ids                              |
+| HTLC routing patterns through this leaf | Standard LSP-as-counterparty information                        | Same as any LSP relationship                                |
+
+Compare to a normal payment routed through a public LSP — that LSP sees only
+the incoming/outgoing HTLC; it doesn't know who the sender or receiver is, and
+the relationship is ephemeral. **Factory joining is a persistent identity
+binding.** Worth saying out loud in the join UI.
+
+### Why direct peering instead of onion-routed messages
+
+Ceremony traffic — NONCE_BUNDLE, PSIG_BUNDLE, DIST_* — runs at high frequency
+and can exceed several KB per message with 128 clients. BOLT-12 onion messages
+are size-limited (~1300 bytes per hop, ~32 KB total path) and latency-prone
+(multi-hop adds seconds per round-trip). Forcing the ceremony through onion
+routing would make signing infeasible for large factories.
+
+We use BOLT-12 onion messages only for **low-bandwidth async signals**:
+- "Factory rotating in N blocks, please come online" wake-up nudges (Phase 4+)
+- LSP-to-LSP factory advertisements as a complement to Nostr (later)
+
+Everything else rides BOLT-1 custommsg over direct BOLT-8 — which means
+direct peering with the LSP IP-layer visible.
+
+### Recommended wallet UX defaults
+
+1. **Tor on by default** for any wallet that touches factory join. Make the
+   user opt out, not opt in. CLN supports this natively (`--bind-addr=statictor:...`)
+   so the wallet just needs to enable it during initial setup.
+
+2. **Show a one-time privacy notice** the first time a user opens the
+   factory-browse or factory-join screen, summarizing the table above in
+   plain language ("Joining a factory means the LSP can link your wallet
+   identity to your payment activity for the lifetime of the factory.
+   We recommend Tor.").
+
+3. **Clear "you're peered with N LSPs" indicator** somewhere visible — so
+   users understand which LSPs see them and can disconnect if needed.
+
+### Things we explicitly do NOT promise
+
+- We do **not** promise sender unlinkability — the LSP knows you. A snitch
+  LSP can correlate your node_id with all your HTLC activity through the
+  factory's leaves.
+- We do **not** promise plausible deniability — once you've signed a leaf,
+  there is on-chain evidence your node_id participated.
+- We do **not** promise privacy from a global passive observer — chain
+  surveillance can correlate funding outputs with the public factory
+  instance_id once we advertise it.
+
+These limits are fundamental to the channel-factory model, not bugs.
+
+### Open design choice: ephemeral per-factory node_ids
+
+A client could spin up a fresh CLN node (fresh `hsm_secret`) for each
+factory they join. That severs the link between their factory-leaf identity
+and their main routing/payment node. Cost: two CLN daemons per device, which
+is feasible on a phone but heavy. Worth designing for Phase 5 wallet UX if
+the user demand is there. Not in scope for Phase 2/3/4.
+
+---
+
+## 9. Phase tracker
 
 Implementation progress against the plan. Updated as phases complete.
 
@@ -1172,10 +1247,210 @@ Implementation progress against the plan. Updated as phases complete.
 | 0 | Fork feature bit 270/271 advertisement | **✅ DONE** | `lightning` PR #3 merged into VPS deploy. Bit 271 now advertised on both signet daemons. Confirmed via `getinfo`. |
 | 1a | bLIP-56 substrate alive between two real signet nodes | **✅ DONE** | Handshake submsg 0x0002 fires bidirectionally between test-lsp-c and test-client-d. |
 | 1b | Existing ceremony works end-to-end | **✅ DONE** | Factory `b5579e70...` on signet has `ceremony: complete`, `dist_signed_txid` populated. Funding tx `2a8928f8...` in mempool. Original "failure" was operator error (over-ask vs balance), not lib bug. |
-| 2 | Plugin: browse — submsgs 0x0140/0x0141 + `factory-browse-host` RPC | **🟢 NEXT** | Mine. Wire-only, no on-chain spend. |
-| 3 | Plugin: join — submsgs 0x0142/0x0143 + `factory-join-request` RPC + LSP join queue | Not started | Mine. Wire-only. |
-| 4 | Plugin: force-start + heartbeat — submsgs 0x0144/0x0145 + `factory-trigger-ceremony` + preflight balance check + `feerate_perkw` param on 9 RPCs | Not started | Mine. **On-chain spend re-enters here; preflight check bundled to land in same PR.** |
-| 5 | Wallet: HTTP wrappers + UI for browse / join / ceremony progress / LSP-side queue panel | Not started | Mine. |
+| 2 | Plugin: browse — submsgs 0x0140/0x0141 + `factory-browse-host` RPC | **✅ DONE** | superscalar-cln PR #50 merged. PR #52 (hang fixes + hardening) merged. Verified end-to-end on signet, ~10ms per call. |
+| 3 | Plugin: join — submsgs 0x0142/0x0143/0x0144 + `factory-join-request` / `factory-cancel-join` / `factory-incoming-joins` RPCs + LSP queue + persistence both sides | **🟢 NEXT** | Mine. Wire-only. |
+| 4 | Plugin: force-start + heartbeat — submsg 0x0145 + `factory-trigger-ceremony` + preflight balance check + `feerate_perkw` param on 9 RPCs | Not started | Mine. **On-chain spend re-enters here; preflight check bundled to land in same PR.** |
+| 5 | Wallet: HTTP wrappers + UI — Connect / Host / My Memberships / My Factories tabs | Not started | Mine. |
+
+### What's IN Phase 3 (locked in 2026-05-17)
+
+Decisions finalized in design discussion before coding:
+
+| Component | Decision |
+|---|---|
+| Persistence backend | CLN `datastore` via existing `ss_save_factory` pattern, extended to include queue + roster |
+| LSP persists pending-join queue + accepted-joiner roster | Yes |
+| Client persists outgoing join requests | Yes — `ss_state.outgoing_joins[]`, persisted as new datastore key |
+| Joiner availability profile in JOIN_REQUEST | **No (single mode for v1)** |
+| LSP signing-time decision | **Fully automatic** — gated by `min_clients_to_start` policy, no human-in-the-loop |
+| Auto-accept policy at join time | Yes (`auto_accept_joiners=true` default) |
+| Dedup behavior | Reject duplicate `(client_node_id, instance_id)` with `status: "already_queued"` |
+| New wire submsgs | `0x0142` JOIN_REQUEST, `0x0143` JOIN_RESPONSE, `0x0144` JOIN_CANCEL (heartbeat 0x0145 reserved for Phase 4) |
+| New RPCs | `factory-join-request`, `factory-cancel-join`, `factory-incoming-joins` |
+| Browse cache | None — fresh round-trip every time |
+| Client signing UX (default) | Auto-sign when wallet is open; quit wallet to opt out of a ceremony |
+| Manual signing approval mode | Deferred (advanced setting later) |
+
+### What's NOT in Phase 3 (deferred — DO NOT BUILD NOW)
+
+These items came up during design and are explicitly out of scope for this phase. Each is tracked separately so we don't lose them.
+
+| Deferred item | Why deferred | Where it goes |
+|---|---|---|
+| Manual operator approval at ceremony go/no-go time | Adds operator-online dependency for no v1 benefit | Future phase as advanced setting |
+| Persistent per-factory blacklist | Needs schema, UI, real usage to inform shape | Future phase |
+| Persistent global whitelist | Same | Future phase |
+| Reputation scoring across multiple factories | Needs real traffic data to design well | Task #59 (production hardening) |
+| Per-peer slot cap on browse/join RPCs | Needs data | Task #59 |
+| Persistent `ss_browse_next_request_id` across restart | Needs broader persistence strategy review | Task #59 |
+| Structured error codes / taxonomy | Needs designed schema, not ad-hoc | Task #59 |
+| Metrics endpoint | Needs observability strategy | Task #59 |
+| Configurable timeouts via plugin options | Currently hardcoded `SS_BROWSE_TIMEOUT_SECS=30`; could be `--superscalar-browse-timeout-secs=N` later | Task #59 |
+| **Structured** audit log (JSON events, indexed by type, retention rules) | v1 has verbose `plugin_log(LOG_INFORM,…)` for every state transition, which is sufficient for grep-based debugging | Task #59 |
+| Automated test suite (unit + integration) | Substantial effort, separate work | Task #59 |
+| Fuzz testing of wire parsers | Same | Task #59 |
+| Joiner "availability profile" field in JOIN_REQUEST | Premature without UX data | Future phase |
+| Pre-rotation availability negotiation between LSP and joiners | Same | Future phase |
+| Forced kick of inactive joiners | Just let them miss rotations; not expelled | Not needed |
+| Authorization for join requests | Any peer can ask; auto-accept policy gates | Future phase |
+| Wallet UI for "My Memberships" / "My Factories" tabs | Phase 5 work (data layer first) | Phase 5 |
+| "Activity" status badge in nav | UI polish | Phase 5 |
+| Browse result caching | Premature; round-trip is fast enough | Maybe never |
+| Cross-LSP factory migration / portability | Not in scope | Future phase |
+| Joiner lifecycle "history" view in wallet | Closed factories archived, not deleted | Phase 5 |
+| BOLT-12 onion-message push notifications | Pattern A (wallet polls on load) + Pattern B (LSP returns `already_member` on dupe) covers v1 | Phase 4+ |
+| **Privacy pass: minimize / hash / slash records before mainnet** | Persistent join records currently retain client_node_id, contribution amounts, block heights for diagnosis. Pre-mainnet we need to revisit retention, hashing, and selective deletion. All persistence write-sites get `/* TODO(privacy): … */` markers at code-write time. | Pre-mainnet hardening |
+
+### What's IN Phase 3 (refined during 2026-05-17 design discussion)
+
+Confirmed additions that came out of refinement after initial scope:
+
+- **`factory-kick-joiner` RPC** (LSP-only): kick a queued/accepted joiner before ceremony with optional reason. Changes `join_queue` entry status to REJECTED and sends unsolicited JOIN_RESPONSE to the kicked client.
+- **`JOIN_STATUS_ALREADY_MEMBER` status value**: dedup safety net — if a client tries to re-join a factory they're already in, LSP returns this status. Combined with Pattern A wallet-polling-on-load, covers both auto-refresh and user-initiated double-attempt.
+- **`/* TODO(privacy): … */` markers**: every persistent join record write gets a code comment so a future privacy pass can grep all retention sites at once.
+- **JOIN_CANCEL is informational, not authoritative**: client's local auto-sign refusal is what actually opts them out; LSP just records the cancel for visibility in its queue UI. No race-condition handling needed in the ceremony state machine.
+
+---
+
+## 10. Architecture: chain watching and persistence boundaries
+
+### The realization (caught during Phase 3 wrap-up)
+
+SuperScalar isn't just a crypto library — it's a **complete factory implementation** with multiple standalone binaries:
+
+| Binary | Role |
+|---|---|
+| `superscalar_lsp` | Full LSP daemon (networking + state + watchtower embedded) |
+| `superscalar_client` | Full client daemon (state + watchtower embedded via SDK) |
+| `superscalar_watchtower` | Standalone breach watcher (for separation-of-trust deployments) |
+| `superscalar_bridge` | (auxiliary) |
+| `libsuperscalar.a` | Shared library used by all four |
+
+All four share:
+- A **`chain_backend` interface** (`include/superscalar/chain_backend.h`) with three implementations:
+  - `chain_backend_regtest.c` — in-memory mock
+  - `chain_backend_rpc.c` — bitcoin-cli RPC (full node)
+  - `bip158_backend.c` — **BIP-157/158 compact block filter LITE client** (Neutrino-style)
+- A **`watchtower` module** (`watchtower.c`) used as an embedded library by lsp/client/standalone
+- A **`persist.c`** SQLite-based persistence used by all standalone binaries
+
+### Where the CLN plugin sits
+
+The `superscalar-cln` plugin is a **CLN-runtime adapter**, not a full implementation. It re-implements ceremony coordination on top of CLN's transport (BOLT-8 custommsg) and persistence (CLN datastore).
+
+This is genuinely useful — it lets factory mechanics work inside an existing CLN node — but it duplicates infrastructure that SuperScalar already provides standalone.
+
+### Chain watching: who owns it
+
+**The plugin should NOT do chain watching itself.** That's `superscalar_watchtower`'s job. The plugin's previous breach scan code (`ss_launch_breach_scan` + `state_scan_block_cb` callbacks) was a third parallel implementation that:
+- Bypassed `chain_backend` abstraction
+- Used CLN's `getblockhash` / `getblock` RPCs which were removed in recent CLN versions
+- Duplicated logic that already exists in `superscalar_watchtower`
+
+**Permanent architectural decision (Phase 3):** these functions are no-ops with comments redirecting to this section.
+
+### Persistence: where the data really belongs
+
+| Layer | Current state | Long-term target |
+|---|---|---|
+| CLN datastore | Used by plugin for factory state, join queues, outgoing joins | Phased out (Phase 6+) |
+| SuperScalar SQLite | Used by all standalone binaries via `libsuperscalar`'s `persist.c` | **Canonical storage** |
+| bLIP-56 | Wire spec only — no state of its own | n/a |
+
+**The canonical answer:** factory state should live in SuperScalar's SQLite, accessed via `libsuperscalar`'s `persist.c`. That way the watchtower, sweeper, recovery tool, and any other SuperScalar consumer can read it natively.
+
+### Three-tier roadmap
+
+```
+NOW (Phase 3 wrap-up):
+   Plugin's breach scan code marked as permanent no-op
+   Plugin persists to CLN datastore only
+   Watchtower NOT integrated — fine for signet testing where there
+   are no real factories with funds at risk
+   Status: testable; dashboard work unblocked
+   Mainnet-ready: NO
+
+PHASE 4 (pre-mainnet hardening):
+   Writer hook: plugin exports per-epoch state-root txids to a
+   SuperScalar-compatible SQLite DB the watchtower can read.
+   Run superscalar_watchtower alongside the daemon.
+   Two processes; ~50 lines plugin change.
+   Status: mainnet-acceptable.
+
+PHASE 6+ (architectural cleanup):
+   Full library embed: plugin uses libsuperscalar's watchtower module
+   directly + a chain_backend adapter for CLN's bcli RPCs.
+   Single process, single state store, cleanest ops.
+   ~300 lines plugin change.
+```
+
+### Why not Phase 6+ now
+
+We're not building the dedicated SuperScalar node here — we're building the CLN-integrated path because users want factories to live inside their existing CLN setup. The full embed is the right end state but requires:
+- A `chain_backend` implementation that uses CLN's bcli RPCs
+- Migration of plugin state from CLN datastore to libsuperscalar's persist
+- Testing both paths interoperate (a user might run `superscalar_lsp` AND the CLN plugin against different factories)
+
+That's a substantial refactor and best done once Phase 3 has settled and we have a real dashboard exercising the wire layer.
+
+### Lite client / Neutrino mode
+
+Already exists in SuperScalar as `bip158_backend.c`. Once the plugin uses libsuperscalar's persistence directly (which is the corrected architecture below), the CLN plugin can use this backend too — no full-node requirement, no third-party Esplora trust assumption. The BIP-157/158 compact filter approach is the right answer for mobile-class plugin deployments.
+
+### Architectural correction (2026-05-17) — plugin uses libsuperscalar SQLite, not CLN datastore
+
+After deeper analysis with the lib team, the original "CLN datastore as canonical plugin storage" plan was wrong for SuperScalar's data shape. Corrected architecture:
+
+**Plugin opens its own SQLite file at `$lightning_dir/superscalar/state.db` via libsuperscalar's existing `persist.c` API.** Same library. Same schema. Same file the standalone `superscalar_lsp` binary uses.
+
+#### Why the correction
+
+CLN datastore is **KV with no SQL semantics** — no JOINs, no indexes, no transactions across keys. Fine for ~hundreds of small records. SuperScalar's relational model has ~40 tables with JOINs across factories / channels / HTLCs / old_commitments / breach_detections / etc. At LSP scale (thousands of rows in active factories), CLN datastore would force application-level index synthesis in C against a KV store. Wrong tool.
+
+The established CLN-plugin pattern for substantial state is **plugin-owned SQLite**:
+
+| Plugin | Storage |
+|---|---|
+| clboss (auto-pilot) | own sqlite3 |
+| emergency-recovery | own sqlite3 |
+| csvexpenses / historian | own sqlite3 |
+| summary | datastore (because tiny state) |
+
+SuperScalar's state shape puts it firmly in the "own SQLite" bucket. The plugin's data dir goes under `$lightning_dir/`, so operator backup story = back up `~/.lightning/` = covers everything.
+
+#### Concrete deployment shape
+
+```
+$lightning_dir/
+├── hsm_secret
+├── lightningd.sqlite3                    ← CLN's own
+├── plugins/
+│   └── superscalar-cln                   ← our plugin
+└── superscalar/                          ← our state, plugin-managed
+    └── state.db                          ← libsuperscalar's existing SQLite
+                                             (same file the standalone LSP uses)
+```
+
+The plugin opens `state.db` on startup via libsuperscalar's `persist.c` API. The watchtower opens the same file in WAL mode for concurrent reads. The dashboard reads it too. Everyone shares one canonical store.
+
+#### What this eliminates
+
+This single decision **obviates two previously-tracked tasks:**
+
+- ~~Task #63: `state_source_cln_datastore` adapter for the watchtower~~ — no longer needed; watchtower reads the same SQLite the plugin writes
+- ~~Task #64: full libsuperscalar embed in plugin~~ — this IS the new default, not a future phase
+
+It also **deletes ~600 lines from the plugin** — the parallel persistence implementation (`ss_persist_serialize_*`, `ss_save_outgoing_joins`, the per-factory datastore writes) is replaced by direct calls to libsuperscalar's `persist.c` API.
+
+#### Migration path
+
+One-shot migration on plugin upgrade: read existing CLN datastore entries (`superscalar/factories`, `superscalar/outgoing-joins`, `superscalar/<iid>/...`), write to the new SQLite via libsuperscalar, then clear the datastore entries. After migration, CLN datastore holds nothing SuperScalar-related — everything lives in SQLite.
+
+Tracked as **Task #72 (Phase 4 prereq: persistence pivot)**.
+
+#### Why I had this wrong initially
+
+I overweighted "CLN datastore is LN-native" without honestly evaluating the data shape. clboss, emergency-recovery, and other production CLN plugins doing this exact pattern proves the precedent is well-established. CLN itself uses SQLite (`lightningd.sqlite3`) for its own state. There's nothing un-LN about a plugin doing the same.
 
 ### Key decisions captured
 
