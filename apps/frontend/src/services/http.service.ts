@@ -672,6 +672,36 @@ export class FactoriesService {
     return HttpService.clnCall('factory-review-proposal', params);
   }
 
+  /**
+   * Client-side: approve a previously-refused (or pending) proposal so
+   * the plugin proceeds with signing. Counterpart to refuseProposal.
+   * Plugin RPC: factory-approve-proposal (B4 follow-up — not yet wired).
+   */
+  static async approveProposal(
+    instanceIdHex: string,
+    lspPeerId: string,
+  ): Promise<any> {
+    return HttpService.clnCall('factory-approve-proposal', {
+      instance_id: instanceIdHex,
+      lsp_peer_id: lspPeerId,
+    });
+  }
+
+  /**
+   * Client-side: explicitly refuse a pending proposal so the plugin
+   * sends CEREMONY_ABORT (when PR 3c lands) or silently times out.
+   * Plugin RPC: factory-refuse-proposal (B4 follow-up — not yet wired).
+   */
+  static async refuseProposal(
+    instanceIdHex: string,
+    lspPeerId: string,
+  ): Promise<any> {
+    return HttpService.clnCall('factory-refuse-proposal', {
+      instance_id: instanceIdHex,
+      lsp_peer_id: lspPeerId,
+    });
+  }
+
   static async fetchFactoriesData() {
     const state = appStore.getState() as AppState;
     if (state.root.authStatus.isAuthenticated) {

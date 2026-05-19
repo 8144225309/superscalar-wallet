@@ -12,6 +12,7 @@ import ExpiryWarnings from '../ExpiryWarnings/ExpiryWarnings';
 import BreachStatus from '../BreachStatus/BreachStatus';
 import LadderingTimeline from '../LadderingTimeline/LadderingTimeline';
 import SigningPrefs from '../SigningPrefs/SigningPrefs';
+import PendingProposalsCard from '../ReviewProposal/PendingProposalsCard';
 
 function FactoriesHome() {
   useInjectReducer('factories', factoriesReducer);
@@ -53,6 +54,11 @@ function FactoriesHome() {
               <Link to='/factories/signing-prefs' className='text-decoration-none' data-testid='signing-prefs-link'>
                 <small>Signing preferences &rsaquo;</small>
               </Link>
+            </Col>
+          </Row>
+          <Row className='px-3'>
+            <Col xs={12} className='cards-container'>
+              <PendingProposalsCard />
             </Col>
           </Row>
           <Row className='px-3'>
