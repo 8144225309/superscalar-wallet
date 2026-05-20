@@ -50,6 +50,12 @@ export type ClientSigningPrefs = {
 
   /* State replay defense window */
   min_state_replay_defense_window_blocks: number; // default 288 (~2 days)
+
+  /* D.1 — auto-sign toggle. true = plugin signs every proposal that
+   * passes validation (current behaviour). false = plugin caches the
+   * proposal and waits for the wallet UI's Approve / Refuse decision
+   * via factory-approve-proposal / factory-refuse-proposal. */
+  auto_sign_on_validator_pass: boolean; // default true
 };
 
 /** Canonical defaults — must stay in sync with ss_client_signing_prefs_init_defaults. */
@@ -67,6 +73,7 @@ export const DEFAULT_CLIENT_SIGNING_PREFS: ClientSigningPrefs = {
   min_rotation_interval_blocks: 144,
   require_tier_b_rollover: false,
   min_state_replay_defense_window_blocks: 288,
+  auto_sign_on_validator_pass: true,
 };
 
 export type GetSigningPrefsResponse = {

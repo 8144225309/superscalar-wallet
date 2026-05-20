@@ -21,6 +21,7 @@ const TIER_LABEL: Record<ProofTier, string> = {
 type FieldKey = Exclude<
   keyof ClientSigningPrefs,
   'require_strict_proof_tier' | 'max_proof_tier' | 'require_tier_b_rollover'
+  | 'auto_sign_on_validator_pass'
 >;
 
 type FieldSpec = {
@@ -262,6 +263,43 @@ function SigningPrefs() {
         )}
 
         <Form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+          {/* D.1 auto-sign toggle — surfaced prominently because it changes
+              the overall flow: ON = automatic signing, OFF = manual confirm */}
+          <div
+            className='p-3 mb-3'
+            style={{
+              border: '1px solid rgba(13, 110, 253, 0.3)',
+              borderRadius: '6px',
+              background: 'rgba(13, 110, 253, 0.04)',
+            }}
+          >
+            <Form.Check
+              type='switch'
+              id='auto-sign-toggle'
+              checked={prefs.auto_sign_on_validator_pass}
+              onChange={(e) => setPrefs((p) => ({ ...p, auto_sign_on_validator_pass: e.target.checked }))}
+              label={
+                <span style={{ fontWeight: 600 }}>
+                  Sign automatically when policy passes validation
+                  <InfoIcon text={
+                    'ON (recommended): when an LSP sends a FACTORY_PROPOSE that passes ' +
+                    'all the thresholds below, your plugin signs it immediately. ' +
+                    'OFF: every proposal pops a review modal — you must click Approve & sign ' +
+                    'before any signature is sent. Use OFF if you want a human-in-the-loop ' +
+                    'gate before every ceremony. HARD_FAIL proposals are always refused ' +
+                    'regardless of this toggle.'
+                  } />
+                </span>
+              }
+              data-testid='pref-auto_sign_on_validator_pass'
+            />
+            <div className='field-help mt-1'>
+              {prefs.auto_sign_on_validator_pass
+                ? 'ON — proposals that pass validation are signed without prompting.'
+                : 'OFF — every proposal pauses for your review (the wallet shows a confirmation modal).'}
+            </div>
+          </div>
+
           {FIELD_SPECS.map((group) => (
             <div key={group.section}>
               <div className='section-header'>{group.section}</div>
