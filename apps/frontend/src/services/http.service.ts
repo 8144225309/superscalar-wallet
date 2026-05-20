@@ -769,6 +769,25 @@ export class FactoriesService {
     });
   }
 
+  /**
+   * Client-side: list proposals the plugin is holding pending the
+   * user's Approve/Refuse decision (i.e. validator OK +
+   * auto_sign_on_validator_pass=false caught them). Polled by the
+   * sticky review banner on the Factories page.
+   * Plugin RPC: client-list-held-proposals.
+   */
+  static async listHeldProposals(): Promise<{ held: Array<{
+    instance_id: string;
+    lsp_peer_id: string;
+    funding_sats: number;
+    n_participants: number;
+    our_pidx: number;
+    received_at_block: number;
+    validator_result: number;
+  }> }> {
+    return HttpService.clnCall('client-list-held-proposals');
+  }
+
   static async fetchFactoriesData() {
     const state = appStore.getState() as AppState;
     if (state.root.authStatus.isAuthenticated) {
