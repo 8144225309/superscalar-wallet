@@ -112,11 +112,12 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
 
   const handleOpenChannels = async () => {
     setResponseStatus(CallStatus.PENDING);
-    setResponseMessage('Opening channels...');
+    setResponseMessage(`Opening ${factory.n_clients} channel(s)…`);
     try {
-      await FactoriesService.openChannels(factory.instance_id);
+      const res = await FactoriesService.openChannels(factory.instance_id);
       setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage('Channel opening initiated');
+      const n = res?.n_channels ?? factory.n_clients;
+      setResponseMessage(`Opened ${n} channel(s) — lifecycle now active`);
       FactoriesService.fetchFactoriesData();
       resetStatus();
     } catch (err: any) {
@@ -138,7 +139,12 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
   const canRotate = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE && !factory.rotation_in_progress;
   const canClose = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
   const canForceClose = factory.lifecycle !== FactoryLifecycle.EXPIRED;
-  const canOpenChannels = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE;
+  // Plugin sets lifecycle=ACTIVE after the FIRST channel actually opens.
+  // For the initial open, gate on SIGNED; also show on ACTIVE when channels < clients (recovery).
+  const canOpenChannels = isLsp
+    && factory.ceremony === FactoryCeremony.COMPLETE
+    && (factory.lifecycle === FactoryLifecycle.SIGNED
+        || (factory.lifecycle === FactoryLifecycle.ACTIVE && factory.n_channels < factory.n_clients));
   const canInvite = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
 
   return (
@@ -309,9 +315,25 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
       </Card.Body>
       <Card.Footer className='d-flex justify-content-center flex-wrap gap-2'>
         {canOpenChannels && (
-          <button className='btn-rounded bg-success btn-sm' onClick={handleOpenChannels} disabled={responseStatus === CallStatus.PENDING}>
-            Open Channels
-          </button>
+          <OverlayTrigger
+            placement='auto'
+            overlay={
+              <Tooltip>
+                Broadcast factory tx and open the {factory.n_clients} leaf channels.
+                This is the post-ceremony step that turns signed commitments into
+                spendable channels.
+              </Tooltip>
+            }
+          >
+            <button
+              className='btn-rounded bg-success btn-sm'
+              onClick={handleOpenChannels}
+              disabled={responseStatus === CallStatus.PENDING}
+              data-testid='open-channels-btn'
+            >
+              Open Channels
+            </button>
+          </OverlayTrigger>
         )}
         {canTrigger && (
           <OverlayTrigger
