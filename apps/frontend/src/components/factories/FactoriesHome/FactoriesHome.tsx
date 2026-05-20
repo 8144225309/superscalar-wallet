@@ -14,6 +14,7 @@ import LadderingTimeline from '../LadderingTimeline/LadderingTimeline';
 import SigningPrefs from '../SigningPrefs/SigningPrefs';
 import PendingProposalsCard from '../ReviewProposal/PendingProposalsCard';
 import HeldProposalsBanner from '../ReviewProposal/HeldProposalsBanner';
+import MissedCeremoniesBanner from '../ReviewProposal/MissedCeremoniesBanner';
 
 function FactoriesHome() {
   useInjectReducer('factories', factoriesReducer);
@@ -48,6 +49,7 @@ function FactoriesHome() {
           <Row className='px-3'>
             <Col xs={12} className='cards-container'>
               <HeldProposalsBanner />
+              <MissedCeremoniesBanner />
             </Col>
           </Row>
           <Row>

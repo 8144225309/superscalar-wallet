@@ -788,6 +788,33 @@ export class FactoriesService {
     return HttpService.clnCall('client-list-held-proposals');
   }
 
+  /**
+   * Client-side: list recent SIGN_QUEUE_RESPONSE entries with
+   * non-AWAITING state (MISSED / EXPIRED / REFUSED) that the plugin
+   * has observed. Drives the wallet's missed-ceremony banner.
+   * Plugin RPC: client-list-recent-sign-queue-events.
+   */
+  static async listRecentSignQueueEvents(): Promise<{ events: Array<{
+    instance_id: string;
+    lsp_peer_id: string;
+    state: number;  // 0=AWAITING 1=SIGNED 2=MISSED 3=REFUSED 4=EXPIRED
+    deadline_block: number;
+    observed_at_block: number;
+    dismissed: boolean;
+  }> }> {
+    return HttpService.clnCall('client-list-recent-sign-queue-events');
+  }
+
+  /**
+   * Client-side: dismiss all ring-buffer entries matching this
+   * factory_instance_id. Plugin RPC: client-dismiss-sign-queue-event.
+   */
+  static async dismissSignQueueEvent(instanceIdHex: string): Promise<any> {
+    return HttpService.clnCall('client-dismiss-sign-queue-event', {
+      instance_id: instanceIdHex,
+    });
+  }
+
   static async fetchFactoriesData() {
     const state = appStore.getState() as AppState;
     if (state.root.authStatus.isAuthenticated) {
