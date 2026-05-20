@@ -55,6 +55,28 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     }
   };
 
+  /* Task #124: manual trigger button. Only meaningful when the
+   * factory is awaiting joins on the LSP side. Plugin auto-triggers
+   * when min_clients_to_start or the force-start deadline is reached;
+   * this button is the operator escape hatch (force=true). */
+  const handleTrigger = async () => {
+    setResponseStatus(CallStatus.PENDING);
+    setResponseMessage('Triggering ceremony…');
+    try {
+      const res = await FactoriesService.triggerCeremony(factory.instance_id, { force: true });
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(
+        `Ceremony triggered (ceremony_id ${res.ceremony_id_hex?.slice(0, 16)}…, ${res.n_participants} participants)`,
+      );
+      FactoriesService.fetchFactoriesData();
+      resetStatus();
+    } catch (err: any) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage(typeof err === 'string' ? err : err.message || 'Trigger failed');
+      resetStatus();
+    }
+  };
+
   const handleClose = async () => {
     setResponseStatus(CallStatus.PENDING);
     setResponseMessage('Closing factory...');
@@ -111,6 +133,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     resetStatus();
   };
 
+  const canTrigger = isLsp && factory.lifecycle === FactoryLifecycle.AWAITING_JOINS;
   const canRotate = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE && !factory.rotation_in_progress;
   const canClose = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
   const canForceClose = factory.lifecycle !== FactoryLifecycle.EXPIRED;
@@ -285,6 +308,21 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
           <button className='btn-rounded bg-success btn-sm' onClick={handleOpenChannels} disabled={responseStatus === CallStatus.PENDING}>
             Open Channels
           </button>
+        )}
+        {canTrigger && (
+          <OverlayTrigger
+            placement='auto'
+            overlay={<Tooltip>Force-start the MuSig2 ceremony with the currently-accepted joiners. The plugin will auto-trigger on min_clients_to_start / force-start deadline if you wait; this button is the operator override.</Tooltip>}
+          >
+            <button
+              className='btn-rounded bg-success btn-sm'
+              onClick={handleTrigger}
+              disabled={responseStatus === CallStatus.PENDING}
+              data-testid='trigger-ceremony-btn'
+            >
+              Trigger Ceremony
+            </button>
+          </OverlayTrigger>
         )}
         {canRotate && (
           <button className='btn-rounded bg-primary btn-sm' onClick={handleRotate} disabled={responseStatus === CallStatus.PENDING}>

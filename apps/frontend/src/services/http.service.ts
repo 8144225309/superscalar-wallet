@@ -616,6 +616,24 @@ export class FactoriesService {
     return HttpService.clnCall('factory-rotate', { instance_id: instanceId });
   }
 
+  /**
+   * LSP-side: manually fire the ceremony for a factory in
+   * lifecycle=awaiting_joins. Force=true skips min_clients_to_start
+   * checks; useful for testing or when the operator decides to seal
+   * the participant set early. With force=false the plugin respects
+   * the configured min_clients / deadline.
+   * Plugin RPC: factory-trigger-ceremony.
+   */
+  static async triggerCeremony(
+    instanceIdHex: string,
+    opts?: { force?: boolean; deadlineBlock?: number },
+  ): Promise<any> {
+    const params: Record<string, any> = { factory_instance_id_hex: instanceIdHex };
+    if (opts?.force != null) params.force = opts.force;
+    if (opts?.deadlineBlock != null) params.deadline_block = opts.deadlineBlock;
+    return HttpService.clnCall('factory-trigger-ceremony', params);
+  }
+
   static async closeFactory(instanceId: string): Promise<FactoryCloseResponse> {
     return HttpService.clnCall('factory-close', { instance_id: instanceId });
   }
