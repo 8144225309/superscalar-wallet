@@ -815,6 +815,26 @@ export class FactoriesService {
     });
   }
 
+  /**
+   * Phase C: fetch the persisted policy cache. Optional filters narrow
+   * to a single (lsp_peer_id, instance_id) pair. Plugin RPC:
+   * factory-get-cached-policy.
+   */
+  static async getCachedPolicy(
+    instanceIdHex?: string,
+    lspPeerId?: string,
+  ): Promise<{ entries: Array<{
+    lsp_peer_id: string;
+    instance_id: string;
+    cached_at_block: number;
+    policy: Record<string, any>;
+  }> }> {
+    const params: Record<string, any> = {};
+    if (instanceIdHex) params.instance_id = instanceIdHex;
+    if (lspPeerId) params.lsp_peer_id = lspPeerId;
+    return HttpService.clnCall('factory-get-cached-policy', params);
+  }
+
   static async fetchFactoriesData() {
     const state = appStore.getState() as AppState;
     if (state.root.authStatus.isAuthenticated) {

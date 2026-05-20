@@ -9,6 +9,7 @@ import { copyTextToClipboard } from '../../../utilities/data-formatters';
 import { useSelector } from 'react-redux';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import CeremonyProgress from '../CeremonyProgress/CeremonyProgress';
+import FactoryPolicyView from '../FactoryPolicyView/FactoryPolicyView';
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -298,6 +299,9 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
           </Row>
         )}
 
+
+        {/* Phase C: cached policy snapshot for this factory */}
+        <FactoryPolicyView instanceId={factory.instance_id} />
 
         {responseStatus !== CallStatus.NONE && (
           <StatusAlert responseStatus={responseStatus} responseMessage={responseMessage} />
