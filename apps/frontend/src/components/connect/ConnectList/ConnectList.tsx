@@ -44,6 +44,7 @@ import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import { selectActiveProfile } from '../../../store/nodesSelectors';
 import { fetchVouches } from '../../../services/nostr.service';
 import { RendezvousService } from '../../../services/http.service';
+import JoinFactoryModal from '../JoinFactoryModal/JoinFactoryModal';
 
 type RowSource = 'sample' | VouchTier;
 type SortKey = 'factory' | 'capacity' | 'minChannel' | 'opens';
@@ -133,6 +134,7 @@ const ConnectList = () => {
 
   const [showSample, setShowSample] = useState(false);
   const [joinRequests, setJoinRequests] = useState<Record<string, JoinStatus>>({});
+  const [joinModalFor, setJoinModalFor] = useState<FactoryRow | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('opens');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -308,9 +310,23 @@ const ConnectList = () => {
   const selectedIsSelf = !!selected?.isSelf;
   const selectedRequest = selected ? joinRequests[selected.id] : undefined;
 
+  /* Task #121: open the JoinFactoryModal which browses the LSP for factories,
+   * lets the user pick one + a contribution, and fires factory-join-request.
+   * Sample rows still use the legacy stub since they're not real LSPs. */
   const handleJoin = () => {
     if (!selected || selectedIsSelf || selectedRequest) return;
-    setJoinRequests(prev => ({ ...prev, [selected.id]: 'requested' }));
+    if (selected.source === 'sample') {
+      setJoinRequests(prev => ({ ...prev, [selected.id]: 'requested' }));
+      return;
+    }
+    setJoinModalFor(selected);
+  };
+
+  const handleJoinModalClose = () => {
+    if (joinModalFor) {
+      setJoinRequests(prev => ({ ...prev, [joinModalFor.id]: 'requested' }));
+    }
+    setJoinModalFor(null);
   };
 
   const handleCancel = () => {
@@ -533,6 +549,16 @@ const ConnectList = () => {
           Cancel Request
         </button>
       </Card.Footer>
+
+      {joinModalFor && (
+        <JoinFactoryModal
+          show={true}
+          onClose={handleJoinModalClose}
+          lspPubkey={joinModalFor.pubkey}
+          lspAlias={joinModalFor.alias}
+          lnAddresses={joinModalFor.lnAddresses}
+        />
+      )}
     </Card>
   );
 };

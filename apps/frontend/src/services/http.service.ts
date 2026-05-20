@@ -635,6 +635,55 @@ export class FactoriesService {
   }
 
   /**
+   * Client-side: browse an LSP's published factories.
+   *
+   * If the BOLT-8 peer is not currently connected, the plugin's auto-connect
+   * helper (task #118) uses the optional `address` hint to establish the
+   * connection before sending the FACTORY_INFO_REQUEST custommsg.
+   *
+   * Plugin RPC: factory-browse-host node_id [since_block] [address]
+   */
+  static async browseHost(
+    peerNodeId: string,
+    address?: string,
+    sinceBlock?: number,
+  ): Promise<any> {
+    const params: Record<string, any> = { node_id: peerNodeId };
+    if (address) params.address = address;
+    if (sinceBlock != null) params.since_block = sinceBlock;
+    return HttpService.clnCall('factory-browse-host', params);
+  }
+
+  /**
+   * Client-side: ask an LSP to add us as a participant on one of their
+   * advertised factories. Plugin auto-connect runs same as browseHost.
+   *
+   * Plugin RPC: factory-join-request lsp_node_id instance_id contribution_sats [address]
+   */
+  static async joinRequest(
+    lspNodeId: string,
+    factoryInstanceIdHex: string,
+    contributionSats: number,
+    address?: string,
+  ): Promise<any> {
+    const params: Record<string, any> = {
+      lsp_node_id: lspNodeId,
+      instance_id: factoryInstanceIdHex,
+      contribution_sats: contributionSats,
+    };
+    if (address) params.address = address;
+    return HttpService.clnCall('factory-join-request', params);
+  }
+
+  /**
+   * Client-side: cancel a previously-submitted join request.
+   * Fire-and-forget — the LSP marks the queue entry CANCELLED.
+   */
+  static async cancelJoinRequest(requestId: string): Promise<any> {
+    return HttpService.clnCall('factory-cancel-join', { request_id: requestId });
+  }
+
+  /**
    * Client-side: fetch the persisted signing preference thresholds that
    * the plugin's pre-sign validator checks against. Returns canonical
    * defaults if the user has never customized them.
