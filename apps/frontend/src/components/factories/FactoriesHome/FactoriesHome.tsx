@@ -40,35 +40,20 @@ function FactoriesHome() {
         </Row>
       ) : isSigningPrefs ? (
         <Row className='px-3'>
-          <Col xs={12} className='cards-container'>
+          <Col xs={12}>
             <SigningPrefs />
           </Col>
         </Row>
       ) : (
         <>
-          <Row className='px-3'>
-            <Col xs={12} className='cards-container'>
-              <HeldProposalsBanner />
-              <MissedCeremoniesBanner />
-            </Col>
-          </Row>
+          {/* Top: stats overview */}
           <Row>
             <Col className='mx-1'>
               <FactoriesOverview />
             </Col>
           </Row>
-          <Row className='px-3'>
-            <Col xs={12} className='d-flex justify-content-end mb-2'>
-              <Link to='/factories/signing-prefs' className='text-decoration-none' data-testid='signing-prefs-link'>
-                <small>Signing preferences &rsaquo;</small>
-              </Link>
-            </Col>
-          </Row>
-          <Row className='px-3'>
-            <Col xs={12} className='cards-container'>
-              <PendingProposalsCard />
-            </Col>
-          </Row>
+
+          {/* Main content: factories list + side cards (expiry, breach) */}
           <Row className='px-3'>
             <Col xs={12} lg={8} className='cards-container'>
               <FactoryListCard />
@@ -78,9 +63,29 @@ function FactoriesHome() {
               <BreachStatus />
             </Col>
           </Row>
+
+          {/* Factory timeline */}
           <Row className='px-3'>
             <Col xs={12} className='cards-container'>
               <LadderingTimeline />
+            </Col>
+          </Row>
+
+          {/* Footer: signing / proposal activity. Each child renders null
+              when empty so this section collapses out of the way when
+              there\u2019s nothing to act on. */}
+          <Row className='px-3 mt-3'>
+            <Col xs={12}>
+              <HeldProposalsBanner />
+              <MissedCeremoniesBanner />
+              <PendingProposalsCard />
+            </Col>
+          </Row>
+          <Row className='px-3'>
+            <Col xs={12} className='d-flex justify-content-end mb-3'>
+              <Link to='/factories/signing-prefs' className='text-decoration-none' data-testid='signing-prefs-link'>
+                <small>Signing preferences &rsaquo;</small>
+              </Link>
             </Col>
           </Row>
         </>

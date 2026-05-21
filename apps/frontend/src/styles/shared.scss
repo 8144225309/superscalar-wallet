@@ -442,7 +442,12 @@ svg {
 }
 
 .cards-container {
-  height: 67vh;
+  /* Was: height: 67vh (forced viewport-height even when empty, leaving
+   * giant blank gaps). Now: natural content height + a sensible floor for
+   * the main content cards via min-height. Banners/conditional content
+   * wrapping in .cards-container collapse to 0 when their children
+   * render null. */
+  min-height: 0;
   margin-bottom: 1.5rem;
 }
 

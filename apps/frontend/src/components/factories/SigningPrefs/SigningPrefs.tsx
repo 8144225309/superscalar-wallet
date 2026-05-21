@@ -305,7 +305,7 @@ function SigningPrefs() {
               <div className='section-header'>{group.section}</div>
               <Row>
                 {group.fields.map((spec) => (
-                  <Col key={spec.key} xs={12} md={6} className='mb-3'>
+                  <Col key={spec.key} xs={12} md={6} lg={4} className='mb-2'>
                     <Form.Label className='mb-1 d-flex align-items-center' style={{ fontSize: '0.9rem' }}>
                       <span>{spec.label}</span>
                       <InfoIcon text={spec.help} />
