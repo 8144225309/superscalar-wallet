@@ -463,14 +463,14 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
             <>
               <p className='mb-2'>
                 A cooperative close will request all participants to sign a final
-                settlement transaction returning each side's balance to their
+                settlement transaction returning each side&apos;s balance to their
                 on-chain wallet.
               </p>
               <ul className='mb-2'>
                 <li>Channels: <strong>{factory.n_channels}</strong> will close</li>
                 <li>Participants: <strong>{factory.n_clients + 1}</strong> must sign</li>
                 <li>Funding TXID: <code>{factory.funding_txid?.slice(0, 16)}…</code></li>
-                <li>If any participant is offline, the close will time out and you'll need to force close instead.</li>
+                <li>If any participant is offline, the close will time out and you&apos;ll need to force close instead.</li>
               </ul>
             </>
           ) : (
@@ -478,7 +478,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
               <p className='mb-2'>
                 <strong>Force close</strong> unilaterally publishes the
                 pre-signed factory exit chain. Use this if cooperative close
-                isn't possible (other participants offline, or breach state).
+                isn&apos;t possible (other participants offline, or breach state).
               </p>
               <ul className='mb-2'>
                 <li>Channels: <strong>{factory.n_channels}</strong> will be on-chain force-closed</li>
@@ -488,7 +488,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
                   <li className='text-danger'>
                     <strong>{factory.n_breach_epochs} breach epoch(s)</strong> on
                     record — force close will publish the burn TX to claim the
-                    counterparty's penalty output.
+                    counterparty&apos;s penalty output.
                   </li>
                 )}
               </ul>
