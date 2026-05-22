@@ -1,7 +1,20 @@
 @use '../../../styles/constants' as *;
 
 .menu-nav {
+  /* Session 6c mobile fix: allow horizontal scroll when icons + trailing
+   * controls (Settings/Logout/Theme) exceed the row width on small phones.
+   * Each button is non-shrinking so the row scrolls cleanly. */
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+
   .menu-nav-btn {
+    flex-shrink: 0;
+
     padding: 0.4rem 0.75rem;
     font-size: 0.8rem;
     font-weight: 600;
