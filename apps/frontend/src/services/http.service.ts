@@ -616,6 +616,24 @@ export class FactoriesService {
     return HttpService.clnCall('factory-rotate', { instance_id: instanceId });
   }
 
+  /**
+   * LSP-side: manually fire the ceremony for a factory in
+   * lifecycle=awaiting_joins. Force=true skips min_clients_to_start
+   * checks; useful for testing or when the operator decides to seal
+   * the participant set early. With force=false the plugin respects
+   * the configured min_clients / deadline.
+   * Plugin RPC: factory-trigger-ceremony.
+   */
+  static async triggerCeremony(
+    instanceIdHex: string,
+    opts?: { force?: boolean; deadlineBlock?: number },
+  ): Promise<any> {
+    const params: Record<string, any> = { factory_instance_id_hex: instanceIdHex };
+    if (opts?.force != null) params.force = opts.force;
+    if (opts?.deadlineBlock != null) params.deadline_block = opts.deadlineBlock;
+    return HttpService.clnCall('factory-trigger-ceremony', params);
+  }
+
   static async closeFactory(instanceId: string): Promise<FactoryCloseResponse> {
     return HttpService.clnCall('factory-close', { instance_id: instanceId });
   }
@@ -632,6 +650,189 @@ export class FactoriesService {
 
   static async openChannels(instanceId: string): Promise<any> {
     return HttpService.clnCall('factory-open-channels', { instance_id: instanceId });
+  }
+
+  /**
+   * Client-side: browse an LSP's published factories.
+   *
+   * If the BOLT-8 peer is not currently connected, the plugin's auto-connect
+   * helper (task #118) uses the optional `address` hint to establish the
+   * connection before sending the FACTORY_INFO_REQUEST custommsg.
+   *
+   * Plugin RPC: factory-browse-host node_id [since_block] [address]
+   */
+  static async browseHost(
+    peerNodeId: string,
+    address?: string,
+    sinceBlock?: number,
+  ): Promise<any> {
+    const params: Record<string, any> = { node_id: peerNodeId };
+    if (address) params.address = address;
+    if (sinceBlock != null) params.since_block = sinceBlock;
+    return HttpService.clnCall('factory-browse-host', params);
+  }
+
+  /**
+   * Client-side: ask an LSP to add us as a participant on one of their
+   * advertised factories. Plugin auto-connect runs same as browseHost.
+   *
+   * Plugin RPC: factory-join-request lsp_node_id instance_id contribution_sats [address]
+   */
+  static async joinRequest(
+    lspNodeId: string,
+    factoryInstanceIdHex: string,
+    contributionSats: number,
+    address?: string,
+  ): Promise<any> {
+    const params: Record<string, any> = {
+      lsp_node_id: lspNodeId,
+      instance_id: factoryInstanceIdHex,
+      contribution_sats: contributionSats,
+    };
+    if (address) params.address = address;
+    return HttpService.clnCall('factory-join-request', params);
+  }
+
+  /**
+   * Client-side: cancel a previously-submitted join request.
+   * Fire-and-forget — the LSP marks the queue entry CANCELLED.
+   */
+  static async cancelJoinRequest(requestId: string): Promise<any> {
+    return HttpService.clnCall('factory-cancel-join', { request_id: requestId });
+  }
+
+  /**
+   * Client-side: fetch the persisted signing preference thresholds that
+   * the plugin's pre-sign validator checks against. Returns canonical
+   * defaults if the user has never customized them.
+   *
+   * Plugin RPC: client-signing-prefs-get. Until that lands, the call
+   * rejects and the UI shows defaults with a warning banner.
+   */
+  static async getClientSigningPrefs(): Promise<import('../types/signing-prefs.type').GetSigningPrefsResponse> {
+    return HttpService.clnCall('client-signing-prefs-get');
+  }
+
+  /**
+   * Client-side: persist updated signing preference thresholds.
+   * Plugin RPC: client-signing-prefs-set.
+   */
+  static async setClientSigningPrefs(
+    prefs: import('../types/signing-prefs.type').ClientSigningPrefs,
+  ): Promise<import('../types/signing-prefs.type').SetSigningPrefsResponse> {
+    return HttpService.clnCall('client-signing-prefs-set', { prefs });
+  }
+
+  /**
+   * Client-side: pull a structured review of a pending factory proposal
+   * for the pre-sign confirmation modal. Includes allocations, the
+   * LSP's advertised policy, the active user prefs, and the validator
+   * outcome. Plugin RPC: factory-review-proposal (shipped in
+   * superscalar-cln PR #63).
+   */
+  static async reviewProposal(
+    instanceIdHex: string,
+    lspPeerId?: string,
+  ): Promise<any> {
+    const params: Record<string, any> = { instance_id: instanceIdHex };
+    if (lspPeerId) params.lsp_peer_id = lspPeerId;
+    return HttpService.clnCall('factory-review-proposal', params);
+  }
+
+  /**
+   * Client-side: approve a previously-refused (or pending) proposal so
+   * the plugin proceeds with signing. Counterpart to refuseProposal.
+   * Plugin RPC: factory-approve-proposal (B4 follow-up — not yet wired).
+   */
+  static async approveProposal(
+    instanceIdHex: string,
+    lspPeerId: string,
+  ): Promise<any> {
+    return HttpService.clnCall('factory-approve-proposal', {
+      instance_id: instanceIdHex,
+      lsp_peer_id: lspPeerId,
+    });
+  }
+
+  /**
+   * Client-side: explicitly refuse a pending proposal so the plugin
+   * sends CEREMONY_ABORT (when PR 3c lands) or silently times out.
+   * Plugin RPC: factory-refuse-proposal (B4 follow-up — not yet wired).
+   */
+  static async refuseProposal(
+    instanceIdHex: string,
+    lspPeerId: string,
+  ): Promise<any> {
+    return HttpService.clnCall('factory-refuse-proposal', {
+      instance_id: instanceIdHex,
+      lsp_peer_id: lspPeerId,
+    });
+  }
+
+  /**
+   * Client-side: list proposals the plugin is holding pending the
+   * user's Approve/Refuse decision (i.e. validator OK +
+   * auto_sign_on_validator_pass=false caught them). Polled by the
+   * sticky review banner on the Factories page.
+   * Plugin RPC: client-list-held-proposals.
+   */
+  static async listHeldProposals(): Promise<{ held: Array<{
+    instance_id: string;
+    lsp_peer_id: string;
+    funding_sats: number;
+    n_participants: number;
+    our_pidx: number;
+    received_at_block: number;
+    validator_result: number;
+  }> }> {
+    return HttpService.clnCall('client-list-held-proposals');
+  }
+
+  /**
+   * Client-side: list recent SIGN_QUEUE_RESPONSE entries with
+   * non-AWAITING state (MISSED / EXPIRED / REFUSED) that the plugin
+   * has observed. Drives the wallet's missed-ceremony banner.
+   * Plugin RPC: client-list-recent-sign-queue-events.
+   */
+  static async listRecentSignQueueEvents(): Promise<{ events: Array<{
+    instance_id: string;
+    lsp_peer_id: string;
+    state: number;  // 0=AWAITING 1=SIGNED 2=MISSED 3=REFUSED 4=EXPIRED
+    deadline_block: number;
+    observed_at_block: number;
+    dismissed: boolean;
+  }> }> {
+    return HttpService.clnCall('client-list-recent-sign-queue-events');
+  }
+
+  /**
+   * Client-side: dismiss all ring-buffer entries matching this
+   * factory_instance_id. Plugin RPC: client-dismiss-sign-queue-event.
+   */
+  static async dismissSignQueueEvent(instanceIdHex: string): Promise<any> {
+    return HttpService.clnCall('client-dismiss-sign-queue-event', {
+      instance_id: instanceIdHex,
+    });
+  }
+
+  /**
+   * Phase C: fetch the persisted policy cache. Optional filters narrow
+   * to a single (lsp_peer_id, instance_id) pair. Plugin RPC:
+   * factory-get-cached-policy.
+   */
+  static async getCachedPolicy(
+    instanceIdHex?: string,
+    lspPeerId?: string,
+  ): Promise<{ entries: Array<{
+    lsp_peer_id: string;
+    instance_id: string;
+    cached_at_block: number;
+    policy: Record<string, any>;
+  }> }> {
+    const params: Record<string, any> = {};
+    if (instanceIdHex) params.instance_id = instanceIdHex;
+    if (lspPeerId) params.lsp_peer_id = lspPeerId;
+    return HttpService.clnCall('factory-get-cached-policy', params);
   }
 
   static async fetchFactoriesData() {

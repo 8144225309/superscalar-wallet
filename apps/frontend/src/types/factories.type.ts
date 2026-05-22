@@ -1,5 +1,8 @@
 export enum FactoryLifecycle {
   INIT = 'init',
+  AWAITING_JOINS = 'awaiting_joins',
+  CEREMONY_RUNNING = 'ceremony_running',
+  SIGNED = 'signed',
   ACTIVE = 'active',
   DYING = 'dying',
   EXPIRED = 'expired',

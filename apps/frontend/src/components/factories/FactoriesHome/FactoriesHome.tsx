@@ -1,6 +1,6 @@
 import './FactoriesHome.scss';
 import { Row, Col } from 'react-bootstrap';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import Header from '../../ui/Header/Header';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
@@ -11,12 +11,17 @@ import FactoryListCard from '../FactoryListCard/FactoryListCard';
 import ExpiryWarnings from '../ExpiryWarnings/ExpiryWarnings';
 import BreachStatus from '../BreachStatus/BreachStatus';
 import LadderingTimeline from '../LadderingTimeline/LadderingTimeline';
+import SigningPrefs from '../SigningPrefs/SigningPrefs';
+import PendingProposalsCard from '../ReviewProposal/PendingProposalsCard';
+import HeldProposalsBanner from '../ReviewProposal/HeldProposalsBanner';
+import MissedCeremoniesBanner from '../ReviewProposal/MissedCeremoniesBanner';
 
 function FactoriesHome() {
   useInjectReducer('factories', factoriesReducer);
   const nodeInfo = useSelector(selectNodeInfo);
   const { pathname } = useLocation();
   const isCreate = pathname.endsWith('/factories/create');
+  const isSigningPrefs = pathname.endsWith('/factories/signing-prefs');
 
   return (
     <div data-testid='factories-container'>
@@ -33,13 +38,22 @@ function FactoriesHome() {
             <FactoryListCard />
           </Col>
         </Row>
+      ) : isSigningPrefs ? (
+        <Row className='px-3'>
+          <Col xs={12}>
+            <SigningPrefs />
+          </Col>
+        </Row>
       ) : (
         <>
+          {/* Top: stats overview */}
           <Row>
             <Col className='mx-1'>
               <FactoriesOverview />
             </Col>
           </Row>
+
+          {/* Main content: factories list + side cards (expiry, breach) */}
           <Row className='px-3'>
             <Col xs={12} lg={8} className='cards-container'>
               <FactoryListCard />
@@ -49,9 +63,29 @@ function FactoriesHome() {
               <BreachStatus />
             </Col>
           </Row>
+
+          {/* Factory timeline */}
           <Row className='px-3'>
             <Col xs={12} className='cards-container'>
               <LadderingTimeline />
+            </Col>
+          </Row>
+
+          {/* Footer: signing / proposal activity. Each child renders null
+              when empty so this section collapses out of the way when
+              there\u2019s nothing to act on. */}
+          <Row className='px-3 mt-3'>
+            <Col xs={12}>
+              <HeldProposalsBanner />
+              <MissedCeremoniesBanner />
+              <PendingProposalsCard />
+            </Col>
+          </Row>
+          <Row className='px-3'>
+            <Col xs={12} className='d-flex justify-content-end mb-3'>
+              <Link to='/factories/signing-prefs' className='text-decoration-none' data-testid='signing-prefs-link'>
+                <small>Signing preferences &rsaquo;</small>
+              </Link>
             </Col>
           </Row>
         </>

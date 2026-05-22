@@ -1,6 +1,6 @@
 import './FactoryDetail.scss';
 import { useState } from 'react';
-import { Card, Row, Col, ListGroup, OverlayTrigger, Tooltip, Form } from 'react-bootstrap';
+import { Card, Row, Col, ListGroup, OverlayTrigger, Tooltip, Form, Modal, Button, Badge } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
 import { FactoriesService } from '../../../services/http.service';
@@ -9,6 +9,7 @@ import { copyTextToClipboard } from '../../../utilities/data-formatters';
 import { useSelector } from 'react-redux';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import CeremonyProgress from '../CeremonyProgress/CeremonyProgress';
+import FactoryPolicyView from '../FactoryPolicyView/FactoryPolicyView';
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -17,6 +18,60 @@ const isValidTxid = (txid: string | undefined): boolean =>
 
 const formatBlock = (block: number): string =>
   block > 0 ? block.toLocaleString() : 'N/A';
+
+/* Audit item #6: classify how safe it is to cooperatively close this factory.
+ * Cooperative close needs all participants online and not mid-rotation; force
+ * close is always available but expensive. */
+type CloseSafety = {
+  level: 'safe' | 'caution' | 'unsafe';
+  reason: string;
+};
+
+const classifyCloseSafety = (factory: Factory, currentBlock: number): CloseSafety => {
+  if (factory.n_breach_epochs > 0) {
+    return {
+      level: 'unsafe',
+      reason: `${factory.n_breach_epochs} breach epoch(s) on record — force close to claim breach outputs.`,
+    };
+  }
+  if (factory.lifecycle === FactoryLifecycle.DYING) {
+    return {
+      level: 'caution',
+      reason: 'Factory is in DYING period — settling on-chain. Wait or force close.',
+    };
+  }
+  if (factory.lifecycle === FactoryLifecycle.EXPIRED) {
+    return {
+      level: 'unsafe',
+      reason: 'Factory already expired. Use force close to recover funds.',
+    };
+  }
+  if (factory.rotation_in_progress) {
+    return {
+      level: 'caution',
+      reason: 'Rotation in progress — cooperative close will abort the rotation.',
+    };
+  }
+  if (factory.dist_tx_status && factory.dist_tx_status !== 'unknown' && factory.dist_tx_status !== 'none') {
+    return {
+      level: 'caution',
+      reason: `Distribution TX is "${factory.dist_tx_status}" — close behavior may be affected.`,
+    };
+  }
+  if (currentBlock > 0 && factory.expiry_block > 0) {
+    const blocksLeft = factory.expiry_block - currentBlock;
+    if (blocksLeft < 1008) {
+      return {
+        level: 'caution',
+        reason: `Expiry in ~${blocksLeft} blocks (<1 week). Closing now leaves a safety margin.`,
+      };
+    }
+  }
+  return {
+    level: 'safe',
+    reason: 'All participants quiescent, no breach state, expiry comfortable.',
+  };
+};
 
 type FactoryDetailProps = {
   factory: Factory;
@@ -30,7 +85,11 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
   // Auto-sign stub: local-only until `factory-set-policy` RPC lands.
   // The plugin enforces allocation/epoch invariants independent of this toggle.
   const [autoSign, setAutoSign] = useState(true);
+  // Audit item #6: confirm modal for close + force-close
+  const [confirmCloseMode, setConfirmCloseMode] = useState<'close' | 'force' | null>(null);
   const isLsp = factory.is_lsp;
+  const currentBlock = (nodeInfo as any)?.blockheight || 0;
+  const closeSafety = classifyCloseSafety(factory, currentBlock);
 
   const resetStatus = () => {
     setTimeout(() => {
@@ -51,6 +110,28 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     } catch (err: any) {
       setResponseStatus(CallStatus.ERROR);
       setResponseMessage(typeof err === 'string' ? err : err.message || 'Rotation failed');
+      resetStatus();
+    }
+  };
+
+  /* Task #124: manual trigger button. Only meaningful when the
+   * factory is awaiting joins on the LSP side. Plugin auto-triggers
+   * when min_clients_to_start or the force-start deadline is reached;
+   * this button is the operator escape hatch (force=true). */
+  const handleTrigger = async () => {
+    setResponseStatus(CallStatus.PENDING);
+    setResponseMessage('Triggering ceremony…');
+    try {
+      const res = await FactoriesService.triggerCeremony(factory.instance_id, { force: true });
+      setResponseStatus(CallStatus.SUCCESS);
+      setResponseMessage(
+        `Ceremony triggered (ceremony_id ${res.ceremony_id_hex?.slice(0, 16)}…, ${res.n_participants} participants)`,
+      );
+      FactoriesService.fetchFactoriesData();
+      resetStatus();
+    } catch (err: any) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage(typeof err === 'string' ? err : err.message || 'Trigger failed');
       resetStatus();
     }
   };
@@ -89,11 +170,12 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
 
   const handleOpenChannels = async () => {
     setResponseStatus(CallStatus.PENDING);
-    setResponseMessage('Opening channels...');
+    setResponseMessage(`Opening ${factory.n_clients} channel(s)…`);
     try {
-      await FactoriesService.openChannels(factory.instance_id);
+      const res = await FactoriesService.openChannels(factory.instance_id);
       setResponseStatus(CallStatus.SUCCESS);
-      setResponseMessage('Channel opening initiated');
+      const n = res?.n_channels ?? factory.n_clients;
+      setResponseMessage(`Opened ${n} channel(s) — lifecycle now active`);
       FactoriesService.fetchFactoriesData();
       resetStatus();
     } catch (err: any) {
@@ -111,10 +193,16 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     resetStatus();
   };
 
+  const canTrigger = isLsp && factory.lifecycle === FactoryLifecycle.AWAITING_JOINS;
   const canRotate = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE && !factory.rotation_in_progress;
   const canClose = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
   const canForceClose = factory.lifecycle !== FactoryLifecycle.EXPIRED;
-  const canOpenChannels = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE && factory.ceremony === FactoryCeremony.COMPLETE;
+  // Plugin sets lifecycle=ACTIVE after the FIRST channel actually opens.
+  // For the initial open, gate on SIGNED; also show on ACTIVE when channels < clients (recovery).
+  const canOpenChannels = isLsp
+    && factory.ceremony === FactoryCeremony.COMPLETE
+    && (factory.lifecycle === FactoryLifecycle.SIGNED
+        || (factory.lifecycle === FactoryLifecycle.ACTIVE && factory.n_channels < factory.n_clients));
   const canInvite = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
 
   return (
@@ -276,15 +364,49 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
         )}
 
 
+        {/* Phase C: cached policy snapshot for this factory */}
+        <FactoryPolicyView instanceId={factory.instance_id} />
+
         {responseStatus !== CallStatus.NONE && (
           <StatusAlert responseStatus={responseStatus} responseMessage={responseMessage} />
         )}
       </Card.Body>
       <Card.Footer className='d-flex justify-content-center flex-wrap gap-2'>
         {canOpenChannels && (
-          <button className='btn-rounded bg-success btn-sm' onClick={handleOpenChannels} disabled={responseStatus === CallStatus.PENDING}>
-            Open Channels
-          </button>
+          <OverlayTrigger
+            placement='auto'
+            overlay={
+              <Tooltip>
+                Broadcast factory tx and open the {factory.n_clients} leaf channels.
+                This is the post-ceremony step that turns signed commitments into
+                spendable channels.
+              </Tooltip>
+            }
+          >
+            <button
+              className='btn-rounded bg-success btn-sm'
+              onClick={handleOpenChannels}
+              disabled={responseStatus === CallStatus.PENDING}
+              data-testid='open-channels-btn'
+            >
+              Open Channels
+            </button>
+          </OverlayTrigger>
+        )}
+        {canTrigger && (
+          <OverlayTrigger
+            placement='auto'
+            overlay={<Tooltip>Force-start the MuSig2 ceremony with the currently-accepted joiners. The plugin will auto-trigger on min_clients_to_start / force-start deadline if you wait; this button is the operator override.</Tooltip>}
+          >
+            <button
+              className='btn-rounded bg-success btn-sm'
+              onClick={handleTrigger}
+              disabled={responseStatus === CallStatus.PENDING}
+              data-testid='trigger-ceremony-btn'
+            >
+              Trigger Ceremony
+            </button>
+          </OverlayTrigger>
         )}
         {canRotate && (
           <button className='btn-rounded bg-primary btn-sm' onClick={handleRotate} disabled={responseStatus === CallStatus.PENDING}>
@@ -296,17 +418,102 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
             Invite
           </button>
         )}
+        {(canClose || canForceClose) && (
+          <OverlayTrigger placement='auto' overlay={<Tooltip>{closeSafety.reason}</Tooltip>}>
+            <Badge
+              bg={closeSafety.level === 'safe' ? 'success' : closeSafety.level === 'caution' ? 'warning' : 'danger'}
+              className='align-self-center'
+              data-testid='close-safety-badge'
+            >
+              {closeSafety.level === 'safe' ? '✓ Safe to close' :
+               closeSafety.level === 'caution' ? '⚠ Caution' : '⚠ Unsafe'}
+            </Badge>
+          </OverlayTrigger>
+        )}
         {canClose && (
-          <button className='btn-rounded bg-warning btn-sm' onClick={handleClose} disabled={responseStatus === CallStatus.PENDING}>
+          <button className='btn-rounded bg-warning btn-sm' onClick={() => setConfirmCloseMode('close')} disabled={responseStatus === CallStatus.PENDING} data-testid='close-btn'>
             Close
           </button>
         )}
         {canForceClose && (
-          <button className='btn-rounded bg-danger btn-sm' onClick={handleForceClose} disabled={responseStatus === CallStatus.PENDING}>
+          <button className='btn-rounded bg-danger btn-sm' onClick={() => setConfirmCloseMode('force')} disabled={responseStatus === CallStatus.PENDING} data-testid='force-close-btn'>
             Force Close
           </button>
         )}
       </Card.Footer>
+
+      {/* Audit item #6: confirmation modal for close + force-close */}
+      <Modal show={confirmCloseMode !== null} onHide={() => setConfirmCloseMode(null)} centered data-testid='close-confirm-modal'>
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: '1.1rem' }}>
+            {confirmCloseMode === 'force' ? 'Confirm force close' : 'Confirm cooperative close'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ fontSize: '0.9rem' }}>
+          <div className='mb-3'>
+            <Badge
+              bg={closeSafety.level === 'safe' ? 'success' : closeSafety.level === 'caution' ? 'warning' : 'danger'}
+              className='me-2'
+            >
+              {closeSafety.level.toUpperCase()}
+            </Badge>
+            {closeSafety.reason}
+          </div>
+          {confirmCloseMode === 'close' ? (
+            <>
+              <p className='mb-2'>
+                A cooperative close will request all participants to sign a final
+                settlement transaction returning each side&apos;s balance to their
+                on-chain wallet.
+              </p>
+              <ul className='mb-2'>
+                <li>Channels: <strong>{factory.n_channels}</strong> will close</li>
+                <li>Participants: <strong>{factory.n_clients + 1}</strong> must sign</li>
+                <li>Funding TXID: <code>{factory.funding_txid?.slice(0, 16)}…</code></li>
+                <li>If any participant is offline, the close will time out and you&apos;ll need to force close instead.</li>
+              </ul>
+            </>
+          ) : (
+            <>
+              <p className='mb-2'>
+                <strong>Force close</strong> unilaterally publishes the
+                pre-signed factory exit chain. Use this if cooperative close
+                isn&apos;t possible (other participants offline, or breach state).
+              </p>
+              <ul className='mb-2'>
+                <li>Channels: <strong>{factory.n_channels}</strong> will be on-chain force-closed</li>
+                <li>Cost: on-chain fees for {factory.n_channels} transactions plus any HTLC sweep chain</li>
+                <li>Funds will not be spendable until the DW timelock expires (~hours/days depending on the tree layer)</li>
+                {factory.n_breach_epochs > 0 && (
+                  <li className='text-danger'>
+                    <strong>{factory.n_breach_epochs} breach epoch(s)</strong> on
+                    record — force close will publish the burn TX to claim the
+                    counterparty&apos;s penalty output.
+                  </li>
+                )}
+              </ul>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant='secondary' size='sm' onClick={() => setConfirmCloseMode(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant={confirmCloseMode === 'force' ? 'danger' : 'warning'}
+            size='sm'
+            onClick={() => {
+              const mode = confirmCloseMode;
+              setConfirmCloseMode(null);
+              if (mode === 'force') handleForceClose();
+              else handleClose();
+            }}
+            data-testid='close-confirm-btn'
+          >
+            {confirmCloseMode === 'force' ? 'Force Close' : 'Close Cooperatively'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Card>
   );
 };
