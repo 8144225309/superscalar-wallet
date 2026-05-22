@@ -979,6 +979,39 @@ export class FactoriesService {
   static async getLatestEventId(): Promise<{ latest_event_id: number }> {
     return HttpService.clnCall("wallet-get-latest-event-id");
   }
+
+
+  /* Session 6d (Tier-2 polish): activity-data helpers — re-use the
+   * existing RootService.listChannels enrichment shape for peer aliases. */
+
+  static async listPeerChannelsWithAlias(): Promise<{ channels: any[] }> {
+    /* Identical shape to RootService.listChannels but exposed here for
+     * factory-domain convenience. */
+    const [peerChannels, nodes]: [any, any] = await Promise.all([
+      HttpService.clnCall("listpeerchannels"),
+      HttpService.clnCall("listnodes"),
+    ]);
+    const nodesMap = new Map<string, any>(
+      (nodes.nodes || []).map((n: any) => [n.nodeid, n]),
+    );
+    const merged = (peerChannels.channels || []).map((c: any) => ({
+      ...c,
+      node_alias: nodesMap.get(c.peer_id)?.alias ?? "",
+    }));
+    return { channels: merged };
+  }
+
+  static async listForwards(): Promise<{ forwards: any[] }> {
+    return HttpService.clnCall("listforwards");
+  }
+
+  static async listInvoices(): Promise<{ invoices: any[] }> {
+    return HttpService.clnCall("listinvoices");
+  }
+
+  static async listSendPays(): Promise<{ payments: any[] }> {
+    return HttpService.clnCall("listsendpays");
+  }
 }
 
 export class NodesService {
