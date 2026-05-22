@@ -4,6 +4,8 @@ import { useLocation, Link } from 'react-router-dom';
 import Header from '../../ui/Header/Header';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
+import factoryEventsReducer from '../../../store/factoryEventsSlice';
+import { useFactoryEventStream } from '../../../utilities/useFactoryEventStream';
 import factoriesReducer from '../../../store/factoriesSlice';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import FactoriesOverview from '../FactoriesOverview/FactoriesOverview';
@@ -21,6 +23,8 @@ import MissedCeremoniesBanner from '../ReviewProposal/MissedCeremoniesBanner';
 
 function FactoriesHome() {
   useInjectReducer('factories', factoriesReducer);
+  useInjectReducer("factoryEvents", factoryEventsReducer);
+  useFactoryEventStream();
   const nodeInfo = useSelector(selectNodeInfo);
   const { pathname } = useLocation();
   const isCreate = pathname.endsWith('/factories/create');

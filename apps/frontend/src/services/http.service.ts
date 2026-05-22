@@ -962,6 +962,23 @@ export class FactoriesService {
   static async getPeerNote(peerPubkeyHex: string): Promise<any> {
     return HttpService.clnCall("wallet-get-peer-note", { peer_pubkey_hex: peerPubkeyHex });
   }
+
+
+  /* Session 5b/c (item 5): event stream + offline catchup. */
+
+  static async listEventsSince(
+    sinceEventId: number,
+    limit: number = 500,
+  ): Promise<{ events: any[]; max_event_id: number }> {
+    return HttpService.clnCall("wallet-list-events-since", {
+      since_event_id: sinceEventId,
+      limit,
+    });
+  }
+
+  static async getLatestEventId(): Promise<{ latest_event_id: number }> {
+    return HttpService.clnCall("wallet-get-latest-event-id");
+  }
 }
 
 export class NodesService {
