@@ -12,6 +12,7 @@ import CeremonyProgress from '../CeremonyProgress/CeremonyProgress';
 import FactoryPolicyView from '../FactoryPolicyView/FactoryPolicyView';
 import JoinRequestsCard from "../JoinRequestsCard/JoinRequestsCard";
 import OperatorPrefsCard from "../OperatorPrefsCard/OperatorPrefsCard";
+import InviteModal from "../InviteModal/InviteModal";
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -91,6 +92,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
   const [confirmCloseMode, setConfirmCloseMode] = useState<'close' | 'force' | null>(null);
   const isLsp = factory.is_lsp;
   const currentBlock = (nodeInfo as any)?.blockheight || 0;
+  const [showInvite, setShowInvite] = useState(false);
   const closeSafety = classifyCloseSafety(factory, currentBlock);
 
   const resetStatus = () => {
@@ -208,6 +210,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
   const canInvite = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
 
   return (
+    <>
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-detail'>
       <Card.Header className='px-1 pb-2 p-0 d-flex justify-content-between align-items-center'>
         <span className='fs-18px fw-bold text-dark d-flex align-items-center gap-2'>
@@ -376,6 +379,18 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
         />
       )}
       {factory.is_lsp && (
+        <div className="mb-3">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setShowInvite(true)}
+            data-testid="open-invite-modal"
+          >
+            Show invite QR ›
+          </button>
+        </div>
+      )}
+      {factory.is_lsp && (
         <OperatorPrefsCard factoryInstanceIdHex={factory.instance_id} />
       )}
 
@@ -527,6 +542,13 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
         </Modal.Footer>
       </Modal>
     </Card>
+      <InviteModal
+        show={showInvite}
+        onHide={() => setShowInvite(false)}
+        factoryInstanceIdHex={factory.instance_id}
+        factoryLabel={(factory as any).label}
+      />
+    </>
   );
 };
 
