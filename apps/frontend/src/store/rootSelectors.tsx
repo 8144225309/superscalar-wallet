@@ -11,7 +11,7 @@ export const defaultRootState: RootState = {
   connectionUrl: '',
   appConfig: {
     isLoading: true,
-    uiConfig: { unit: Units.SATS, fiatUnit: 'USD', appMode: ApplicationModes.LIGHT },
+    uiConfig: { unit: Units.SATS, fiatUnit: 'USD', appMode: ApplicationModes.LIGHT, showFiatBesideSats: false },
     serverConfig: { singleSignOn: false },
   },
   fiatConfig: { isLoading: true, symbol: faDollarSign, rate: 1 },
@@ -119,6 +119,11 @@ export const selectUIConfigUnit = createSelector(
 export const selectFiatUnit = createSelector(
   selectUIConfig,
   (uiConfig) => uiConfig.fiatUnit
+);
+
+export const selectShowFiatBesideSats = createSelector(
+  selectUIConfig,
+  (uiConfig) => !!uiConfig.showFiatBesideSats,
 );
 
 export const selectAppMode = createSelector(

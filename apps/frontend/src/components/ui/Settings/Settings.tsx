@@ -10,6 +10,7 @@ import ToggleSwitch from '../../shared/ToggleSwitch/ToggleSwitch';
 import { setShowModals } from '../../../store/rootSlice';
 import { RootService } from '../../../services/http.service';
 import { setConfig } from '../../../store/rootSlice';
+import { selectShowFiatBesideSats } from '../../../store/rootSelectors';
 import { selectAppConfig } from '../../../store/rootSelectors';
 import { selectIsAuthenticated, selectNodeInfo, selectServerConfig, selectShowModals, selectUIConfigUnit, selectWalletConnect } from '../../../store/rootSelectors';
 import { ApplicationConfiguration } from '../../../types/root.type';
@@ -25,6 +26,20 @@ const Settings = (props) => {
   const serverConfig = useSelector(selectServerConfig);
   const currentScreenSize = useBreakpoint();
   logger.info('Screen Size Changed: ' + currentScreenSize);
+
+  const showFiatBesideSats = useSelector(selectShowFiatBesideSats);
+
+  const changeShowFiatHandler = async () => {
+    const updatedConfig: ApplicationConfiguration = {
+      ...appConfig,
+      uiConfig: {
+        ...appConfig.uiConfig,
+        showFiatBesideSats: !showFiatBesideSats,
+      },
+    };
+    await RootService.updateConfig(updatedConfig);
+    dispatch(setConfig(updatedConfig));
+  };
 
   const changeCurrencyUnitHandler = async(changedIndex: number) => {
     const updatedConfig: ApplicationConfiguration = { 
@@ -57,6 +72,7 @@ const Settings = (props) => {
         <Dropdown.Divider />
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Fiat Currency <FiatSelection className='ms-4 fiat-dropdown' /></Dropdown.Item>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Currency <ToggleSwitch onChange={changeCurrencyUnitHandler} values={CURRENCY_UNITS} selIndex={uiConfigUnit === Units.BTC ? 1 : 0} /></Dropdown.Item>
+        <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Fiat beside sats <ToggleSwitch onChange={changeShowFiatHandler} values={['Off', 'On']} selIndex={showFiatBesideSats ? 1 : 0} /></Dropdown.Item>
       </Dropdown.Menu>
     </Dropdown>
   );
