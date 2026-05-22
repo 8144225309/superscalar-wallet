@@ -121,16 +121,17 @@ function KnownPeers() {
 
         {error && <Alert variant='warning' className='py-2 mb-3'>{error}</Alert>}
 
-        <div className='d-flex gap-2 mb-3 align-items-center'>
+        <div className='d-flex gap-2 mb-3 align-items-stretch align-items-sm-center flex-column flex-sm-row'>
           <Form.Control
             size='sm'
             type='search'
             placeholder='Search by pubkey or label…'
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ maxWidth: 280 }}
+            className='flex-grow-1'
+            style={{ maxWidth: 280, minWidth: 0 }}
           />
-          <div className='ms-2 btn-group' role='group'>
+          <div className='btn-group' role='group'>
             {(['all', 'banned', 'noted'] as const).map((f) => (
               <Button
                 key={f}
@@ -142,7 +143,7 @@ function KnownPeers() {
               </Button>
             ))}
           </div>
-          <span className='ms-auto text-muted' style={{ fontSize: '0.85rem' }}>
+          <span className='ms-sm-auto text-muted' style={{ fontSize: '0.85rem' }}>
             {filtered.length} peer{filtered.length === 1 ? '' : 's'}
           </span>
         </div>
@@ -158,6 +159,7 @@ function KnownPeers() {
               : 'No peers match the current filter.'}
           </div>
         ) : (
+          <div className='table-responsive'>
           <Table size='sm' className='mb-0'>
             <thead>
               <tr style={{ fontSize: '0.8rem' }}>
@@ -213,6 +215,7 @@ function KnownPeers() {
               ))}
             </tbody>
           </Table>
+          </div>
         )}
       </Card.Body>
 

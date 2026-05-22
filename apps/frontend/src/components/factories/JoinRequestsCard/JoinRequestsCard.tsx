@@ -145,6 +145,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
             No join requests received for this factory.
           </div>
         ) : (
+          <div className='table-responsive'>
           <Table size='sm' className='mb-0'>
             <thead>
               <tr style={{ fontSize: '0.8rem' }}>
@@ -203,6 +204,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
               })}
             </tbody>
           </Table>
+          </div>
         )}
       </Card.Body>
 
