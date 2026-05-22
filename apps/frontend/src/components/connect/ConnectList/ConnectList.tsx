@@ -45,6 +45,7 @@ import { selectActiveProfile } from '../../../store/nodesSelectors';
 import { fetchVouches } from '../../../services/nostr.service';
 import { RendezvousService } from '../../../services/http.service';
 import JoinFactoryModal from '../JoinFactoryModal/JoinFactoryModal';
+import AcceptInviteModal from '../../factories/AcceptInviteModal/AcceptInviteModal';
 
 type RowSource = 'sample' | VouchTier;
 type SortKey = 'factory' | 'capacity' | 'minChannel' | 'opens';
@@ -132,6 +133,7 @@ const ConnectList = () => {
   );
   const activeCoordinators = useSelector(selectActiveCoords);
 
+  const [showAcceptInvite, setShowAcceptInvite] = useState(false);
   const [showSample, setShowSample] = useState(false);
   const [joinRequests, setJoinRequests] = useState<Record<string, JoinStatus>>({});
   const [joinModalFor, setJoinModalFor] = useState<FactoryRow | null>(null);
@@ -349,6 +351,7 @@ const ConnectList = () => {
   const errorEntries = !showSample ? Object.entries(vouchErrors).filter(([, msg]) => msg) : [];
 
   return (
+    <>
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='connect-list'>
       <Card.Header className='px-1 pb-2 p-0'>
         <div className='d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap'>
@@ -559,7 +562,22 @@ const ConnectList = () => {
           lnAddresses={joinModalFor.lnAddresses}
         />
       )}
-    </Card>
+    </Card>      <div className='my-3'>
+        <button
+          type='button'
+          className='btn btn-sm btn-outline-secondary'
+          onClick={() => setShowAcceptInvite(true)}
+          data-testid='open-accept-invite'
+        >
+          Join via invite link ›
+        </button>
+      </div>
+      <AcceptInviteModal
+        show={showAcceptInvite}
+        onHide={() => setShowAcceptInvite(false)}
+      />
+    </>
+
   );
 };
 
