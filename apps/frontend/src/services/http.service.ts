@@ -923,6 +923,45 @@ export class FactoriesService {
     if (factoryInstanceIdHex) params.factory_instance_id_hex = factoryInstanceIdHex;
     return HttpService.clnCall("wallet-set-operator-pref", params);
   }
+
+
+  /* Session 4 (LSP UI gaps, slice D): peer management helpers. */
+
+  static async listKnownPeers(): Promise<{ peers: any[] }> {
+    return HttpService.clnCall("wallet-list-known-peers");
+  }
+
+  static async setPeerReputation(
+    peerPubkeyHex: string,
+    score: number,
+    source?: string,
+  ): Promise<any> {
+    const params: Record<string, any> = {
+      peer_pubkey_hex: peerPubkeyHex,
+      score: String(score),
+    };
+    if (source) params.source = source;
+    return HttpService.clnCall("wallet-set-peer-reputation", params);
+  }
+
+  static async getPeerReputation(peerPubkeyHex: string): Promise<any> {
+    return HttpService.clnCall("wallet-get-peer-reputation", { peer_pubkey_hex: peerPubkeyHex });
+  }
+
+  static async setPeerNote(
+    peerPubkeyHex: string,
+    label: string | null,
+    body: string | null,
+  ): Promise<any> {
+    const params: Record<string, any> = { peer_pubkey_hex: peerPubkeyHex };
+    if (label != null && label !== "") params.label = label;
+    if (body != null && body !== "") params.body = body;
+    return HttpService.clnCall("wallet-set-peer-note", params);
+  }
+
+  static async getPeerNote(peerPubkeyHex: string): Promise<any> {
+    return HttpService.clnCall("wallet-get-peer-note", { peer_pubkey_hex: peerPubkeyHex });
+  }
 }
 
 export class NodesService {

@@ -13,6 +13,7 @@ import BreachStatus from '../BreachStatus/BreachStatus';
 import LadderingTimeline from '../LadderingTimeline/LadderingTimeline';
 import SigningPrefs from '../SigningPrefs/SigningPrefs';
 import OperatorPrefs from '../OperatorPrefs/OperatorPrefs';
+import KnownPeers from '../KnownPeers/KnownPeers';
 import PendingProposalsCard from '../ReviewProposal/PendingProposalsCard';
 import JoinQueueBanner from '../JoinQueueBanner/JoinQueueBanner';
 import HeldProposalsBanner from '../ReviewProposal/HeldProposalsBanner';
@@ -25,6 +26,7 @@ function FactoriesHome() {
   const isCreate = pathname.endsWith('/factories/create');
   const isSigningPrefs = pathname.endsWith('/factories/signing-prefs');
   const isOperatorPrefs = pathname.endsWith('/factories/operator-prefs');
+  const isKnownPeers = pathname.endsWith('/factories/peers');
 
   return (
     <div data-testid='factories-container'>
@@ -51,6 +53,12 @@ function FactoriesHome() {
         <Row className='px-3'>
           <Col xs={12}>
             <OperatorPrefs />
+          </Col>
+        </Row>
+      ) : isKnownPeers ? (
+        <Row className='px-3'>
+          <Col xs={12}>
+            <KnownPeers />
           </Col>
         </Row>
       ) : (
@@ -95,6 +103,9 @@ function FactoriesHome() {
             <Col xs={12} className='d-flex justify-content-end mb-3'>
               <Link to='/factories/operator-prefs' className='text-decoration-none me-3' data-testid='operator-prefs-link'>
                 <small>LSP operator preferences &rsaquo;</small>
+              </Link>
+              <Link to='/factories/peers' className='text-decoration-none me-3' data-testid='known-peers-link'>
+                <small>Known peers &rsaquo;</small>
               </Link>
               <Link to='/factories/signing-prefs' className='text-decoration-none' data-testid='signing-prefs-link'>
                 <small>Signing preferences &rsaquo;</small>
