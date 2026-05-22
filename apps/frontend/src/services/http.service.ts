@@ -853,6 +853,41 @@ export class FactoriesService {
       return { factoryList: results.factoryList };
     }
   }
+
+  /* Session 1 (LSP UI gaps, slice A): incoming join queue admin RPCs. */
+
+  static async listJoinQueueByStatus(
+    factoryInstanceIdHex: string,
+    status: number,
+  ): Promise<{ entries: any[] }> {
+    return HttpService.clnCall("wallet-list-join-queue-by-status", {
+      factory_instance_id_hex: factoryInstanceIdHex,
+      status,
+    });
+  }
+
+  static async approveJoinQueued(
+    factoryInstanceIdHex: string,
+    clientPubkeyHex: string,
+  ): Promise<any> {
+    return HttpService.clnCall("wallet-approve-join-queued", {
+      factory_instance_id_hex: factoryInstanceIdHex,
+      client_pubkey_hex: clientPubkeyHex,
+    });
+  }
+
+  static async refuseJoinQueued(
+    factoryInstanceIdHex: string,
+    clientPubkeyHex: string,
+    reason?: string,
+  ): Promise<any> {
+    const params: Record<string, any> = {
+      factory_instance_id_hex: factoryInstanceIdHex,
+      client_pubkey_hex: clientPubkeyHex,
+    };
+    if (reason) params.reason = reason;
+    return HttpService.clnCall("wallet-refuse-join-queued", params);
+  }
 }
 
 export class NodesService {
