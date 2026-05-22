@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Button, Badge, Spinner, Alert, Form, Modal } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
+import SatsWithFiat from '../../shared/SatsWithFiat/SatsWithFiat';
 
 /* Session 1 (LSP UI gaps slice A): incoming join-queue inbox.
  *
@@ -217,7 +218,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
             <>
               <p className='mb-2' style={{ fontSize: '0.9rem' }}>
                 Client: <code>{short(refuseTarget.client_pubkey_hex, 16)}</code><br />
-                Contribution: <strong>{Number(refuseTarget.contribution_sats).toLocaleString()} sats</strong>
+                Contribution: <strong><SatsWithFiat value={Number(refuseTarget.contribution_sats)} /> sats</strong>
               </p>
               <Form.Group>
                 <Form.Label>Reason (optional, visible to client on retry)</Form.Label>

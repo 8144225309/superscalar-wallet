@@ -101,6 +101,10 @@ export type ApplicationConfiguration = {
     unit: Units;
     fiatUnit: string;
     appMode: ApplicationModes;
+    /* Session 6b: opt-in fiat companion next to sats numbers in the
+     * factory UI. Default false so no outbound HTTP fires unless the
+     * user explicitly enables it. */
+    showFiatBesideSats?: boolean;
   };
   serverConfig: {
     appConnect?: string;

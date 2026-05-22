@@ -2,6 +2,7 @@ import './KnownPeers.scss';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Button, Form, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
+import SatsWithFiat from '../../shared/SatsWithFiat/SatsWithFiat';
 
 /* Session 4 slice D: cross-factory peer management.
  *
@@ -180,7 +181,7 @@ function KnownPeers() {
                     {p.body && <div className='text-muted' style={{ fontSize: '0.78rem' }}>{p.body}</div>}
                   </td>
                   <td className='text-end'>
-                    {Number(p.total_contribution_sats).toLocaleString()} sat
+                    <SatsWithFiat value={Number(p.total_contribution_sats)} /> sat
                   </td>
                   <td className='text-end'>{p.factory_count}</td>
                   <td>
