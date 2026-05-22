@@ -13,6 +13,7 @@ import BreachStatus from '../BreachStatus/BreachStatus';
 import LadderingTimeline from '../LadderingTimeline/LadderingTimeline';
 import SigningPrefs from '../SigningPrefs/SigningPrefs';
 import PendingProposalsCard from '../ReviewProposal/PendingProposalsCard';
+import JoinQueueBanner from '../JoinQueueBanner/JoinQueueBanner';
 import HeldProposalsBanner from '../ReviewProposal/HeldProposalsBanner';
 import MissedCeremoniesBanner from '../ReviewProposal/MissedCeremoniesBanner';
 
@@ -76,6 +77,7 @@ function FactoriesHome() {
               there\u2019s nothing to act on. */}
           <Row className='px-3 mt-3'>
             <Col xs={12}>
+              <JoinQueueBanner />
               <HeldProposalsBanner />
               <MissedCeremoniesBanner />
               <PendingProposalsCard />

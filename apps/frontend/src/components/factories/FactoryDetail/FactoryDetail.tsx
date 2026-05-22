@@ -11,6 +11,7 @@ import { selectNodeInfo } from '../../../store/rootSelectors';
 import CeremonyProgress from '../CeremonyProgress/CeremonyProgress';
 import FactoryPolicyView from '../FactoryPolicyView/FactoryPolicyView';
 import JoinRequestsCard from "../JoinRequestsCard/JoinRequestsCard";
+import OperatorPrefsCard from "../OperatorPrefsCard/OperatorPrefsCard";
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -373,6 +374,9 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
           factoryInstanceIdHex={factory.instance_id}
           currentBlock={currentBlock || 0}
         />
+      )}
+      {factory.is_lsp && (
+        <OperatorPrefsCard factoryInstanceIdHex={factory.instance_id} />
       )}
 
         {responseStatus !== CallStatus.NONE && (

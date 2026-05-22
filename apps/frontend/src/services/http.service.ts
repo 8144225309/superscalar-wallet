@@ -888,6 +888,41 @@ export class FactoriesService {
     if (reason) params.reason = reason;
     return HttpService.clnCall("wallet-refuse-join-queued", params);
   }
+
+
+  /* Session 2 (LSP UI gaps, slice C + B): count + operator pref helpers. */
+
+  static async countJoinQueueByStatus(
+    factoryInstanceIdHex: string,
+    status: number,
+  ): Promise<{ count: number }> {
+    return HttpService.clnCall("wallet-count-join-queue-by-status", {
+      factory_instance_id_hex: factoryInstanceIdHex,
+      status,
+    });
+  }
+
+  static async getOperatorPref(
+    factoryInstanceIdHex: string | null,
+    prefKey: string,
+  ): Promise<{ value: any }> {
+    const params: Record<string, any> = { pref_key: prefKey };
+    if (factoryInstanceIdHex) params.factory_instance_id_hex = factoryInstanceIdHex;
+    return HttpService.clnCall("wallet-get-operator-pref", params);
+  }
+
+  static async setOperatorPref(
+    factoryInstanceIdHex: string | null,
+    prefKey: string,
+    prefValue: any,
+  ): Promise<any> {
+    const params: Record<string, any> = {
+      pref_key: prefKey,
+      pref_value: prefValue == null ? "" : JSON.stringify(prefValue),
+    };
+    if (factoryInstanceIdHex) params.factory_instance_id_hex = factoryInstanceIdHex;
+    return HttpService.clnCall("wallet-set-operator-pref", params);
+  }
 }
 
 export class NodesService {
