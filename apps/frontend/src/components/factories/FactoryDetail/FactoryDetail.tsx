@@ -10,6 +10,7 @@ import { useSelector } from 'react-redux';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import CeremonyProgress from '../CeremonyProgress/CeremonyProgress';
 import FactoryPolicyView from '../FactoryPolicyView/FactoryPolicyView';
+import JoinRequestsCard from "../JoinRequestsCard/JoinRequestsCard";
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -366,6 +367,13 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
 
         {/* Phase C: cached policy snapshot for this factory */}
         <FactoryPolicyView instanceId={factory.instance_id} />
+
+      {factory.is_lsp && (
+        <JoinRequestsCard
+          factoryInstanceIdHex={factory.instance_id}
+          currentBlock={currentBlock || 0}
+        />
+      )}
 
         {responseStatus !== CallStatus.NONE && (
           <StatusAlert responseStatus={responseStatus} responseMessage={responseMessage} />
