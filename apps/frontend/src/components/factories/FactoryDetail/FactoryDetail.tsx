@@ -12,6 +12,7 @@ import CeremonyProgress from '../CeremonyProgress/CeremonyProgress';
 import FactoryPolicyView from '../FactoryPolicyView/FactoryPolicyView';
 import JoinRequestsCard from "../JoinRequestsCard/JoinRequestsCard";
 import OperatorPrefsCard from "../OperatorPrefsCard/OperatorPrefsCard";
+import FactoryActivityCard from "../FactoryActivityCard/FactoryActivityCard";
 import InviteModal from "../InviteModal/InviteModal";
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
@@ -393,6 +394,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
       {factory.is_lsp && (
         <OperatorPrefsCard factoryInstanceIdHex={factory.instance_id} />
       )}
+      <FactoryActivityCard factoryInstanceIdHex={factory.instance_id} />
 
         {responseStatus !== CallStatus.NONE && (
           <StatusAlert responseStatus={responseStatus} responseMessage={responseMessage} />
