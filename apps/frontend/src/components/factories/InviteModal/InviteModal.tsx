@@ -12,7 +12,7 @@ import { buildInviteUrl } from '../../../utilities/inviteUrl';
  * has everything: factory iid (from props), own node id (from getinfo),
  * and address (from listconfigs / first available listener).
  *
- * Operator can optionally constrain min/max contribution at invite-time
+ * Operator can optionally constrain min/max requested capacity at invite-time
  * (these become defaults on the client side; client can still pick any
  * value, and the LSPs server-side acceptance policy is what actually
  * gates the join). */
@@ -75,7 +75,7 @@ function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props
 
         <div className='d-flex gap-3 mb-3'>
           <Form.Group className='flex-fill'>
-            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Min contribution (sats, optional)</Form.Label>
+            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Min requested capacity (sats, optional)</Form.Label>
             <Form.Control
               type='text'
               inputMode='numeric'
@@ -86,7 +86,7 @@ function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props
             />
           </Form.Group>
           <Form.Group className='flex-fill'>
-            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Max contribution (sats, optional)</Form.Label>
+            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Max requested capacity (sats, optional)</Form.Label>
             <Form.Control
               type='text'
               inputMode='numeric'

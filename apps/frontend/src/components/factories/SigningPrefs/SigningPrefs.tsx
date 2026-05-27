@@ -91,13 +91,13 @@ const FIELD_SPECS: { section: string; fields: FieldSpec[] }[] = [
       {
         key: 'max_min_capacity_per_join_sat',
         label: 'Max acceptable min_capacity_per_join_sat',
-        help: 'Refuse if the LSP demands you bring at least this much to join. 1M sat ≈ minimum we will pay to join.',
+        help: 'Refuse if the LSP minimum channel capacity to join is above this. The LSP funds the channel; this guards against being pushed into an oversized leaf. 1M sat is a sane ceiling.',
         unit: 'sat', min: 0,
       },
       {
         key: 'min_max_capacity_per_join_sat',
         label: 'Min acceptable max_capacity_per_join_sat',
-        help: 'Refuse if the LSP caps your contribution below this. 10k sat is the floor we accept.',
+        help: 'Refuse if the LSP caps your channel capacity below this. 10k sat is the floor we accept.',
         unit: 'sat', min: 0,
       },
     ],

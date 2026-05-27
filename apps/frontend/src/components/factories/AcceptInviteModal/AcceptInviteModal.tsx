@@ -7,7 +7,7 @@ import { FactoriesService } from '../../../services/http.service';
  *
  * User pastes a superscalar://join?... URL (or scans a QR with an
  * external reader and pastes the result). We parse, show what was
- * decoded, let them pick a contribution amount within the optional
+ * decoded, let them pick a requested capacity within the optional
  * min/max range, then call factory-join-request via FactoriesService.
  *
  * The plugins existing auto-connect helper handles the BOLT-8 hop if
@@ -51,7 +51,7 @@ function AcceptInviteModal({ show, onHide }: Props) {
     if (!parsed) return;
     const n = Number(contribution);
     if (!Number.isFinite(n) || n <= 0) {
-      setError('Pick a contribution amount in sats first.');
+      setError('Pick a requested capacity in sats first.');
       return;
     }
     if (parsed.contributionMinSats != null && n < parsed.contributionMinSats) {
@@ -94,7 +94,7 @@ function AcceptInviteModal({ show, onHide }: Props) {
       </Modal.Header>
       <Modal.Body>
         <p className='text-muted mb-3' style={{ fontSize: '0.9rem' }}>
-          Paste a <code>superscalar://join?…</code> URL from an LSP. The wallet decodes the factory and LSP node, you pick a contribution amount, and we send the join request.
+          Paste a <code>superscalar://join?…</code> URL from an LSP. The wallet decodes the factory and LSP node, you pick how much inbound capacity to request, and we send the join request.
         </p>
 
         <Form.Group className='mb-3'>
@@ -128,7 +128,7 @@ function AcceptInviteModal({ show, onHide }: Props) {
 
         {parsed && (
           <Form.Group className='mb-3'>
-            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Your contribution (sats)</Form.Label>
+            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Requested capacity (sats)</Form.Label>
             <Form.Control
               type='text'
               inputMode='numeric'
