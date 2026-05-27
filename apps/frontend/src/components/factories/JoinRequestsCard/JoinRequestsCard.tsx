@@ -151,7 +151,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
             <thead>
               <tr style={{ fontSize: '0.8rem' }}>
                 <th>Client</th>
-                <th className='text-end'>Contribution</th>
+                <th className='text-end'>Requested</th>
                 <th className='text-end'>Received</th>
                 <th>Status</th>
                 <th className='text-end'>Actions</th>
@@ -218,7 +218,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
             <>
               <p className='mb-2' style={{ fontSize: '0.9rem' }}>
                 Client: <code>{short(refuseTarget.client_pubkey_hex, 16)}</code><br />
-                Contribution: <strong><SatsWithFiat value={Number(refuseTarget.contribution_sats)} /> sats</strong>
+                Requested capacity: <strong><SatsWithFiat value={Number(refuseTarget.contribution_sats)} /> sats</strong>
               </p>
               <Form.Group>
                 <Form.Label>Reason (optional, visible to client on retry)</Form.Label>
@@ -227,7 +227,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
                   rows={2}
                   value={refuseReason}
                   onChange={(e) => setRefuseReason(e.target.value)}
-                  placeholder='e.g. contribution below minimum, capacity full'
+                  placeholder='e.g. requested capacity below minimum, slots full'
                   data-testid='refuse-reason'
                 />
               </Form.Group>

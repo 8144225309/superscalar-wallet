@@ -112,7 +112,7 @@ function JoinFactoryModal({ show, onClose, lspPubkey, lspAlias, lnAddresses }: P
     if (!selectedIid) return;
     const n = parseInt(contributionStr, 10);
     if (!Number.isFinite(n) || n < 0) {
-      setJoinError('Contribution must be a non-negative integer (sats)');
+      setJoinError('Requested capacity must be a non-negative integer (sats)');
       return;
     }
     setJoinInFlight(true);
@@ -216,7 +216,7 @@ function JoinFactoryModal({ show, onClose, lspPubkey, lspAlias, lnAddresses }: P
                 {selectedFactory && (
                   <>
                     <div style={{ fontSize: '0.9rem', fontWeight: 600, marginTop: '0.75rem' }}>
-                      Your contribution
+                      Requested inbound capacity
                     </div>
                     <Form.Group className='mt-2'>
                       <Form.Control
@@ -227,7 +227,7 @@ function JoinFactoryModal({ show, onClose, lspPubkey, lspAlias, lnAddresses }: P
                         data-testid='contribution-input'
                       />
                       <Form.Text className='text-muted' style={{ fontSize: '0.8rem' }}>
-                        Sats you commit to put into this factory. Default 100,000.
+                        Inbound liquidity you are requesting from the LSP. The LSP funds it on-chain — you bring nothing. Default 100,000.
                       </Form.Text>
                     </Form.Group>
                   </>

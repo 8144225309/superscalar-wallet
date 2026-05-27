@@ -313,7 +313,7 @@ const ConnectList = () => {
   const selectedRequest = selected ? joinRequests[selected.id] : undefined;
 
   /* Task #121: open the JoinFactoryModal which browses the LSP for factories,
-   * lets the user pick one + a contribution, and fires factory-join-request.
+   * lets the user pick one + a requested capacity, and fires factory-join-request.
    * Sample rows still use the legacy stub since they're not real LSPs. */
   const handleJoin = () => {
     if (!selected || selectedIsSelf || selectedRequest) return;
