@@ -1,38 +1,99 @@
 import './FactoryList.scss';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { Spinner, Card, Row, Col, ListGroup, Alert, OverlayTrigger, Tooltip, ButtonGroup, Button } from 'react-bootstrap';
 import { ActionSVG } from '../../../svgs/Action';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated } from '../../../store/rootSelectors';
+import { selectIsAuthenticated, selectNodeInfo } from '../../../store/rootSelectors';
 import { selectFactories, selectFactoriesLoading, selectFactoriesError, selectRoleCounts } from '../../../store/factoriesSelectors';
-import { Factory, FactoryLifecycle } from '../../../types/factories.type';
+import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
 
 type RoleFilter = 'all' | 'lsp' | 'client';
+type Bucket = 'live' | 'history' | 'incomplete';
 
 const lifecycleBadge = (lifecycle: FactoryLifecycle) => {
   switch (lifecycle) {
     case FactoryLifecycle.ACTIVE: return 'bg-success';
-    case FactoryLifecycle.INIT: return 'bg-warning';
-    case FactoryLifecycle.DYING: return 'bg-warning';
-    case FactoryLifecycle.EXPIRED: return 'bg-danger';
-    default: return 'bg-secondary';
+    case FactoryLifecycle.SIGNED: return 'bg-primary';
+    case FactoryLifecycle.INIT:
+    case FactoryLifecycle.AWAITING_JOINS:
+    case FactoryLifecycle.READY_TO_TRIGGER:
+    case FactoryLifecycle.CEREMONY_RUNNING:
+    case FactoryLifecycle.DYING:
+      return 'bg-warning';
+    case FactoryLifecycle.EXPIRED:
+      return 'bg-danger';
+    default:
+      return 'bg-secondary';
   }
 };
 
 const lifecycleOrder: Record<string, number> = {
   [FactoryLifecycle.ACTIVE]: 0,
-  [FactoryLifecycle.INIT]: 1,
-  [FactoryLifecycle.DYING]: 2,
-  [FactoryLifecycle.EXPIRED]: 3,
+  [FactoryLifecycle.DYING]: 1,
+  [FactoryLifecycle.SIGNED]: 2,
+  [FactoryLifecycle.CEREMONY_RUNNING]: 3,
+  [FactoryLifecycle.READY_TO_TRIGGER]: 4,
+  [FactoryLifecycle.AWAITING_JOINS]: 5,
+  [FactoryLifecycle.INIT]: 6,
 };
+
+// Succeeded-then-ended states: real funds/channels once existed here. Retained
+// as History (breach-watch + accounting), never auto-discarded.
+const HISTORY_LIFECYCLES = new Set<string>([
+  FactoryLifecycle.EXPIRED,
+  FactoryLifecycle.CLOSED_EXTERNALLY,
+  FactoryLifecycle.CLOSED_COOPERATIVE,
+  FactoryLifecycle.CLOSED_UNILATERAL,
+  FactoryLifecycle.CLOSED_BREACHED,
+]);
+
+// Classify a factory for display. A failed ceremony currently leaves the plugin
+// lifecycle at INIT, so the "did not complete" bucket is also keyed off
+// ceremony === FAILED until the plugin auto-terminalizes failed drafts (follow-up).
+const bucketOf = (f: Factory): Bucket => {
+  if (f.lifecycle === FactoryLifecycle.ABORTED || f.ceremony === FactoryCeremony.FAILED) return 'incomplete';
+  if (HISTORY_LIFECYCLES.has(f.lifecycle)) return 'history';
+  return 'live';
+};
+
+const statusBadgeClass = (f: Factory): string => {
+  if (f.lifecycle === FactoryLifecycle.ACTIVE) return 'bg-success';
+  if (f.lifecycle === FactoryLifecycle.ABORTED) return 'bg-secondary';
+  if (f.ceremony === FactoryCeremony.FAILED) return 'bg-danger';
+  if (f.ceremony === FactoryCeremony.COMPLETE) return 'bg-primary';
+  return 'bg-secondary';
+};
+
+const statusBadgeLabel = (f: Factory): string => {
+  if (f.lifecycle === FactoryLifecycle.ACTIVE) return 'Active';
+  if (f.lifecycle === FactoryLifecycle.ABORTED) return 'Aborted';
+  if (f.ceremony === FactoryCeremony.FAILED) return 'Failed';
+  if (f.ceremony === FactoryCeremony.COMPLETE) return 'Signed';
+  return f.ceremony;
+};
+
+const sortFactories = (list: Factory[]): Factory[] =>
+  [...list].sort((a, b) => {
+    const la = lifecycleOrder[a.lifecycle] ?? 99;
+    const lb = lifecycleOrder[b.lifecycle] ?? 99;
+    if (la !== lb) return la - lb;
+    return (b.creation_block || 0) - (a.creation_block || 0);
+  });
+
+const hiddenStorageKey = (nodeId?: string): string => `ss-hidden-factories:${nodeId || 'unknown'}`;
 
 type FactoryListProps = {
   onCreateFactory: () => void;
   onFactoryClick: (factory: Factory) => void;
 };
 
-const FactoryListItem = ({ factory, onClick }: { factory: Factory; onClick: () => void }) => (
+const FactoryListItem = ({ factory, onClick, hidden, onToggleHide }: {
+  factory: Factory;
+  onClick: () => void;
+  hidden: boolean;
+  onToggleHide: (instanceId: string) => void;
+}) => (
   <li
     className='list-group-item list-item-channel cursor-pointer'
     onClick={onClick}
@@ -58,9 +119,21 @@ const FactoryListItem = ({ factory, onClick }: { factory: Factory; onClick: () =
             {factory.is_lsp ? 'LSP' : 'Client'}
           </span>
         </div>
-        <span className={'badge ' + (factory.lifecycle === 'active' ? 'bg-success' : factory.ceremony === 'complete' ? 'bg-primary' : 'bg-secondary')}>
-          {factory.lifecycle === 'active' ? 'Active' : factory.ceremony === 'complete' ? 'Signed' : factory.ceremony}
-        </span>
+        <div className='d-flex align-items-center gap-2'>
+          <span className={'badge ' + statusBadgeClass(factory)}>
+            {statusBadgeLabel(factory)}
+          </span>
+          <Button
+            variant='link'
+            size='sm'
+            className='p-0 text-light text-decoration-none fs-8'
+            title={hidden ? 'Unhide this factory' : 'Hide this factory from the list'}
+            data-testid='factory-hide-toggle'
+            onClick={(e) => { e.stopPropagation(); onToggleHide(factory.instance_id); }}
+          >
+            {hidden ? 'Unhide' : 'Hide'}
+          </Button>
+        </div>
       </div>
       <Row className='text-light fs-7 mt-1'>
         <Col xs={3}>
@@ -86,26 +159,107 @@ const FactoryList = (props: FactoryListProps) => {
   const isLoading = useSelector(selectFactoriesLoading);
   const error = useSelector(selectFactoriesError);
   const roleCounts = useSelector(selectRoleCounts);
+  const nodeInfo = useSelector(selectNodeInfo);
+  const nodeId = nodeInfo?.id;
+
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [showIncomplete, setShowIncomplete] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   // TEMP: always show the pill until nostr rendezvous lands so single-role
-  // nodes can still preview the Client view. Revert to
-  //   roleCounts.lsp > 0 && roleCounts.client > 0
-  // once a natural dual-role setup is possible.
+  // nodes can still preview the Client view.
   const showPill = true;
 
-  const visible = useMemo(() => {
-    if (!factories) return [];
-    const filtered = roleFilter === 'all'
-      ? factories
-      : factories.filter(f => roleFilter === 'lsp' ? f.is_lsp : !f.is_lsp);
-    return [...filtered].sort((a, b) => {
-      const la = lifecycleOrder[a.lifecycle] ?? 99;
-      const lb = lifecycleOrder[b.lifecycle] ?? 99;
-      if (la !== lb) return la - lb;
-      return (b.creation_block || 0) - (a.creation_block || 0);
+  // Hide set is per-node (keyed by pubkey) and local to the browser.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(hiddenStorageKey(nodeId));
+      setHidden(new Set(raw ? JSON.parse(raw) : []));
+    } catch {
+      setHidden(new Set());
+    }
+  }, [nodeId]);
+
+  const toggleHide = (instanceId: string) => {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(instanceId)) next.delete(instanceId);
+      else next.add(instanceId);
+      try {
+        localStorage.setItem(hiddenStorageKey(nodeId), JSON.stringify([...next]));
+      } catch {
+        /* localStorage unavailable; hide is best-effort */
+      }
+      return next;
     });
-  }, [factories, roleFilter]);
+  };
+
+  const groups = useMemo(() => {
+    const base = !factories
+      ? []
+      : roleFilter === 'all'
+        ? factories
+        : factories.filter(f => (roleFilter === 'lsp' ? f.is_lsp : !f.is_lsp));
+    const live: Factory[] = [];
+    const history: Factory[] = [];
+    const incomplete: Factory[] = [];
+    const hiddenItems: Factory[] = [];
+    for (const f of base) {
+      if (hidden.has(f.instance_id)) { hiddenItems.push(f); continue; }
+      const b = bucketOf(f);
+      if (b === 'live') live.push(f);
+      else if (b === 'history') history.push(f);
+      else incomplete.push(f);
+    }
+    return {
+      live: sortFactories(live),
+      history: sortFactories(history),
+      incomplete: sortFactories(incomplete),
+      hiddenItems: sortFactories(hiddenItems),
+    };
+  }, [factories, roleFilter, hidden]);
+
+  const renderItems = (items: Factory[]) =>
+    items.map((factory, idx) => (
+      <FactoryListItem
+        key={factory.instance_id || idx}
+        factory={factory}
+        hidden={hidden.has(factory.instance_id)}
+        onToggleHide={toggleHide}
+        onClick={() => props.onFactoryClick(factory)}
+      />
+    ));
+
+  const renderSection = (
+    label: string,
+    items: Factory[],
+    open: boolean,
+    onToggle: () => void,
+    testid: string,
+  ) => (
+    items.length > 0 ? (
+      <div>
+        <div
+          className='d-flex justify-content-between align-items-center px-2 py-1 mt-2 cursor-pointer fw-bold fs-8 text-light'
+          onClick={onToggle}
+          data-testid={testid}
+        >
+          <span>{label} <span className='badge bg-secondary ms-1'>{items.length}</span></span>
+          <span>{open ? '▾' : '▸'}</span>
+        </div>
+        {open && (
+          <ListGroup as='ul' variant='flush' className='list-channels'>
+            {renderItems(items)}
+          </ListGroup>
+        )}
+      </div>
+    ) : null
+  );
+
+  const anything =
+    groups.live.length + groups.history.length + groups.incomplete.length + groups.hiddenItems.length > 0;
 
   return (
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-list'>
@@ -138,36 +292,38 @@ const FactoryList = (props: FactoryListProps) => {
         )}
       </Card.Header>
       <Card.Body className='py-0 px-1 channels-scroll-container' style={{ overflowY: 'auto' }}>
-        {isAuthenticated && isLoading ?
+        {isAuthenticated && isLoading ? (
           <span className='h-100 d-flex justify-content-center align-items-center'>
             <Spinner animation='grow' variant='primary' />
           </span>
-          :
-          error ?
-            <Alert className='fs-8' variant='danger'>{error}</Alert> :
-            visible.length > 0 ?
-              <PerfectScrollbar>
-                <ListGroup as='ul' variant='flush' className='list-channels'>
-                  {visible.map((factory, idx) => (
-                    <FactoryListItem
-                      key={factory.instance_id || idx}
-                      factory={factory}
-                      onClick={() => props.onFactoryClick(factory)}
-                    />
-                  ))}
-                </ListGroup>
-              </PerfectScrollbar>
-              :
-              <Row className='text-light fs-6 mt-3 h-100 mt-2 align-items-center justify-content-center'>
-                <Row className='d-flex align-items-center justify-content-center'>
-                  <Row className='text-center pb-4'>
-                    {roleFilter === 'all'
-                      ? 'No factories found. Create a factory to start!'
-                      : `No ${roleFilter === 'lsp' ? 'LSP' : 'Client'} factories for this node.`}
-                  </Row>
-                </Row>
+        ) : error ? (
+          <Alert className='fs-8' variant='danger'>{error}</Alert>
+        ) : anything ? (
+          <PerfectScrollbar>
+            {groups.live.length > 0 ? (
+              <ListGroup as='ul' variant='flush' className='list-channels'>
+                {renderItems(groups.live)}
+              </ListGroup>
+            ) : (
+              <div className='text-light fs-8 text-center py-3' data-testid='no-live-factories'>
+                No active factories for this view.
+              </div>
+            )}
+            {renderSection('Failed / abandoned', groups.incomplete, showIncomplete, () => setShowIncomplete(v => !v), 'section-incomplete')}
+            {renderSection('History', groups.history, showHistory, () => setShowHistory(v => !v), 'section-history')}
+            {renderSection('Hidden', groups.hiddenItems, showHidden, () => setShowHidden(v => !v), 'section-hidden')}
+          </PerfectScrollbar>
+        ) : (
+          <Row className='text-light fs-6 mt-3 h-100 mt-2 align-items-center justify-content-center'>
+            <Row className='d-flex align-items-center justify-content-center'>
+              <Row className='text-center pb-4'>
+                {roleFilter === 'all'
+                  ? 'No factories found. Create a factory to start!'
+                  : `No ${roleFilter === 'lsp' ? 'LSP' : 'Client'} factories for this node.`}
               </Row>
-        }
+            </Row>
+          </Row>
+        )}
       </Card.Body>
       <Card.Footer className='d-flex justify-content-center'>
         <button tabIndex={1} className='btn-rounded bg-primary' onClick={props.onCreateFactory} data-testid='button-create-factory'>
