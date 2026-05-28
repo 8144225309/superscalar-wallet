@@ -1,7 +1,6 @@
 import './NodePicker.scss';
 import { Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import nodesReducer from '../../../store/nodesSlice';
 import { setIsSwitching, setIsDiscovering, setActiveProfileId } from '../../../store/nodesSlice';
@@ -18,7 +17,6 @@ import logger from '../../../services/logger.service';
 
 const NodePicker = () => {
   useInjectReducer('nodes', nodesReducer);
-  const { pathname } = useLocation();
 
   const profiles = useSelector(selectNodeProfiles);
   const activeProfile = useSelector(selectActiveProfile);
@@ -58,16 +56,17 @@ const NodePicker = () => {
       appStore.dispatch(setIsSwitching(false));
     }
 
-    // Non-critical background refresh — transactions, offers, plugin detection.
+    // Non-critical background refresh after profile switch. Eagerly refetches
+    // ALL section data (factories, CLN dashboard, bookkeeper) regardless of
+    // current pathname so the next page the user navigates to has fresh data
+    // for the new profile. Previously only the section matching the current
+    // pathname was refetched, which left e.g. the factories list empty when
+    // a user switched profile on /bookkeeper and then navigated to /factories.
     // Fire-and-forget so a slow query on any node never blocks the UI.
-    const bgRefresh = pathname.includes('/bookkeeper')
-      ? BookkeeperService.fetchBKPRData()
-      : pathname.includes('/factories')
-        ? FactoriesService.fetchFactoriesData()
-        : CLNService.fetchCLNData();
-
     Promise.all([
-      bgRefresh,
+      CLNService.fetchCLNData(),
+      BookkeeperService.fetchBKPRData(),
+      FactoriesService.fetchFactoriesData(),
       NodesService.fetchAndDispatchNodes(),
       NodesService.detectFactoryPlugin(),
     ]).catch(err => logger.error('Background post-switch refresh failed:', err));
