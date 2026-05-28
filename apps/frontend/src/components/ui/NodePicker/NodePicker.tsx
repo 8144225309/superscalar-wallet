@@ -3,7 +3,7 @@ import { Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import nodesReducer from '../../../store/nodesSlice';
-import { setIsSwitching, setIsDiscovering, setActiveProfileId } from '../../../store/nodesSlice';
+import { setIsSwitching, setIsDiscovering, setActiveProfileId, setProfileHealth } from '../../../store/nodesSlice';
 import { selectNodeProfiles, selectActiveProfile, selectIsSwitchingNode, selectHasMultipleNodes, selectActiveProfileId, selectIsConnected, selectIsDiscovering, selectProfileHealth } from '../../../store/nodesSelectors';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { NodesService, RootService, CLNService, BookkeeperService, FactoriesService } from '../../../services/http.service';
@@ -69,6 +69,14 @@ const NodePicker = () => {
       FactoriesService.fetchFactoriesData(),
       NodesService.fetchAndDispatchNodes(),
       NodesService.detectFactoryPlugin(),
+      // Refresh per-profile health dots after a node switch. The probe is
+      // sequential + capped server-side; failures merge into the slice so
+      // any profile that lost contact stays red until the next good probe.
+      NodesService.healthCheck()
+        .then(h => {
+          if (h?.health) appStore.dispatch(setProfileHealth(h.health));
+        })
+        .catch(err => logger.warn('Health check after switch failed:', err)),
     ]).catch(err => logger.error('Background post-switch refresh failed:', err));
   };
 
@@ -88,6 +96,16 @@ const NodePicker = () => {
           // Profile exists but not connected — reconnect
           await handleSwitchNode(nodeData.activeProfileId);
         }
+      }
+      // Refresh per-profile health dots after the rescan so the dropdown
+      // shows live red/green status for every profile in the list. Probe is
+      // sequential + capped server-side; merge semantics in the slice keep
+      // already-red nodes red until they actually answer.
+      try {
+        const health = await NodesService.healthCheck();
+        if (health?.health) appStore.dispatch(setProfileHealth(health.health));
+      } catch (err) {
+        logger.warn('Health check after discover failed:', err);
       }
     } catch (error) {
       logger.error('Failed to discover nodes:', error);

@@ -8,7 +8,12 @@ import { logger } from '../shared/logger.js';
 import { APP_CONSTANTS } from '../shared/consts.js';
 import { parseEnvFile } from '../shared/utils.js';
 
-const PROFILES_FILE = './node-profiles.json';
+// Default is cwd-relative for backward compatibility with existing installs.
+// Override with WALLET_PROFILES_FILE (absolute path) when running in an
+// isolated / orchestrator-driven environment that wants a deterministic
+// profile fixture instead of letting auto-discovery write next to wherever
+// the backend was launched.
+const PROFILES_FILE = process.env.WALLET_PROFILES_FILE || './node-profiles.json';
 
 export class NodeProfilesService {
   private configPath: string;

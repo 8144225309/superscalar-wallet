@@ -95,6 +95,13 @@ export class NodeManager {
    * For each discovered .commando-env, probe the node to verify and get info.
    */
   async discoverNodes(): Promise<NodeProfile[]> {
+    // Env-gated opt-out for isolated demos and orchestrator-driven test runs
+    // that want a fixed, deterministic profile list. Production keeps the
+    // default friendly auto-discovery on auth.
+    if (process.env.WALLET_AUTODISCOVER === 'false') {
+      logger.info('WALLET_AUTODISCOVER=false -> skipping local-node auto-discovery scan');
+      return [];
+    }
     const discovered: NodeProfile[] = [];
 
     // Method 1: Scan for lightning-rpc Unix sockets (finds all local CLN nodes)
@@ -366,26 +373,47 @@ export class NodeManager {
   }
 
   /**
-   * Probe all known profiles in parallel and return health status for each.
-   * Uses LightningService.probe() which creates a temporary connection per node.
+   * Probe known profiles SEQUENTIALLY (one at a time) with a configurable
+   * delay between attempts and a hard cap on how many profiles get probed
+   * per scan. Each probe opens a temporary commando connection via
+   * LightningService.probe(); doing them serially keeps the connection
+   * burst small even on hosts with many profiles in the list.
+   *
+   * Defaults: 64 probes per scan, 200ms between attempts.
+   * Tunables: WALLET_HEALTH_PROBE_MAX, WALLET_HEALTH_PROBE_DELAY_MS.
    */
   async checkAllHealth(): Promise<Array<{ profileId: string; alive: boolean; alias?: string; error?: string }>> {
     const profiles = this.listProfiles();
-    const results = await Promise.allSettled(
-      profiles.map(async (profile) => {
-        const fullProfile = this.profilesService.getProfile(profile.id);
-        if (!fullProfile) return { profileId: profile.id, alive: false, error: 'Profile not found' };
+    const parsedMax = parseInt(process.env.WALLET_HEALTH_PROBE_MAX || '64', 10);
+    const probeMax = Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 64;
+    const parsedDelay = parseInt(process.env.WALLET_HEALTH_PROBE_DELAY_MS || '200', 10);
+    const delayMs = Number.isFinite(parsedDelay) && parsedDelay >= 0 ? parsedDelay : 200;
+    const toProbe = profiles.slice(0, probeMax);
+    const results: Array<{ profileId: string; alive: boolean; alias?: string; error?: string }> = [];
+    for (let i = 0; i < toProbe.length; i++) {
+      const profile = toProbe[i];
+      const fullProfile = this.profilesService.getProfile(profile.id);
+      if (!fullProfile) {
+        results.push({ profileId: profile.id, alive: false, error: 'Profile not found' });
+      } else {
         try {
           const info = await LightningService.probe(fullProfile);
-          return { profileId: profile.id, alive: true, alias: info.alias };
+          results.push({ profileId: profile.id, alive: true, alias: info.alias });
         } catch (err: any) {
-          return { profileId: profile.id, alive: false, error: err.message || String(err) };
+          results.push({ profileId: profile.id, alive: false, error: err.message || String(err) });
         }
-      })
-    );
-    return results.map((r) =>
-      r.status === 'fulfilled' ? r.value : { profileId: 'unknown', alive: false, error: 'probe failed' }
-    );
+      }
+      if (i < toProbe.length - 1 && delayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    if (profiles.length > toProbe.length) {
+      logger.warn(
+        'checkAllHealth: skipped ' + (profiles.length - toProbe.length) +
+        ' profile(s) beyond cap WALLET_HEALTH_PROBE_MAX=' + probeMax,
+      );
+    }
+    return results;
   }
 
   getProfilesService(): NodeProfilesService {
