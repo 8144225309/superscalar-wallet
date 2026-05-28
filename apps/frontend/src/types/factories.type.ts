@@ -1,11 +1,20 @@
 export enum FactoryLifecycle {
   INIT = 'init',
   AWAITING_JOINS = 'awaiting_joins',
+  READY_TO_TRIGGER = 'ready_to_trigger',
   CEREMONY_RUNNING = 'ceremony_running',
   SIGNED = 'signed',
   ACTIVE = 'active',
   DYING = 'dying',
   EXPIRED = 'expired',
+  // Terminal "ended" states (plugin factory_state.h). These held real funds /
+  // channels and are retained as history (breach-watch + accounting).
+  CLOSED_EXTERNALLY = 'closed_externally',
+  CLOSED_COOPERATIVE = 'closed_cooperative',
+  CLOSED_UNILATERAL = 'closed_unilateral',
+  CLOSED_BREACHED = 'closed_breached',
+  // Terminal "did not complete" — operator abort or a stalled/failed ceremony.
+  ABORTED = 'aborted',
 }
 
 export enum FactoryCeremony {
