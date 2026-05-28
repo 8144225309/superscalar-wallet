@@ -8,6 +8,7 @@ import { APP_WAIT_TIME } from '../utilities/constants';
 import { useDispatch, useSelector } from 'react-redux';
 import { BookkeeperService, CLNService, FactoriesService, NodesService, RootService } from '../services/http.service';
 import { selectAuthStatus, selectNodeInfo } from '../store/rootSelectors';
+import { selectActiveProfileId } from '../store/nodesSelectors';
 import { appStore } from '../store/appStore';
 import logger from '../services/logger.service';
 
@@ -17,6 +18,7 @@ export function RootRouterReduxSync() {
   const { pathname } = useLocation();
   const authStatus = useSelector(selectAuthStatus);
   const nodeInfo = useSelector(selectNodeInfo);
+  const activeProfileId = useSelector(selectActiveProfileId);
   
   // Fetch node profiles, run background discovery, detect factory plugin
   useEffect(() => {
@@ -115,7 +117,12 @@ export function RootRouterReduxSync() {
     if (pathname !== targetPath) {
       navigate(targetPath, { replace: true });
     }
-  }, [authStatus, pathname, navigate]);
+    // activeProfileId is in the deps so that switching the wallet's active
+    // node via NodePicker re-fires the current route's data fetch against
+    // the new node, even when pathname doesn't change. Without this, navigating
+    // /bookkeeper -> switch profile -> /factories left the factories list
+    // empty because the route-effect closure captured the pre-switch state.
+  }, [authStatus, pathname, navigate, activeProfileId]);
 
   // Clear store on route unmounting
   useEffect(() => {
