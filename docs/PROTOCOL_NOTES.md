@@ -1473,21 +1473,6 @@ I overweighted "CLN datastore is LN-native" without honestly evaluating the data
 | Wallet balance on signet-c | 99,834 confirmed + 49,679 unconfirmed | Note: 306 sat lost over policy to the 1M-sat over-ask retest (lesson learned) |
 | Plugin binary on VPS | Apr 29 build from `gap9-keyagg-cache-persistence@c107d0c` | Should rebuild from `main` when plugin team merges that branch — TBD |
 
-### Outstanding handoffs
-
-| Recipient | What | Status |
-|---|---|---|
-| Lib team | nothing | No action needed |
-| Plugin team (when not me) | Confirm canonical branch (`main` vs `gap9-keyagg-cache-persistence`) before I base browse/join PRs | Pending response |
-| Fork team | nothing | PR #3 merged into deploy |
-| Operator (you) | Schedule sub-channel open via `factory-open-channels` for factory `b5579e70...` once signet confirms its funding tx, if desired | Optional — proves end-to-end works on chain |
-
-### Memory rules in effect (saved in user's auto-memory)
-
-- Signet operations must use 0.1 sat/vbyte (`feerate=100perkw`); never lose sats
-- My scope: lib↔plugin↔wallet↔bLIP-56 adapter analysis + plugin + wallet implementation (NOT lib code, NOT dashboard rewrite)
-- Plugin uses ODD 33001 not EVEN 32800 — documented deviation
-
 ---
 
 ## Cross-references
