@@ -234,6 +234,14 @@ export class RootService {
     return HttpService.post('/shared/config', updatedConfig);
   }
 
+  static async exportConfig(): Promise<any> {
+    return HttpService.get('/shared/config/export');
+  }
+
+  static async importConfig(envelope: any) {
+    return HttpService.post('/shared/config/import', { envelope });
+  }
+
   static async getConnectWallet() {
     return HttpService.get('/shared/connectwallet');
   }

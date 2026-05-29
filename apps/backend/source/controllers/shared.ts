@@ -10,6 +10,14 @@ import { addServerConfig, setEnvVariables } from '../shared/utils.js';
 import { ShowRunes } from '../models/showrunes.type.js';
 import { NodeManager } from '../service/node-manager.service.js';
 
+const CONFIG_EXPORT_KIND = 'soupwallet-config';
+const CONFIG_EXPORT_VERSION = 1;
+/* Keys that are unsafe or pointless to export. Secrets (password) must
+ * never leave the server; transient runtime state (isLoading/error)
+ * has no meaning outside the process; mode flags (singleSignOn) are
+ * deployment-environment concerns and shouldn't be carried across hosts. */
+const NON_PORTABLE_CONFIG_KEYS = ['password', 'isLoading', 'error', 'singleSignOn'] as const;
+
 export class SharedController {
   private nodeManager: NodeManager;
 
@@ -39,6 +47,105 @@ export class SharedController {
       delete config.uiConfig.singleSignOn;
       config = addServerConfig(config);
       res.status(200).json(config);
+    } catch (error: any) {
+      handleError(error, req, res, next);
+    }
+  };
+
+  exportConfig = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      logger.info('Exporting wallet config');
+      if (!fs.existsSync(APP_CONSTANTS.APP_CONFIG_FILE)) {
+        return handleError(
+          new APIError(HttpStatusCode.NOT_FOUND, 'No config to export'),
+          req,
+          res,
+          next,
+        );
+      }
+      const raw = JSON.parse(fs.readFileSync(APP_CONSTANTS.APP_CONFIG_FILE, 'utf-8'));
+      const portable: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        if ((NON_PORTABLE_CONFIG_KEYS as readonly string[]).includes(k)) continue;
+        portable[k] = v;
+      }
+      const envelope = {
+        kind: CONFIG_EXPORT_KIND,
+        version: CONFIG_EXPORT_VERSION,
+        exportedAt: new Date().toISOString(),
+        appVersion: process.env.APP_VERSION || 'unknown',
+        config: portable,
+      };
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="soupwallet-config-${envelope.exportedAt.replace(/[:.]/g, '-')}.json"`,
+      );
+      res.status(200).send(JSON.stringify(envelope, null, 2));
+    } catch (error: any) {
+      handleError(error, req, res, next);
+    }
+  };
+
+  importConfig = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      logger.info('Importing wallet config');
+      const env = req.body?.envelope;
+      if (!env || typeof env !== 'object') {
+        return handleError(
+          new APIError(HttpStatusCode.BAD_REQUEST, 'Missing envelope in request body'),
+          req,
+          res,
+          next,
+        );
+      }
+      if (env.kind !== CONFIG_EXPORT_KIND) {
+        return handleError(
+          new APIError(HttpStatusCode.BAD_REQUEST, `Unknown export kind: ${env.kind}`),
+          req,
+          res,
+          next,
+        );
+      }
+      if (typeof env.version !== 'number' || env.version > CONFIG_EXPORT_VERSION) {
+        return handleError(
+          new APIError(
+            HttpStatusCode.BAD_REQUEST,
+            `Unsupported export version: ${env.version} (this build supports up to v${CONFIG_EXPORT_VERSION})`,
+          ),
+          req,
+          res,
+          next,
+        );
+      }
+      if (!env.config || typeof env.config !== 'object') {
+        return handleError(
+          new APIError(HttpStatusCode.BAD_REQUEST, 'Envelope missing config object'),
+          req,
+          res,
+          next,
+        );
+      }
+      const current = fs.existsSync(APP_CONSTANTS.APP_CONFIG_FILE)
+        ? JSON.parse(fs.readFileSync(APP_CONSTANTS.APP_CONFIG_FILE, 'utf-8'))
+        : { ...DEFAULT_CONFIG };
+      /* Merge incoming config OVER current, but never let import overwrite
+       * non-portable keys (password hash, transient state). This preserves
+       * operator login after a restore. */
+      const merged: Record<string, unknown> = { ...current };
+      for (const [k, v] of Object.entries(env.config)) {
+        if ((NON_PORTABLE_CONFIG_KEYS as readonly string[]).includes(k)) continue;
+        merged[k] = v;
+      }
+      fs.writeFileSync(
+        APP_CONSTANTS.APP_CONFIG_FILE,
+        JSON.stringify(merged, null, 2),
+        'utf-8',
+      );
+      logger.info(
+        `Wallet config imported (kind=${env.kind} v=${env.version} from ${env.exportedAt})`,
+      );
+      res.status(201).json({ message: 'Config imported', importedKeys: Object.keys(env.config).filter(k => !(NON_PORTABLE_CONFIG_KEYS as readonly string[]).includes(k)) });
     } catch (error: any) {
       handleError(error, req, res, next);
     }
