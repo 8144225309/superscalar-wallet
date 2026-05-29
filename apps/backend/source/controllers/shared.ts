@@ -10,6 +10,7 @@ import { addServerConfig, setEnvVariables } from '../shared/utils.js';
 import { ShowRunes } from '../models/showrunes.type.js';
 import { NodeManager } from '../service/node-manager.service.js';
 import { renderMetrics } from '../shared/metrics.js';
+import { appendAudit, tailAuditLog } from '../shared/audit-log.js';
 
 const CONFIG_EXPORT_KIND = 'soupwallet-config';
 const CONFIG_EXPORT_VERSION = 1;
@@ -82,6 +83,7 @@ export class SharedController {
         'Content-Disposition',
         `attachment; filename="soupwallet-config-${envelope.exportedAt.replace(/[:.]/g, '-')}.json"`,
       );
+      appendAudit('config_export', req);
       res.status(200).send(JSON.stringify(envelope, null, 2));
     } catch (error: any) {
       handleError(error, req, res, next);
@@ -146,7 +148,18 @@ export class SharedController {
       logger.info(
         `Wallet config imported (kind=${env.kind} v=${env.version} from ${env.exportedAt})`,
       );
+      appendAudit('config_import', req, { fromExportedAt: env.exportedAt });
       res.status(201).json({ message: 'Config imported', importedKeys: Object.keys(env.config).filter(k => !(NON_PORTABLE_CONFIG_KEYS as readonly string[]).includes(k)) });
+    } catch (error: any) {
+      handleError(error, req, res, next);
+    }
+  };
+
+  getAuditLog = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const limit = parseInt(String(req.query?.limit || '200'), 10);
+      const entries = tailAuditLog(isNaN(limit) ? 200 : limit);
+      res.status(200).json({ entries });
     } catch (error: any) {
       handleError(error, req, res, next);
     }

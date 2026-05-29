@@ -48,6 +48,9 @@ export class SharedRoutes extends CommonRoutesConfig {
       .route(API_VERSION + SHARED_ROUTE + '/metrics/')
       .get(authController.isUserAuthenticated, sharedController.getMetrics);
     this.app
+      .route(API_VERSION + SHARED_ROUTE + '/audit-log/')
+      .get(authController.isUserAuthenticated, sharedController.getAuditLog);
+    this.app
       .route(API_VERSION + SHARED_ROUTE + '/saveinvoicerune/')
       .post(authController.isUserAuthenticated, sharedController.saveInvoiceRune);
     return this.app;

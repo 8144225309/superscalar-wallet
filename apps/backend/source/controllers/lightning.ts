@@ -3,6 +3,7 @@ import handleError from '../shared/error-handler.js';
 import { NodeManager } from '../service/node-manager.service.js';
 import { logger } from '../shared/logger.js';
 import { AppConnect, APP_CONSTANTS } from '../shared/consts.js';
+import { appendAudit, clnMethodToAuditEvent } from '../shared/audit-log.js';
 
 export class LightningController {
   private nodeManager: NodeManager;
@@ -14,6 +15,10 @@ export class LightningController {
   callMethod = async (req: Request, res: Response, next: NextFunction) => {
     try {
       logger.info('Calling method: ' + req.body.method);
+      const auditEvent = clnMethodToAuditEvent(req.body.method);
+      if (auditEvent) {
+        appendAudit(auditEvent, req, { method: req.body.method });
+      }
       const clnService = this.nodeManager.getActiveService();
       clnService
         .call(req.body.method, req.body.params)
