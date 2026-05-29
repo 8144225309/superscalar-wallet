@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as fs from 'fs';
+import * as path from 'path';
 import { Request, Response, NextFunction } from 'express';
 
 import { APP_CONSTANTS, DEFAULT_CONFIG, FIAT_RATE_API, HttpStatusCode } from '../shared/consts.js';
@@ -11,6 +12,7 @@ import { ShowRunes } from '../models/showrunes.type.js';
 import { NodeManager } from '../service/node-manager.service.js';
 import { renderMetrics } from '../shared/metrics.js';
 import { appendAudit, tailAuditLog } from '../shared/audit-log.js';
+import { parseChangelog } from '../shared/changelog.js';
 
 const CONFIG_EXPORT_KIND = 'soupwallet-config';
 const CONFIG_EXPORT_VERSION = 1;
@@ -160,6 +162,35 @@ export class SharedController {
       const limit = parseInt(String(req.query?.limit || '200'), 10);
       const entries = tailAuditLog(isNaN(limit) ? 200 : limit);
       res.status(200).json({ entries });
+    } catch (error: any) {
+      handleError(error, req, res, next);
+    }
+  };
+
+  getChangelog = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      /* CHANGELOG.md lives at repo root. Try a couple of working-directory
+       * relatives because the cwd differs between local dev (apps/backend),
+       * the dist runtime, and the docker image. If we can't find it,
+       * return an empty array so the "What's new" UI shows a graceful
+       * empty state rather than 5xx-ing. */
+      const candidates = [
+        path.resolve(process.cwd(), 'CHANGELOG.md'),
+        path.resolve(process.cwd(), '..', '..', 'CHANGELOG.md'),
+        path.resolve(process.cwd(), '..', '..', '..', 'CHANGELOG.md'),
+      ];
+      let raw = '';
+      for (const p of candidates) {
+        if (fs.existsSync(p)) {
+          raw = fs.readFileSync(p, 'utf-8');
+          break;
+        }
+      }
+      if (!raw) {
+        return res.status(200).json({ sections: [] });
+      }
+      const sections = parseChangelog(raw);
+      res.status(200).json({ sections });
     } catch (error: any) {
       handleError(error, req, res, next);
     }

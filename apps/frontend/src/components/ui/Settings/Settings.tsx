@@ -120,6 +120,15 @@ const Settings = (props) => {
         >
           Glossary
         </Dropdown.Item>
+        <Dropdown.Item
+          data-bs-toggle='modal'
+          data-bs-target='#staticBackdrop'
+          onClick={() => dispatch(setShowModals({ ...showModals, whatsNewModal: true }))}
+          title='See what shipped in the latest release(s) — recent features, fixes, and security work.'
+          data-testid='settings-whats-new'
+        >
+          What&apos;s new
+        </Dropdown.Item>
         { serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true" ?
             <></>
           :

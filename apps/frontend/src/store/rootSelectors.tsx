@@ -5,7 +5,7 @@ import { ApplicationModes, Units } from '../utilities/constants';
 
 export const defaultRootState: RootState = {
   authStatus: { isLoading: true, isAuthenticated: false, isValidPassword: true },
-  showModals: { nodeInfoModal: false, connectWalletModal: false, loginModal: false, logoutModal: false, setPasswordModal: false, sqlTerminalModal: false, qrCodeLarge: false, glossaryModal: false, },
+  showModals: { nodeInfoModal: false, connectWalletModal: false, loginModal: false, logoutModal: false, setPasswordModal: false, sqlTerminalModal: false, qrCodeLarge: false, glossaryModal: false, whatsNewModal: false, },
   showToast: { show: false, message: '' },
   connectWallet: { isLoading: true },
   connectionUrl: '',
