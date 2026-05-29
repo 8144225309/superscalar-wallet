@@ -33,6 +33,12 @@ export class SharedRoutes extends CommonRoutesConfig {
       .route(API_VERSION + SHARED_ROUTE + '/config/')
       .post(authController.isUserAuthenticated, sharedController.setApplicationSettings);
     this.app
+      .route(API_VERSION + SHARED_ROUTE + '/config/export/')
+      .get(authController.isUserAuthenticated, sharedController.exportConfig);
+    this.app
+      .route(API_VERSION + SHARED_ROUTE + '/config/import/')
+      .post(authController.isUserAuthenticated, sharedController.importConfig);
+    this.app
       .route(API_VERSION + SHARED_ROUTE + '/connectwallet/')
       .get(authController.isUserAuthenticated, sharedController.getWalletConnectSettings);
     this.app
