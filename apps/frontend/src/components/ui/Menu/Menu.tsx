@@ -39,6 +39,9 @@ const Menu = props => {
               (isDisabled ? ' disabled' : '')
             }
             onClick={(e) => isDisabled && e.preventDefault()}
+            aria-label={item.label}
+            title={props.compact ? item.label : undefined}
+            data-testid={`menu-nav-${item.path.replace(/[^a-z]/gi, '')}`}
           >
             <Icon className={isDisabled ? 'svg-fill-disabled' : isActive ? '' : ''} />
             {!props.compact && <span className='ms-1'>{item.label}</span>}
