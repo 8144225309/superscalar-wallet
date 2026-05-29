@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
+import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import InlineSpinner from '../../ui/InlineSpinner/InlineSpinner';
 import { parseInviteUrlDetailed, Invite } from '../../../utilities/inviteUrl';
 import { FactoriesService } from '../../../services/http.service';
 
@@ -218,7 +219,7 @@ function AcceptInviteModal({ show, onHide }: Props) {
           onClick={handleJoin}
           data-testid='accept-invite-submit'
         >
-          {submitting ? <><Spinner animation='border' size='sm' className='me-2' />Sending…</> : 'Send join request'}
+          {submitting ? <InlineSpinner label='Sending' /> : 'Send join request'}
         </Button>
       </Modal.Footer>
     </Modal>

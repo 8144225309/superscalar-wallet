@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Button, Spinner, Form, Alert, Table, Badge } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Table, Badge } from 'react-bootstrap';
+import InlineSpinner from '../../ui/InlineSpinner/InlineSpinner';
 import { FactoriesService } from '../../../services/http.service';
 
 type LspBrowsedFactory = {
@@ -146,8 +147,7 @@ function JoinFactoryModal({ show, onClose, lspPubkey, lspAlias, lnAddresses }: P
 
         {browseLoading && (
           <div className='text-center my-4'>
-            <Spinner animation='border' size='sm' className='me-2' />
-            Browsing LSP factories…
+            <InlineSpinner label='Browsing LSP factories' />
           </div>
         )}
 
@@ -262,9 +262,7 @@ function JoinFactoryModal({ show, onClose, lspPubkey, lspAlias, lnAddresses }: P
           disabled={!selectedIid || joinInFlight || !!joinSuccess}
           data-testid='send-join-request'
         >
-          {joinInFlight ? (
-            <><Spinner animation='border' size='sm' className='me-2' />Sending join…</>
-          ) : 'Send join request'}
+          {joinInFlight ? <InlineSpinner label='Sending join' /> : 'Send join request'}
         </Button>
       </Modal.Footer>
     </Modal>
