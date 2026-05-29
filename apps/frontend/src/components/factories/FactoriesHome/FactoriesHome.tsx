@@ -1,7 +1,8 @@
 import './FactoriesHome.scss';
 import { Row, Col } from 'react-bootstrap';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Header from '../../ui/Header/Header';
+import FactoriesNav from '../FactoriesNav/FactoriesNav';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import factoryEventsReducer from '../../../store/factoryEventsSlice';
@@ -37,6 +38,7 @@ function FactoriesHome() {
   return (
     <div data-testid='factories-container'>
       <Header />
+      <FactoriesNav />
       {nodeInfo.error ? (
         <Row className='message invalid mt-4'>
           <Col xs={12} className='d-flex align-items-center justify-content-center'>
@@ -109,22 +111,6 @@ function FactoriesHome() {
               <HeldProposalsBanner />
               <MissedCeremoniesBanner />
               <PendingProposalsCard />
-            </Col>
-          </Row>
-          <Row className='px-3'>
-            <Col xs={12} className='d-flex justify-content-end mb-3'>
-              <Link to='/factories/console' className='text-decoration-none me-3' data-testid='operator-console-link'>
-                <small>LSP operator console &rsaquo;</small>
-              </Link>
-              <Link to='/factories/operator-prefs' className='text-decoration-none me-3' data-testid='operator-prefs-link'>
-                <small>LSP operator preferences &rsaquo;</small>
-              </Link>
-              <Link to='/factories/peers' className='text-decoration-none me-3' data-testid='known-peers-link'>
-                <small>Known peers &rsaquo;</small>
-              </Link>
-              <Link to='/factories/signing-prefs' className='text-decoration-none' data-testid='signing-prefs-link'>
-                <small>Signing preferences &rsaquo;</small>
-              </Link>
             </Col>
           </Row>
         </>
