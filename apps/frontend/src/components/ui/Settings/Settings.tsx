@@ -99,6 +99,8 @@ const Settings = (props) => {
         <SettingsSVG className={((!!nodeInfo.error || (isAuthenticated && nodeInfo.isLoading)) ? 'mt-1 svg-fill-disabled' : 'mt-1')} />
       </Dropdown.Toggle>
       <Dropdown.Menu className='fs-7 inner-box-shadow'>
+        {/* About — version + node identity */}
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>About</Dropdown.Header>
         <Dropdown.Item>Version: {connectWallet.APP_VERSION}</Dropdown.Item>
         <Dropdown.Item
           data-bs-toggle='modal'
@@ -109,28 +111,55 @@ const Settings = (props) => {
         >
           Show node ID
         </Dropdown.Item>
+
+        {/* Network — connect / diagnostics */}
+        <Dropdown.Divider />
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>Network</Dropdown.Header>
         <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, connectWalletModal: true }))}>Connect wallet</Dropdown.Item>
         <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, sqlTerminalModal: true }))}>SQL Terminal</Dropdown.Item>
-        { serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true" ?
-            <></>
-          :
+
+        {/* Security — auth + wallet config backup */}
+        { serverConfig.singleSignOn !== true && serverConfig.singleSignOn !== "true" && (
+          <>
+            <Dropdown.Divider />
+            <Dropdown.Header className='fw-bold text-uppercase fs-8'>Security</Dropdown.Header>
             <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, setPasswordModal: true }))}>Reset Password</Dropdown.Item>
-        }
-        <Dropdown.Divider />
-        <Dropdown.Item
-          onClick={exportConfigHandler}
-          title='Download a JSON backup of your wallet UI settings (currency, fiat, theme). Password and node-side keys are NOT exported — see docs/SEED_BACKUP.md for key backup.'
-          data-testid='settings-export-config'
-        >
-          Export Config
-        </Dropdown.Item>
-        <Dropdown.Item
-          onClick={() => importFileInputRef.current?.click()}
-          title='Restore wallet UI settings from a previously exported JSON file. Your password and any node-side state are unaffected.'
-          data-testid='settings-import-config'
-        >
-          Import Config
-        </Dropdown.Item>
+            <Dropdown.Item
+              onClick={exportConfigHandler}
+              title='Download a JSON backup of your wallet UI settings (currency, fiat, theme). Password and node-side keys are NOT exported — see docs/SEED_BACKUP.md for key backup.'
+              data-testid='settings-export-config'
+            >
+              Export Config
+            </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => importFileInputRef.current?.click()}
+              title='Restore wallet UI settings from a previously exported JSON file. Your password and any node-side state are unaffected.'
+              data-testid='settings-import-config'
+            >
+              Import Config
+            </Dropdown.Item>
+          </>
+        )}
+        {(serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true") && (
+          <>
+            <Dropdown.Divider />
+            <Dropdown.Header className='fw-bold text-uppercase fs-8'>Backup</Dropdown.Header>
+            <Dropdown.Item
+              onClick={exportConfigHandler}
+              title='Download a JSON backup of your wallet UI settings (currency, fiat, theme).'
+              data-testid='settings-export-config'
+            >
+              Export Config
+            </Dropdown.Item>
+            <Dropdown.Item
+              onClick={() => importFileInputRef.current?.click()}
+              title='Restore wallet UI settings from a previously exported JSON file.'
+              data-testid='settings-import-config'
+            >
+              Import Config
+            </Dropdown.Item>
+          </>
+        )}
         <input
           ref={importFileInputRef}
           type='file'
@@ -139,7 +168,10 @@ const Settings = (props) => {
           onChange={importConfigHandler}
           data-testid='settings-import-config-input'
         />
+
+        {/* Display — units, currency, theme-adjacent toggles */}
         <Dropdown.Divider />
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>Display</Dropdown.Header>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Fiat Currency <FiatSelection className='ms-4 fiat-dropdown' /></Dropdown.Item>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Currency <ToggleSwitch onChange={changeCurrencyUnitHandler} values={CURRENCY_UNITS} selIndex={uiConfigUnit === Units.BTC ? 1 : 0} /></Dropdown.Item>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Fiat beside sats <ToggleSwitch onChange={changeShowFiatHandler} values={['Off', 'On']} selIndex={showFiatBesideSats ? 1 : 0} /></Dropdown.Item>
