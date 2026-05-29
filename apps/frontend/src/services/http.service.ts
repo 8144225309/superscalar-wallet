@@ -702,6 +702,42 @@ export class FactoriesService {
   }
 
   /**
+   * Task #150: hard-discard a factory record. Plugin-side gated to refuse
+   * unless lifecycle is FAILED or ABORTED AND there is zero on-chain
+   * footprint (no funding TX, no channels). Wired to the Discard button
+   * in FactoryList; safer than Hide because it actually removes the record.
+   */
+  static async forgetFactory(instanceId: string): Promise<{
+    instance_id: string;
+    lifecycle: string;
+    previous_lifecycle: number;
+  }> {
+    return HttpService.clnCall('factory-forget', { instance_id: instanceId });
+  }
+
+  /**
+   * Task #152: list this client's outgoing join attempts (every
+   * factory-join-request fired + current status). Powers the "My join
+   * attempts" view. Plugin RPC: client-list-outgoing-joins.
+   */
+  static async listOutgoingJoins(): Promise<{
+    joins: Array<{
+      instance_id: string;
+      lsp_node_id: string;
+      request_id: string;
+      contribution_sats: number;
+      sent_at_block: number;
+      expected_signing_block: number;
+      updated_at_block: number;
+      status: string;
+      status_code: number;
+      reason?: string;
+    }>;
+  }> {
+    return HttpService.clnCall('client-list-outgoing-joins');
+  }
+
+  /**
    * Client-side: fetch the persisted signing preference thresholds that
    * the plugin's pre-sign validator checks against. Returns canonical
    * defaults if the user has never customized them.

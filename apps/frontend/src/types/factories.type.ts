@@ -15,6 +15,11 @@ export enum FactoryLifecycle {
   CLOSED_BREACHED = 'closed_breached',
   // Terminal "did not complete" — operator abort or a stalled/failed ceremony.
   ABORTED = 'aborted',
+  // Task #149 plugin auto-terminalize: ceremony failed automatically
+  // (withdraw failure, malformed peer msg, etc.). Same bucket as ABORTED in
+  // the wallet (Failed / abandoned); distinct semantically so the operator
+  // can tell auto-vs-manual aborts apart.
+  FAILED = 'failed',
 }
 
 export enum FactoryCeremony {
