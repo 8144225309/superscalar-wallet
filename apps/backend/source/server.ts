@@ -59,9 +59,14 @@ app.use((req, res, next) => {
    * without hardcoding any specific relay set (which is operator-
    * configurable per network). default-src remains 'self' so script,
    * style, image, etc. loads stay locked to the wallet's own origin. */
+  // style-src 'unsafe-inline' is required because react-perfect-scrollbar
+  // (used app-wide via Channels/AccountEvents/FactoryList/ConnectList scroll
+  // containers) injects <style> tags at runtime. The strict policy blocked
+  // these in CSP-strict browsers (Dashboard / #158 repro). XSS surface
+  // remains low because script-src is still 'self'.
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; frame-src 'self'; style-src 'self'; connect-src 'self' wss: https:;",
+    "default-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; frame-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: https:;",
   );
   next();
 });
