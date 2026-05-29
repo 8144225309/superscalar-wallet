@@ -3,16 +3,28 @@ import { Card, Table, Button, Badge, Spinner, Alert, Form, Modal } from 'react-b
 import { FactoriesService } from '../../../services/http.service';
 import SatsWithFiat from '../../shared/SatsWithFiat/SatsWithFiat';
 
-/* Session 1 (LSP UI gaps slice A): incoming join-queue inbox.
+/**
+ * Join Requests Card — LSP UI slice A (task #82 supporting piece).
  *
- * Shows lsp_join_queue rows for a given factory iid with per-row
- * Approve / Refuse buttons backed by the new plugin RPCs:
- *   wallet-list-join-queue-by-status
- *   wallet-approve-join-queued
- *   wallet-refuse-join-queued
+ * What it renders
+ *   The incoming join-queue inbox for ONE factory. Where
+ *   LspOperatorConsole aggregates across all factories,
+ *   JoinRequestsCard scopes to a single iid for the FactoryDetail page.
  *
- * Polls every 5s to match the existing polling cadence on other
- * factory data. LSP-side only (caller guards on factory.is_lsp). */
+ * Key state
+ *   - `entries`: `lsp_join_queue` rows for this factory iid
+ *   - `actionState`: per-row pending/error UI state
+ *   - polling cadence: 5s (matches surrounding factory-data polls)
+ *
+ * Side effects
+ *   - Plugin RPCs: wallet-list-join-queue-by-status (poll),
+ *     wallet-approve-join-queued, wallet-refuse-join-queued
+ *
+ * Props contract
+ *   `factoryInstanceIdHex: string` — the iid this card scopes to.
+ *   Parent (FactoryDetail) guards on `factory.is_lsp` before mounting;
+ *   this card assumes LSP role.
+ */
 
 type JoinEntry = {
   factory_instance_id_hex: string;
