@@ -143,6 +143,7 @@ export const mockShowModals = {
   setPasswordModal: false,
   sqlTerminalModal: false,
   qrCodeLarge: false,
+  glossaryModal: false,
 };
 
 export const mockShowToast = {
