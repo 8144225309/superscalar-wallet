@@ -60,6 +60,12 @@ export type Factory = {
   funding_txid: string;
   funding_outnum: number;
   channels: FactoryChannel[];
+  /* Optional wallet-side display label. Not part of the plugin's
+   * authoritative factory row; populated separately when the wallet
+   * has local prefs for this iid. */
+  label?: string;
+  lsp_node_id?: string;
+  clients?: Array<{ node_id?: string; client_pubkey?: string }>;
 };
 
 export type FactoryAllocation = {

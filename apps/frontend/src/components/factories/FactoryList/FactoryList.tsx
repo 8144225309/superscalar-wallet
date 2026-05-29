@@ -267,14 +267,14 @@ const FactoryList = (props: FactoryListProps) => {
     if (!q) return true;
     const needle = q.toLowerCase();
     if (f.instance_id.toLowerCase().includes(needle)) return true;
-    if ((f as any).lsp_node_id && String((f as any).lsp_node_id).toLowerCase().includes(needle)) return true;
-    if ((f as any).clients && Array.isArray((f as any).clients)) {
-      for (const c of (f as any).clients) {
+    if (f.lsp_node_id && f.lsp_node_id.toLowerCase().includes(needle)) return true;
+    if (f.clients) {
+      for (const c of f.clients) {
         const pk = (c?.node_id || c?.client_pubkey || '').toLowerCase();
         if (pk && pk.includes(needle)) return true;
       }
     }
-    if ((f as any).label && String((f as any).label).toLowerCase().includes(needle)) return true;
+    if (f.label && f.label.toLowerCase().includes(needle)) return true;
     return false;
   };
 
