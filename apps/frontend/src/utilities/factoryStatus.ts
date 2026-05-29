@@ -10,6 +10,7 @@ import { Factory, FactoryLifecycle, FactoryCeremony } from '../types/factories.t
 export type FactoryStatusKey =
   | 'active'
   | 'signed'
+  | 'awaiting_joins'
   | 'pending'
   | 'rotating'
   | 'failed'
@@ -43,6 +44,12 @@ const INFO: Record<FactoryStatusKey, Omit<FactoryStatusInfo, 'key'>> = {
     label: 'Signed',
     glyph: '◆',
     tooltip: 'Ceremony completed and the distribution tree is signed. Funding TX is broadcast or about to be; not yet active until channels open.',
+  },
+  awaiting_joins: {
+    bg: 'info',
+    label: 'Awaiting joins',
+    glyph: '⊙',
+    tooltip: 'Factory is open and waiting for clients to send join requests before the LSP triggers the MuSig2 ceremony. Triggered automatically once min_clients_to_start is reached, or manually via the Trigger Ceremony button.',
   },
   pending: {
     bg: 'secondary',
@@ -110,6 +117,7 @@ export function factoryStatusKey(f: Pick<Factory, 'lifecycle' | 'ceremony' | 'ro
   if (f.ceremony === FactoryCeremony.COMPLETE) return 'signed';
   if (f.lifecycle === FactoryLifecycle.SIGNED) return 'signed';
   if (f.lifecycle === FactoryLifecycle.DYING) return 'closed';
+  if (f.lifecycle === FactoryLifecycle.AWAITING_JOINS) return 'awaiting_joins';
   return 'pending';
 }
 
