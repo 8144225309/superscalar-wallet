@@ -66,10 +66,14 @@
     }
 
     .node-dot {
-      width: 8px;
-      height: 8px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
     }
 
     .node-details {

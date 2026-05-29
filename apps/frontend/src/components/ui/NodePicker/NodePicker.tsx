@@ -249,9 +249,26 @@ const NodePicker = () => {
             const isActive = profile.id === activeProfileId;
             const badgeVariant = getNetworkBadgeVariant(profile.network);
             const health = profileHealth.find(h => h.profileId === profile.id);
-            const dotColor = isActive
-              ? (nodeInfo.error ? '#dc3545' : '#33db95')
-              : health ? (health.alive ? '#33db95' : '#dc3545') : '#9f9f9f';
+            /* Polish 1.1/1.2 (color-blind redundancy):
+             * Each health state pairs color WITH shape AND tooltip text:
+             *   alive    → solid green, ✓ glyph,   tooltip "Reachable"
+             *   down     → solid red,   ✕ glyph,   tooltip "Not responding"
+             *   unprobed → dashed gray, ? glyph,   tooltip "Not yet probed"
+             * This way colorblind users (and screen readers via the
+             * tooltip) get the same signal as sighted users.
+             */
+            let state: 'alive' | 'down' | 'unprobed';
+            if (isActive) state = nodeInfo.error ? 'down' : 'alive';
+            else if (health) state = health.alive ? 'alive' : 'down';
+            else state = 'unprobed';
+            const dotStyle: React.CSSProperties =
+              state === 'alive'
+                ? { backgroundColor: '#33db95', color: '#0a3b22' }
+                : state === 'down'
+                  ? { backgroundColor: '#dc3545', color: '#fff' }
+                  : { backgroundColor: 'transparent', border: '1px dashed #9f9f9f', color: '#9f9f9f' };
+            const glyph = state === 'alive' ? '✓' : state === 'down' ? '✕' : '?';
+            const tip = state === 'alive' ? 'Reachable' : state === 'down' ? 'Not responding' : 'Not yet probed';
             return (
               <Dropdown.Item
                 key={profile.id}
@@ -259,10 +276,16 @@ const NodePicker = () => {
                 onClick={() => handleSwitchNode(profile.id)}
                 active={isActive}
               >
-                <span
-                  className='node-dot'
-                  style={{ backgroundColor: dotColor }}
-                ></span>
+                <OverlayTrigger placement='right' overlay={<Tooltip>{tip}</Tooltip>}>
+                  <span
+                    className='node-dot'
+                    style={dotStyle}
+                    aria-label={tip}
+                    data-testid={`node-health-${state}`}
+                  >
+                    <span style={{ fontSize: '0.7em', lineHeight: 1, fontWeight: 700 }}>{glyph}</span>
+                  </span>
+                </OverlayTrigger>
                 <div className='node-details'>
                   <div className='node-alias'>{profile.alias || profile.label}</div>
                   <div className='node-pubkey'>{truncatePubkey(profile.pubkey)}</div>
