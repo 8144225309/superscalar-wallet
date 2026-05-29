@@ -140,7 +140,7 @@ const Glossary = () => {
       </Modal.Header>
       <Modal.Body className='py-2'>
         <p className='fs-7 text-muted mb-3'>
-          SuperScalar protocol and bLIP-56 terms you'll encounter in this wallet.
+          SuperScalar protocol and bLIP-56 terms you&apos;ll encounter in this wallet.
           Tooltips elsewhere in the UI point back here.
         </p>
         <Form.Control
@@ -155,7 +155,7 @@ const Glossary = () => {
         <Row className='m-0'>
           {filtered.length === 0 ? (
             <div className='glossary-empty' data-testid='glossary-empty'>
-              No terms match "{query}".
+              No terms match &quot;{query}&quot;.
             </div>
           ) : (
             filtered.map(term => (
