@@ -9,6 +9,7 @@ import { APIError } from '../models/errors.js';
 import { addServerConfig, setEnvVariables } from '../shared/utils.js';
 import { ShowRunes } from '../models/showrunes.type.js';
 import { NodeManager } from '../service/node-manager.service.js';
+import { renderMetrics } from '../shared/metrics.js';
 
 const CONFIG_EXPORT_KIND = 'soupwallet-config';
 const CONFIG_EXPORT_VERSION = 1;
@@ -172,6 +173,15 @@ export class SharedController {
       logger.info('Getting Connection Settings');
       setEnvVariables();
       res.status(200).json(APP_CONSTANTS);
+    } catch (error: any) {
+      handleError(error, req, res, next);
+    }
+  };
+
+  getMetrics = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+      res.status(200).send(renderMetrics());
     } catch (error: any) {
       handleError(error, req, res, next);
     }

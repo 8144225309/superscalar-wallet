@@ -22,6 +22,7 @@ import { NodeManager } from './service/node-manager.service.js';
 import { RendezvousSettingsService } from './service/rendezvous-settings.service.js';
 import { LspNostrIdentityService } from './service/lsp-nostr-identity.service.js';
 import { VouchPublisherService } from './service/vouch-publisher.service.js';
+import { initMetrics } from './shared/metrics.js';
 
 const directoryName = dirname(fileURLToPath(import.meta.url));
 const routes: Array<CommonRoutesConfig> = [];
@@ -108,6 +109,7 @@ export const throwApiError = (err: any) => {
 
 async function startServer() {
   try {
+    initMetrics();
     const nodeManager = new NodeManager();
     await nodeManager.initialize();
 
