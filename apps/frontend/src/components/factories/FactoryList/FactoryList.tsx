@@ -6,7 +6,24 @@ import { ActionSVG } from '../../../svgs/Action';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectNodeInfo } from '../../../store/rootSelectors';
 import { selectFactories, selectFactoriesLoading, selectFactoriesError, selectRoleCounts } from '../../../store/factoriesSelectors';
+import { FactoriesService } from '../../../services/http.service';
+import logger from '../../../services/logger.service';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
+
+// Task #150: a factory qualifies for plugin-side Discard (factory-forget RPC)
+// only when it has zero on-chain footprint. Mirrors the plugin's safety gate
+// so the button stays disabled rather than producing a server-side reject.
+const canDiscard = (f: Factory): boolean => {
+  if (f.lifecycle !== FactoryLifecycle.ABORTED && f.lifecycle !== FactoryLifecycle.FAILED) {
+    // Allow a UI Discard for non-FAILED items whose ceremony is failed, since the
+    // plugin's #149 work auto-transitions those to FAILED on the LSP side; the
+    // client-side mirror lags a bit. Keep it conservative: only when ceremony=failed.
+    if (f.ceremony !== FactoryCeremony.FAILED) return false;
+  }
+  if (f.n_channels && f.n_channels > 0) return false;
+  if (f.funding_txid && /[1-9a-f]/i.test(f.funding_txid)) return false; // any non-zero hex = funded
+  return true;
+};
 
 type RoleFilter = 'all' | 'lsp' | 'client';
 type Bucket = 'live' | 'history' | 'incomplete';
@@ -52,7 +69,9 @@ const HISTORY_LIFECYCLES = new Set<string>([
 // lifecycle at INIT, so the "did not complete" bucket is also keyed off
 // ceremony === FAILED until the plugin auto-terminalizes failed drafts (follow-up).
 const bucketOf = (f: Factory): Bucket => {
-  if (f.lifecycle === FactoryLifecycle.ABORTED || f.ceremony === FactoryCeremony.FAILED) return 'incomplete';
+  if (f.lifecycle === FactoryLifecycle.ABORTED
+      || f.lifecycle === FactoryLifecycle.FAILED
+      || f.ceremony === FactoryCeremony.FAILED) return 'incomplete';
   if (HISTORY_LIFECYCLES.has(f.lifecycle)) return 'history';
   return 'live';
 };
@@ -88,11 +107,13 @@ type FactoryListProps = {
   onFactoryClick: (factory: Factory) => void;
 };
 
-const FactoryListItem = ({ factory, onClick, hidden, onToggleHide }: {
+const FactoryListItem = ({ factory, onClick, hidden, onToggleHide, onDiscard, discarding }: {
   factory: Factory;
   onClick: () => void;
   hidden: boolean;
   onToggleHide: (instanceId: string) => void;
+  onDiscard: (instanceId: string) => void;
+  discarding: boolean;
 }) => (
   <li
     className='list-group-item list-item-channel cursor-pointer'
@@ -133,6 +154,19 @@ const FactoryListItem = ({ factory, onClick, hidden, onToggleHide }: {
           >
             {hidden ? 'Unhide' : 'Hide'}
           </Button>
+          {canDiscard(factory) && (
+            <Button
+              variant='link'
+              size='sm'
+              className='p-0 text-danger text-decoration-none fs-8'
+              title='Hard-delete this factory record (only allowed for failed drafts with no on-chain footprint)'
+              data-testid='factory-discard-btn'
+              disabled={discarding}
+              onClick={(e) => { e.stopPropagation(); onDiscard(factory.instance_id); }}
+            >
+              {discarding ? '…' : 'Discard'}
+            </Button>
+          )}
         </div>
       </div>
       <Row className='text-light fs-7 mt-1'>
@@ -167,6 +201,9 @@ const FactoryList = (props: FactoryListProps) => {
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  // Track in-flight factory-forget RPCs so the Discard button shows a busy
+  // state and we don't double-fire on rapid clicks.
+  const [discardingIds, setDiscardingIds] = useState<Set<string>>(new Set());
 
   // TEMP: always show the pill until nostr rendezvous lands so single-role
   // nodes can still preview the Client view.
@@ -194,6 +231,29 @@ const FactoryList = (props: FactoryListProps) => {
       }
       return next;
     });
+  };
+
+  // Task #150: hard-delete a factory record via the plugin's factory-forget
+  // RPC. Safety-gated server-side; canDiscard() mirrors the gate so the
+  // button stays disabled rather than producing a server-side reject.
+  const handleDiscard = async (instanceId: string) => {
+    setDiscardingIds(prev => {
+      const next = new Set(prev);
+      next.add(instanceId);
+      return next;
+    });
+    try {
+      await FactoriesService.forgetFactory(instanceId);
+      await FactoriesService.fetchFactoriesData();
+    } catch (err) {
+      logger.error('factory-forget failed:', err);
+    } finally {
+      setDiscardingIds(prev => {
+        const next = new Set(prev);
+        next.delete(instanceId);
+        return next;
+      });
+    }
   };
 
   const groups = useMemo(() => {
@@ -228,6 +288,8 @@ const FactoryList = (props: FactoryListProps) => {
         factory={factory}
         hidden={hidden.has(factory.instance_id)}
         onToggleHide={toggleHide}
+        onDiscard={handleDiscard}
+        discarding={discardingIds.has(factory.instance_id)}
         onClick={() => props.onFactoryClick(factory)}
       />
     ));
