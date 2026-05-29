@@ -1,5 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import { logger } from './logger.js';
+import { incrementCounter } from './metrics.js';
 
 /* Login brute-force defense.
  *
@@ -38,6 +39,11 @@ export const loginRateLimiter = rateLimit({
     logger.warn(
       `Auth rate limit hit: ip=${req.ip} ua="${req.get('user-agent') || ''}"`,
     );
+    incrementCounter(
+      'soupwallet_auth_rate_limit_hits_total',
+      'Times an IP hit /login or /reset rate limit',
+      { route: 'login' },
+    );
     res.status(options.statusCode).json(options.message);
   },
 });
@@ -52,6 +58,11 @@ export const passwordResetRateLimiter = rateLimit({
   message: { error: 'Too many password reset attempts. Try again later.' },
   handler: (req, res, next, options) => {
     logger.warn(`Password reset rate limit hit: ip=${req.ip}`);
+    incrementCounter(
+      'soupwallet_auth_rate_limit_hits_total',
+      'Times an IP hit /login or /reset rate limit',
+      { route: 'reset' },
+    );
     res.status(options.statusCode).json(options.message);
   },
 });

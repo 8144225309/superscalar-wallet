@@ -7,6 +7,7 @@ import { logger } from '../shared/logger.js';
 import handleError from '../shared/error-handler.js';
 import { verifyPassword, isAuthenticated, isValidPassword } from '../shared/utils.js';
 import { AuthError } from '../models/errors.js';
+import { incrementCounter } from '../shared/metrics.js';
 
 /* Cookie security: when running in production (NODE_ENV=production), require
  * HTTPS for the token cookie. Dev/regtest stays http-friendly. The httpOnly
@@ -31,18 +32,22 @@ function isValidHashFormat(hash: unknown): boolean {
 export class AuthController {
   userLogin = async (req: Request, res: Response, next: NextFunction) => {
     logger.info('Logging in');
+    incrementCounter('soupwallet_auth_login_total', 'Total POST /v1/auth/login requests');
     try {
       const vpRes = verifyPassword(req.body.password);
       if (vpRes === true) {
         const token = jwt.sign({ userID: SECRET_KEY }, SECRET_KEY);
         // Expire the token in a day
         res.cookie('token', token, { ...cookieFlags, maxAge: 3600000 * 24 });
+        incrementCounter('soupwallet_auth_login_success_total', 'Successful logins');
         return res.status(201).json({ isAuthenticated: true, isValidPassword: isValidPassword() });
       } else {
+        incrementCounter('soupwallet_auth_login_failure_total', 'Failed logins');
         const err = new AuthError(HttpStatusCode.UNAUTHORIZED, vpRes);
         handleError(err, req, res, next);
       }
     } catch (error: any) {
+      incrementCounter('soupwallet_auth_login_failure_total', 'Failed logins');
       handleError(error, req, res, next);
     }
   };

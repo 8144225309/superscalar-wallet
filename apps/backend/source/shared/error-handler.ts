@@ -9,6 +9,7 @@ import {
 } from '../models/errors.js';
 import { HttpStatusCode } from './consts.js';
 import { logger } from './logger.js';
+import { incrementCounter } from './metrics.js';
 
 function handleError(
   error: BaseError | APIError | BitcoindError | LightningError | ValidationError | GRPCError,
@@ -26,7 +27,13 @@ function handleError(
         ? error
         : 'Unknown Error!';
   logger.error(message, route, error.stack);
-  return res.status(error.code || HttpStatusCode.INTERNAL_SERVER).json(message);
+  const status = error.code || HttpStatusCode.INTERNAL_SERVER;
+  if (status >= 500) {
+    incrementCounter('soupwallet_http_5xx_total', 'Total HTTP responses with status 5xx', {
+      status: String(status),
+    });
+  }
+  return res.status(status).json(message);
 }
 
 export default handleError;
