@@ -31,7 +31,18 @@ export enum HttpStatusCode {
   GRPC_UNKNOWN = 552,
 }
 
-export const SECRET_KEY = crypto.randomBytes(64).toString('hex');
+/* JWT signing secret.
+ *
+ * Production deployments should set APP_JWT_SECRET to a stable
+ * 64-byte hex string (e.g. `openssl rand -hex 64`) — without it,
+ * every server restart re-rolls the secret and invalidates all
+ * existing user sessions. That's secure but disruptive.
+ *
+ * Dev / regtest deployments can omit the env var; we fall back to
+ * an ephemeral random secret per process. Demo wallets that run
+ * with SINGLE_SIGN_ON=true bypass JWT entirely so the secret is
+ * functionally unused there. */
+export const SECRET_KEY = process.env.APP_JWT_SECRET || crypto.randomBytes(64).toString('hex');
 
 export const DEFAULT_ENV_VALUES = {
   APP_SINGLE_SIGN_ON: 'false',
