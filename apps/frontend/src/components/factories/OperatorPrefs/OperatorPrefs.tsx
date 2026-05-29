@@ -17,6 +17,15 @@ type PrefKey =
   | 'max_contribution'
   | 'required_reputation';
 
+/* Inline numeric validation: any non-empty string that isn't a
+ * non-negative integer is rejected at the field level so the operator
+ * sees the problem before submitting and getting a vaguer server error. */
+function isNumericOrEmpty(s: string): boolean {
+  const t = s.trim();
+  if (t === '') return true;
+  return /^\d+$/.test(t);
+}
+
 const FIELDS: { key: PrefKey; label: string; unit: string; help: string }[] = [
   {
     key: 'auto_accept_threshold',
@@ -83,6 +92,7 @@ function OperatorPrefs() {
   }, []);
 
   const isDirty = FIELDS.some((f) => values[f.key] !== original[f.key]);
+  const hasInvalidField = FIELDS.some((f) => !isNumericOrEmpty(values[f.key]));
 
   const handleSave = async () => {
     setSaving(true);
@@ -97,7 +107,9 @@ function OperatorPrefs() {
       }
       setOriginal(values);
       setSavedMsg('Global defaults saved.');
-      setTimeout(() => setSavedMsg(null), 3000);
+      /* No timeout — leave the confirmation visible until the operator
+       * edits again or reloads. Auto-dismiss at 3s was disorienting on
+       * slow connections where the operator was still reading the form. */
     } catch (e: any) {
       setError(`Save failed: ${e?.message ?? e}`);
     } finally {
@@ -125,31 +137,40 @@ function OperatorPrefs() {
             <Spinner animation='border' size='sm' /> <span className='text-muted ms-2'>Loading defaults…</span>
           </div>
         ) : (
-          <Form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-            {FIELDS.map((f) => (
-              <Form.Group key={f.key} className='mb-2'>
-                <Form.Label className='mb-1' style={{ fontSize: '0.9rem' }}>{f.label}</Form.Label>
-                <div className='d-flex align-items-center'>
-                  <Form.Control
-                    type='text'
-                    inputMode='numeric'
-                    value={values[f.key]}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                    placeholder='(unset — disables this gate)'
-                    style={{ maxWidth: 280 }}
-                    data-testid={`global-pref-${f.key}`}
-                  />
-                  <span className='units-suffix ms-2 text-muted' style={{ fontSize: '0.85rem' }}>{f.unit}</span>
-                </div>
-                <div className='field-help'>{f.help}</div>
-              </Form.Group>
-            ))}
+          <Form onSubmit={(e) => { e.preventDefault(); if (!hasInvalidField) handleSave(); }}>
+            {FIELDS.map((f) => {
+              const invalid = !isNumericOrEmpty(values[f.key]);
+              return (
+                <Form.Group key={f.key} className='mb-2'>
+                  <Form.Label className='mb-1 field-label-small'>{f.label}</Form.Label>
+                  <div className='d-flex align-items-center'>
+                    <Form.Control
+                      type='text'
+                      inputMode='numeric'
+                      value={values[f.key]}
+                      onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                      placeholder='(unset — disables this gate)'
+                      className='field-control-medium'
+                      isInvalid={invalid}
+                      data-testid={`global-pref-${f.key}`}
+                    />
+                    <span className='units-suffix ms-2 text-muted field-help-small'>{f.unit}</span>
+                  </div>
+                  {invalid && (
+                    <Form.Control.Feedback type='invalid' className='d-block'>
+                      Whole numbers only (or leave empty to disable this gate).
+                    </Form.Control.Feedback>
+                  )}
+                  <div className='field-help'>{f.help}</div>
+                </Form.Group>
+              );
+            })}
 
             <div className='save-bar'>
               <Button
                 type='submit'
                 variant='primary'
-                disabled={!isDirty || saving}
+                disabled={!isDirty || saving || hasInvalidField}
                 data-testid='save-global-prefs'
               >
                 {saving ? <><Spinner animation='border' size='sm' className='me-2' />Saving…</> : 'Save defaults'}
@@ -161,6 +182,16 @@ function OperatorPrefs() {
                 disabled={!isDirty || saving}
               >
                 Discard
+              </Button>
+              <Button
+                type='button'
+                variant='outline-secondary'
+                onClick={load}
+                disabled={saving || loading}
+                title='Reload current values from the server, discarding any local edits'
+                data-testid='reload-global-prefs'
+              >
+                Reload
               </Button>
             </div>
           </Form>
