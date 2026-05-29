@@ -1,9 +1,10 @@
 import './SigningPrefs.scss';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Card, Row, Col, Form, Button, Spinner, Alert,
+  Card, Row, Col, Form, Button, Alert,
 } from 'react-bootstrap';
 import InfoIcon from '../../ui/InfoIcon/InfoIcon';
+import InlineSpinner from '../../ui/InlineSpinner/InlineSpinner';
 import { FactoriesService } from '../../../services/http.service';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
@@ -227,8 +228,7 @@ function SigningPrefs() {
     return (
       <Card>
         <Card.Body className='text-center'>
-          <Spinner animation='border' size='sm' className='me-2' />
-          Loading preferences…
+          <InlineSpinner label='Loading preferences' />
         </Card.Body>
       </Card>
     );
@@ -393,7 +393,7 @@ function SigningPrefs() {
               data-testid='save-prefs'
             >
               {callStatus.status === CallStatus.PENDING ? (
-                <><Spinner animation='border' size='sm' className='me-2' />Saving…</>
+                <InlineSpinner label='Saving' />
               ) : 'Save preferences'}
             </Button>
             <Button

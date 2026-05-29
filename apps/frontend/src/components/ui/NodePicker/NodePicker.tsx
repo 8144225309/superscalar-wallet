@@ -1,5 +1,6 @@
 import './NodePicker.scss';
-import { Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import InlineSpinner from '../InlineSpinner/InlineSpinner';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import nodesReducer from '../../../store/nodesSlice';
@@ -176,7 +177,7 @@ const NodePicker = () => {
           onClick={handleDiscover}
           disabled={isDiscovering}
         >
-          {isDiscovering ? <><Spinner animation='border' size='sm' className='me-1' /> Scanning...</> : 'Scan for Nodes'}
+          {isDiscovering ? <InlineSpinner label='Scanning' marginEnd={1} /> : 'Scan for Nodes'}
         </button>
       </span>
     );
@@ -188,12 +189,9 @@ const NodePicker = () => {
       <span className='fs-7 d-flex align-items-center'>
         {getStatusDot()}
         {isSwitching ? (
-          <>
-            <Spinner animation='border' size='sm' className='me-2' />
-            Switching...
-          </>
+          <InlineSpinner label='Switching' />
         ) : nodeInfo.isLoading ? (
-          'Connecting...'
+          'Connecting…'
         ) : nodeInfo.error ? (
           <>
             <span className='me-2'>{displayAlias} — unreachable</span>
@@ -202,7 +200,7 @@ const NodePicker = () => {
               onClick={handleDiscover}
               disabled={isDiscovering}
             >
-              {isDiscovering ? <><Spinner animation='border' size='sm' className='me-1' /> Scanning...</> : 'Rescan'}
+              {isDiscovering ? <InlineSpinner label='Scanning' marginEnd={1} /> : 'Rescan'}
             </button>
           </>
         ) : (
@@ -226,12 +224,9 @@ const NodePicker = () => {
       </span>
       <Dropdown.Toggle variant='link' className='node-picker-toggle text-light p-0 fs-7'>
         {isSwitching ? (
-          <>
-            <Spinner animation='border' size='sm' className='me-1' />
-            Switching...
-          </>
+          <InlineSpinner label='Switching' marginEnd={1} />
         ) : nodeInfo.isLoading ? (
-          'Connecting...'
+          'Connecting…'
         ) : nodeInfo.error ? (
           <>{displayAlias} — <span className='text-danger'>unreachable</span></>
         ) : (
@@ -278,7 +273,7 @@ const NodePicker = () => {
         </div>
         <Dropdown.Divider />
         <Dropdown.Item className='node-item node-picker-rescan' onClick={handleDiscover} disabled={isDiscovering}>
-          {isDiscovering ? <><Spinner animation='border' size='sm' className='me-1' /> Scanning...</> : 'Rescan for Nodes'}
+          {isDiscovering ? <InlineSpinner label='Scanning' marginEnd={1} /> : 'Rescan for Nodes'}
         </Dropdown.Item>
       </Dropdown.Menu>
     </Dropdown>
