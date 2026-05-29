@@ -8,6 +8,7 @@ import handleError from '../shared/error-handler.js';
 import { verifyPassword, isAuthenticated, isValidPassword } from '../shared/utils.js';
 import { AuthError } from '../models/errors.js';
 import { incrementCounter } from '../shared/metrics.js';
+import { appendAudit } from '../shared/audit-log.js';
 
 /* Cookie security: when running in production (NODE_ENV=production), require
  * HTTPS for the token cookie. Dev/regtest stays http-friendly. The httpOnly
@@ -40,14 +41,17 @@ export class AuthController {
         // Expire the token in a day
         res.cookie('token', token, { ...cookieFlags, maxAge: 3600000 * 24 });
         incrementCounter('soupwallet_auth_login_success_total', 'Successful logins');
+        appendAudit('login_success', req);
         return res.status(201).json({ isAuthenticated: true, isValidPassword: isValidPassword() });
       } else {
         incrementCounter('soupwallet_auth_login_failure_total', 'Failed logins');
+        appendAudit('login_failure', req);
         const err = new AuthError(HttpStatusCode.UNAUTHORIZED, vpRes);
         handleError(err, req, res, next);
       }
     } catch (error: any) {
       incrementCounter('soupwallet_auth_login_failure_total', 'Failed logins');
+      appendAudit('login_failure', req, { exception: true });
       handleError(error, req, res, next);
     }
   };
@@ -56,6 +60,7 @@ export class AuthController {
     try {
       logger.info('Logging out');
       res.clearCookie('token');
+      appendAudit('logout', req);
       res.status(201).json({ isAuthenticated: false, isValidPassword: isValidPassword() });
     } catch (error: any) {
       handleError(error, req, res, next);
@@ -94,6 +99,7 @@ export class AuthController {
                  * stated "7-day" intent. Match the login cookie (24h) until
                  * a deliberate refresh story is shipped. */
                 res.cookie('token', token, { ...cookieFlags, maxAge: 3600000 * 24 });
+                appendAudit('password_reset', req);
                 res.status(201).json({ isAuthenticated: true, isValidPassword: isValidPassword() });
               } catch (error: any) {
                 handleError(error, req, res, next);
