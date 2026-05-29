@@ -92,6 +92,17 @@ const statusBadgeLabel = (f: Factory): string => {
   return f.ceremony;
 };
 
+/* Polish 1.1 — color-blind redundant cue: prefix the badge label with
+ * a shape glyph so the status is conveyed without relying on green vs
+ * yellow vs red distinguishability. */
+const statusBadgeGlyph = (f: Factory): string => {
+  if (f.lifecycle === FactoryLifecycle.ACTIVE) return '●';
+  if (f.lifecycle === FactoryLifecycle.ABORTED) return '⊘';
+  if (f.ceremony === FactoryCeremony.FAILED) return '✕';
+  if (f.ceremony === FactoryCeremony.COMPLETE) return '◆';
+  return '○';
+};
+
 const sortFactories = (list: Factory[]): Factory[] =>
   [...list].sort((a, b) => {
     const la = lifecycleOrder[a.lifecycle] ?? 99;
@@ -141,7 +152,11 @@ const FactoryListItem = ({ factory, onClick, hidden, onToggleHide, onDiscard, di
           </span>
         </div>
         <div className='d-flex align-items-center gap-2'>
-          <span className={'badge ' + statusBadgeClass(factory)}>
+          <span
+            className={'badge ' + statusBadgeClass(factory)}
+            aria-label={statusBadgeLabel(factory) + ' (' + factory.lifecycle + ')'}
+          >
+            <span aria-hidden='true' className='me-1'>{statusBadgeGlyph(factory)}</span>
             {statusBadgeLabel(factory)}
           </span>
           <Button
