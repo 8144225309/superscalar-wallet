@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Table, Button, Badge, Spinner, Alert, Form, Modal } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
@@ -104,9 +104,29 @@ function LspOperatorConsole() {
     }
   };
 
+  /* Polish #2.2: pause auto-refresh when the user is mid-interaction so the
+   * 7s poll doesn't fight Approve/Refuse clicks (which would overwrite the
+   * row state the user just acted on with a stale read).
+   *
+   * Paused when: a row action is in flight (busyKey set) OR the Refuse
+   * modal is open (refuseTarget set). Resumes automatically as soon as
+   * both clear.
+   *
+   * Split into two effects so changing `paused` doesn't re-fire an
+   * immediate loadAll() — that would re-introduce the same race the
+   * pause is meant to fix. The immediate load runs on mount + when the
+   * relevant inputs change; the polling interval lives in its own effect
+   * and reads `paused` via a ref so changing it doesn't tear down the
+   * interval (and doesn't trigger an immediate poll). */
+  const pausedRef = useRef(false);
+  pausedRef.current = busyKey !== null || refuseTarget !== null;
   useEffect(() => {
     loadAll();
-    const id = setInterval(loadAll, 7000);
+  }, [lspFactories, filter]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!pausedRef.current) loadAll();
+    }, 7000);
     return () => clearInterval(id);
   }, [lspFactories, filter]);
 
@@ -182,6 +202,17 @@ function LspOperatorConsole() {
             {acceptedCount > 0 && (
               <Badge bg='info' text='dark' className='ms-2'>
                 {acceptedCount} accepted awaiting trigger
+              </Badge>
+            )}
+            {(busyKey !== null || refuseTarget !== null) && (
+              <Badge
+                bg='secondary'
+                className='ms-2'
+                style={{ fontSize: '0.7rem', fontWeight: 400 }}
+                data-testid='console-poll-paused'
+                title='Auto-refresh paused while you work this row. Resumes once you finish.'
+              >
+                refresh paused
               </Badge>
             )}
           </div>
