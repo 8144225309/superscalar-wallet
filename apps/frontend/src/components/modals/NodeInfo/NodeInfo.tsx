@@ -65,8 +65,10 @@ const NodeInfo = () => {
           </Row>
           <Row className='d-flex align-items-start justify-content-center pt-2'>
             <h4 className='text-blue fw-bold d-flex justify-content-center'>Node ID</h4>
-            <p className='py-3 w-75 text-break text-dark d-flex justify-content-center'>
-              Other Lightning nodes can open payment channels to your node following this Node ID.            
+            <p className='py-3 w-75 text-break text-dark text-center'>
+              Your full node URI (<code style={{ fontSize: '0.9em' }}>pubkey@host:port</code>). Share this when someone
+              wants to peer with your node, browse your LSP, or join a factory you host.
+              Other Lightning nodes can also open standard payment channels to it.
             </p>
             <div className='mb-4 text-break text-dark d-flex justify-content-center'>
             <InputGroup className='mb-3'>

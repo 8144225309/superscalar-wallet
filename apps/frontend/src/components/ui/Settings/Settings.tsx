@@ -61,7 +61,15 @@ const Settings = (props) => {
       </Dropdown.Toggle>
       <Dropdown.Menu className='fs-7 inner-box-shadow'>
         <Dropdown.Item>Version: {connectWallet.APP_VERSION}</Dropdown.Item>
-        <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({...showModals, nodeInfoModal: true}))}>Show node ID</Dropdown.Item>
+        <Dropdown.Item
+          data-bs-toggle='modal'
+          data-bs-target='#staticBackdrop'
+          onClick={() => dispatch(setShowModals({...showModals, nodeInfoModal: true}))}
+          title='Open a QR + copyable text of your full node URI (pubkey@host:port). Share this when someone wants to peer with your node, join your factory, or browse your LSP.'
+          data-testid='settings-show-node-id'
+        >
+          Show node ID
+        </Dropdown.Item>
         <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, connectWalletModal: true }))}>Connect wallet</Dropdown.Item>
         <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, sqlTerminalModal: true }))}>SQL Terminal</Dropdown.Item>
         { serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true" ?
