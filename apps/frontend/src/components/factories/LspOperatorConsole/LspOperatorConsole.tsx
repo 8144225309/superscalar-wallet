@@ -122,14 +122,12 @@ function LspOperatorConsole() {
   pausedRef.current = busyKey !== null || refuseTarget !== null;
   useEffect(() => {
     loadAll();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lspFactories, filter]);
   useEffect(() => {
     const id = setInterval(() => {
       if (!pausedRef.current) loadAll();
     }, 7000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lspFactories, filter]);
 
   const handleApprove = async (r: RowWithFactory) => {
