@@ -88,7 +88,7 @@ const WhatsNew = () => {
       data-testid='whats-new-modal'
     >
       <Modal.Header className='d-flex align-items-start justify-content-between pb-0 border-0'>
-        <h4 className='text-blue fw-bold mb-0'>What's new</h4>
+        <h4 className='text-blue fw-bold mb-0'>What&apos;s new</h4>
         <span className='span-close-svg' onClick={closeHandler} data-testid='whats-new-close'>
           <CloseSVG />
         </span>
