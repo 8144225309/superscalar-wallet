@@ -1,7 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
-import { parseInviteUrl, Invite } from '../../../utilities/inviteUrl';
+import { parseInviteUrlDetailed, Invite } from '../../../utilities/inviteUrl';
 import { FactoriesService } from '../../../services/http.service';
+
+/* Address class used by the "trust this address" gate. Public IPs mean the
+ * wallet's about to phone home to a stranger's box; loopback is local dev /
+ * regtest demo; tor is privacy-preserving; private means inside the same
+ * NAT (usually fine but worth surfacing). */
+function classifyAddress(addr?: string): 'tor' | 'loopback' | 'private' | 'public' | null {
+  if (!addr) return null;
+  const host = addr.split(':')[0]?.toLowerCase() ?? '';
+  if (!host) return null;
+  if (host.endsWith('.onion')) return 'tor';
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return 'loopback';
+  if (
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^fe80:/.test(host) ||
+    /^fc[0-9a-f]{2}:/.test(host) ||
+    /^fd[0-9a-f]{2}:/.test(host)
+  ) return 'private';
+  return 'public';
+}
 
 /* Session 6a (Tier-2 polish): client-side "Join via invite" modal.
  *
@@ -26,6 +48,9 @@ function AcceptInviteModal({ show, onHide }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  /* Polish 2026-05-29: explicit trust gate when the invite points at a
+   * publicly-routable IP. Loopback / tor / private don't require this. */
+  const [trustAcked, setTrustAcked] = useState(false);
 
   useEffect(() => {
     if (!urlInput.trim()) {
@@ -33,15 +58,19 @@ function AcceptInviteModal({ show, onHide }: Props) {
       setError(null);
       return;
     }
-    const inv = parseInviteUrl(urlInput);
-    if (!inv) {
+    const r = parseInviteUrlDetailed(urlInput);
+    if (!r.invite) {
       setParsed(null);
-      setError('Not a valid superscalar:// invite. Expected format: superscalar://join?iid=…&lsp=…');
+      if (r.error === 'expired') {
+        setError('This invite expired. Ask the LSP operator for a fresh one.');
+      } else {
+        setError('Not a valid superscalar:// invite. Expected format: superscalar://join?iid=…&lsp=…');
+      }
     } else {
-      setParsed(inv);
+      setParsed(r.invite);
       setError(null);
-      if (inv.contributionMinSats != null && !contribution) {
-        setContribution(String(inv.contributionMinSats));
+      if (r.invite.contributionMinSats != null && !contribution) {
+        setContribution(String(r.invite.contributionMinSats));
       }
     }
     // eslint-disable-next-line
@@ -140,6 +169,37 @@ function AcceptInviteModal({ show, onHide }: Props) {
           </Form.Group>
         )}
 
+        {parsed && (() => {
+          const cls = classifyAddress(parsed.address);
+          if (cls === 'public') {
+            return (
+              <Alert variant='warning' className='py-2 mb-3' style={{ fontSize: '0.85rem' }} data-testid='accept-invite-trust-gate'>
+                <div className='mb-2'>
+                  <strong>Heads up:</strong> sending this join request will phone home to
+                  a publicly-routable IP, <code>{parsed.address}</code>. Make sure you got this
+                  invite from a person you actually trust.
+                </div>
+                <Form.Check
+                  type='checkbox'
+                  id='accept-invite-trust-ack'
+                  label="I trust the source of this invite and want to connect."
+                  checked={trustAcked}
+                  onChange={(e) => setTrustAcked(e.target.checked)}
+                  data-testid='accept-invite-trust-ack'
+                />
+              </Alert>
+            );
+          }
+          if (cls === 'tor') {
+            return (
+              <Alert variant='info' className='py-2 mb-3' style={{ fontSize: '0.85rem' }} data-testid='accept-invite-tor-note'>
+                Connecting via Tor onion (<code>{parsed.address}</code>). Privacy-preserving.
+              </Alert>
+            );
+          }
+          return null;
+        })()}
+
         {error && <Alert variant='warning' className='py-2 mb-2'>{error}</Alert>}
         {success && <Alert variant='success' className='py-2 mb-2'>{success}</Alert>}
       </Modal.Body>
@@ -149,7 +209,12 @@ function AcceptInviteModal({ show, onHide }: Props) {
         </Button>
         <Button
           variant='primary'
-          disabled={!parsed || submitting || success !== null}
+          disabled={
+            !parsed ||
+            submitting ||
+            success !== null ||
+            (classifyAddress(parsed?.address) === 'public' && !trustAcked)
+          }
           onClick={handleJoin}
           data-testid='accept-invite-submit'
         >

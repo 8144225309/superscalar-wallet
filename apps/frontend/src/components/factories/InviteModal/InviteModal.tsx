@@ -1,9 +1,32 @@
 import { useMemo, useState } from 'react';
-import { Modal, Button, Form, InputGroup } from 'react-bootstrap';
+import { Modal, Button, Form, InputGroup, Alert } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSelector } from 'react-redux';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { buildInviteUrl } from '../../../utilities/inviteUrl';
+
+/* Address shape inspection — used for the privacy hint. Public-routable
+ * IPv4/IPv6 reveal the LSP's location to anyone the URL is shared with;
+ * .onion is privacy-preserving; loopback is local-only and effectively
+ * benign for testnets / regtest demos. */
+function classifyAddress(addr?: string): 'tor' | 'loopback' | 'private' | 'public' | null {
+  if (!addr) return null;
+  const host = addr.split(':')[0]?.toLowerCase() ?? '';
+  if (!host) return null;
+  if (host.endsWith('.onion')) return 'tor';
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return 'loopback';
+  // RFC1918 + loopback + link-local
+  if (
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^fe80:/.test(host) ||
+    /^fc[0-9a-f]{2}:/.test(host) ||
+    /^fd[0-9a-f]{2}:/.test(host)
+  ) return 'private';
+  return 'public';
+}
 
 /* Session 6a (Tier-2 polish): LSP-side invite modal.
  *
@@ -29,16 +52,43 @@ function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props
   const [minSats, setMinSats] = useState('');
   const [maxSats, setMaxSats] = useState('');
   const [copied, setCopied] = useState(false);
+  /* Polish 2026-05-29: optional expiry. Default off (no field set) so
+   * existing behavior (permanent invite) is preserved. When the operator
+   * picks a duration, the URL gains an `expires` param and clients with
+   * the wallet refuse to fire a join after that timestamp. */
+  const [expiryDays, setExpiryDays] = useState<string>(''); // '' = no expiry
+  /* Polish 2026-05-29: prefer tor over public ipv4 if both are present, since
+   * a privacy-conscious LSP probably wants .onion shared, not their IP.
+   * Operator can override by editing the URL or address logic later. */
+  const [preferTor, setPreferTor] = useState(true);
 
   const ourNodeId: string | undefined = nodeInfo?.id;
-  const address: string | undefined = useMemo(() => {
+
+  const candidateAddresses = useMemo(() => {
     const addrs = nodeInfo?.address ?? [];
     const ipv4 = addrs.find((a: any) => a.type === 'ipv4');
-    if (ipv4) return `${ipv4.address}:${ipv4.port}`;
+    const ipv6 = addrs.find((a: any) => a.type === 'ipv6');
     const tor = addrs.find((a: any) => String(a.type).startsWith('torv'));
-    if (tor) return `${tor.address}:${tor.port}`;
-    return undefined;
+    return {
+      ipv4: ipv4 ? `${ipv4.address}:${ipv4.port}` : undefined,
+      ipv6: ipv6 ? `[${ipv6.address}]:${ipv6.port}` : undefined,
+      tor: tor ? `${tor.address}:${tor.port}` : undefined,
+    };
   }, [nodeInfo]);
+
+  const address: string | undefined = useMemo(() => {
+    if (preferTor && candidateAddresses.tor) return candidateAddresses.tor;
+    return candidateAddresses.ipv4 || candidateAddresses.tor || candidateAddresses.ipv6;
+  }, [candidateAddresses, preferTor]);
+
+  const addressClass = classifyAddress(address);
+
+  const expiresAt = useMemo(() => {
+    if (!expiryDays) return undefined;
+    const days = Number(expiryDays);
+    if (!Number.isFinite(days) || days <= 0) return undefined;
+    return Math.floor(Date.now() / 1000) + Math.round(days * 86400);
+  }, [expiryDays]);
 
   const inviteUrl = useMemo(() => {
     if (!ourNodeId) return null;
@@ -49,8 +99,9 @@ function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props
       contributionMinSats: minSats ? Number(minSats) : undefined,
       contributionMaxSats: maxSats ? Number(maxSats) : undefined,
       label: factoryLabel,
+      expiresAt,
     });
-  }, [factoryInstanceIdHex, ourNodeId, address, minSats, maxSats, factoryLabel]);
+  }, [factoryInstanceIdHex, ourNodeId, address, minSats, maxSats, factoryLabel, expiresAt]);
 
   const handleCopy = async () => {
     if (!inviteUrl) return;
@@ -96,7 +147,43 @@ function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props
               data-testid='invite-max-sats'
             />
           </Form.Group>
+          <Form.Group className='flex-fill'>
+            <Form.Label className='mb-1' style={{ fontSize: '0.85rem' }}>Expires after</Form.Label>
+            <Form.Select
+              value={expiryDays}
+              onChange={(e) => setExpiryDays(e.target.value)}
+              data-testid='invite-expiry'
+            >
+              <option value=''>Never (recommended off)</option>
+              <option value='1'>1 day</option>
+              <option value='7'>1 week</option>
+              <option value='30'>30 days</option>
+              <option value='90'>90 days</option>
+            </Form.Select>
+          </Form.Group>
         </div>
+
+        {/* Privacy & address controls */}
+        {candidateAddresses.tor && candidateAddresses.ipv4 && (
+          <Form.Check
+            type='switch'
+            id='invite-prefer-tor'
+            label={`Prefer .onion address in URL (${candidateAddresses.tor.split(':')[0].slice(0, 16)}…)`}
+            checked={preferTor}
+            onChange={(e) => setPreferTor(e.target.checked)}
+            className='mb-3'
+            data-testid='invite-prefer-tor'
+          />
+        )}
+
+        {addressClass === 'public' && (
+          <Alert variant='warning' className='py-2 mb-3' style={{ fontSize: '0.85rem' }} data-testid='invite-privacy-warning'>
+            <strong>Privacy:</strong> this invite URL embeds your node&apos;s public IP address
+            (<code>{address}</code>). Anyone with the URL can see it. {candidateAddresses.tor
+              ? 'Toggle "Prefer .onion address" above to share a Tor hidden-service endpoint instead.'
+              : 'If your node has a Tor onion address, configure CLN to advertise it and re-open this modal — the wallet will prefer it.'}
+          </Alert>
+        )}
 
         {!ourNodeId && (
           <div className='alert alert-warning'>

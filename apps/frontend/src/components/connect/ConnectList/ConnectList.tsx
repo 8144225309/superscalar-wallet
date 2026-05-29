@@ -41,9 +41,22 @@ import {
 } from '../../../store/rendezvousSlice';
 import rendezvousReducer from '../../../store/rendezvousSlice';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
-import { selectActiveProfile } from '../../../store/nodesSelectors';
+import { selectActiveProfile, selectNodeProfiles, selectIsSwitchingNode } from '../../../store/nodesSelectors';
+import { setActiveProfileId, setIsSwitching, setProfileHealth } from '../../../store/nodesSlice';
+import { clearNodeData } from '../../../store/rootSlice';
+import { clearCLNStore } from '../../../store/clnSlice';
+import { clearBKPRStore } from '../../../store/bkprSlice';
+import { clearFactoriesStore } from '../../../store/factoriesSlice';
 import { fetchVouches } from '../../../services/nostr.service';
-import { RendezvousService } from '../../../services/http.service';
+import {
+  RendezvousService,
+  NodesService,
+  RootService,
+  CLNService,
+  BookkeeperService,
+  FactoriesService,
+} from '../../../services/http.service';
+import logger from '../../../services/logger.service';
 import JoinFactoryModal from '../JoinFactoryModal/JoinFactoryModal';
 import AcceptInviteModal from '../../factories/AcceptInviteModal/AcceptInviteModal';
 import ManualConnectModal from '../ManualConnectModal/ManualConnectModal';
@@ -125,6 +138,8 @@ const ConnectList = () => {
   const isVouchLoading = useSelector(selectVouchesLoading);
   const vouchErrors = useSelector(selectVouchErrors);
   const activeProfile = useSelector(selectActiveProfile);
+  const allProfiles = useSelector(selectNodeProfiles);
+  const isSwitchingProfile = useSelector(selectIsSwitchingNode);
   const enabledRelays = useSelector(selectEnabledRelays);
 
   const network = clnNetworkToCoordKey(activeProfile?.network);
@@ -133,6 +148,54 @@ const ConnectList = () => {
     [network],
   );
   const activeCoordinators = useSelector(selectActiveCoords);
+
+  /* Polish 2026-05-29: profile-switch CTA for the empty state.
+   * When the active node's network has no coordinator binding (e.g., regtest),
+   * surface the user's *other* profiles that ARE covered so a one-click switch
+   * gets them to a working Connect view. */
+  const switchCandidates = useMemo(() => {
+    const out: Array<{ id: string; label: string; net: CoordinatorNetwork }> = [];
+    for (const p of allProfiles || []) {
+      if (p.id === activeProfile?.id) continue;
+      const n = clnNetworkToCoordKey(p.network);
+      if (!n) continue;
+      out.push({
+        id: p.id,
+        label: p.alias || p.label || p.id.slice(0, 8),
+        net: n,
+      });
+    }
+    return out;
+  }, [allProfiles, activeProfile?.id]);
+
+  const handleSwitchToProfile = useCallback(async (profileId: string) => {
+    if (isSwitchingProfile) return;
+    try {
+      dispatch(setIsSwitching(true));
+      const result = await NodesService.switchNode(profileId);
+      dispatch(clearNodeData());
+      dispatch(clearCLNStore());
+      dispatch(clearBKPRStore());
+      dispatch(clearFactoriesStore());
+      dispatch(setActiveProfileId(result.profile?.id || profileId));
+      await RootService.fetchRootData();
+      await RootService.refreshData();
+    } catch (err) {
+      logger.error('CTA profile switch failed:', err);
+    } finally {
+      dispatch(setIsSwitching(false));
+    }
+    Promise.all([
+      CLNService.fetchCLNData(),
+      BookkeeperService.fetchBKPRData(),
+      FactoriesService.fetchFactoriesData(),
+      NodesService.fetchAndDispatchNodes(),
+      NodesService.detectFactoryPlugin(),
+      NodesService.healthCheck()
+        .then(h => { if (h?.health) dispatch(setProfileHealth(h.health)); })
+        .catch(err => logger.warn('Health check after CTA switch failed:', err)),
+    ]).catch(err => logger.error('Background post-CTA-switch refresh failed:', err));
+  }, [dispatch, isSwitchingProfile]);
 
   const [showAcceptInvite, setShowAcceptInvite] = useState(false);
   const [showManualConnect, setShowManualConnect] = useState(false);
@@ -387,9 +450,32 @@ const ConnectList = () => {
 
       <Card.Body className='py-0 px-1 channels-scroll-container'>
         {!showSample && !network && (
-          <Row className='text-light fs-6 mt-3 mx-2 text-center'>
-            Active node&apos;s network ({activeProfile?.network ?? 'unknown'}) is not covered by any
-            configured coordinator. Switch to a signet, testnet4, or mainnet node to see vouches.
+          <Row className='text-light fs-6 mt-3 mx-2 text-center' data-testid='connect-no-coord-empty'>
+            <div className='mb-2'>
+              Active node&apos;s network ({activeProfile?.network ?? 'unknown'}) is not covered by any
+              configured coordinator.
+            </div>
+            {switchCandidates.length > 0 ? (
+              <div className='d-flex flex-wrap justify-content-center gap-2'>
+                {switchCandidates.map((c) => (
+                  <Button
+                    key={c.id}
+                    variant='outline-primary'
+                    size='sm'
+                    disabled={isSwitchingProfile}
+                    onClick={() => handleSwitchToProfile(c.id)}
+                    data-testid={`connect-switch-${c.net}`}
+                  >
+                    {isSwitchingProfile ? <Spinner animation='border' size='sm' className='me-2' /> : null}
+                    Switch to {c.label} ({c.net}) →
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className='text-muted' style={{ fontSize: '0.85rem' }}>
+                Add a signet, testnet4, or mainnet node profile to see vouches.
+              </div>
+            )}
           </Row>
         )}
         {!showSample && network && activeCoordinators.length === 0 && (
