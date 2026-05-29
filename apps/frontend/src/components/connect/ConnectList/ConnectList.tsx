@@ -46,6 +46,7 @@ import { fetchVouches } from '../../../services/nostr.service';
 import { RendezvousService } from '../../../services/http.service';
 import JoinFactoryModal from '../JoinFactoryModal/JoinFactoryModal';
 import AcceptInviteModal from '../../factories/AcceptInviteModal/AcceptInviteModal';
+import ManualConnectModal from '../ManualConnectModal/ManualConnectModal';
 
 type RowSource = 'sample' | VouchTier;
 type SortKey = 'factory' | 'capacity' | 'minChannel' | 'opens';
@@ -134,6 +135,7 @@ const ConnectList = () => {
   const activeCoordinators = useSelector(selectActiveCoords);
 
   const [showAcceptInvite, setShowAcceptInvite] = useState(false);
+  const [showManualConnect, setShowManualConnect] = useState(false);
   const [showSample, setShowSample] = useState(false);
   const [joinRequests, setJoinRequests] = useState<Record<string, JoinStatus>>({});
   const [joinModalFor, setJoinModalFor] = useState<FactoryRow | null>(null);
@@ -562,7 +564,8 @@ const ConnectList = () => {
           lnAddresses={joinModalFor.lnAddresses}
         />
       )}
-    </Card>      <div className='my-3'>
+    </Card>
+      <div className='my-3 d-flex flex-wrap gap-2'>
         <button
           type='button'
           className='btn btn-sm btn-outline-secondary'
@@ -571,10 +574,41 @@ const ConnectList = () => {
         >
           Join via invite link ›
         </button>
+        <button
+          type='button'
+          className='btn btn-sm btn-outline-secondary'
+          onClick={() => setShowManualConnect(true)}
+          data-testid='open-manual-connect'
+        >
+          Connect to LSP manually ›
+        </button>
       </div>
       <AcceptInviteModal
         show={showAcceptInvite}
         onHide={() => setShowAcceptInvite(false)}
+      />
+      <ManualConnectModal
+        show={showManualConnect}
+        onHide={() => setShowManualConnect(false)}
+        onConnect={(pk, addr, al) => {
+          setShowManualConnect(false);
+          // Construct a synthetic FactoryRow just to feed JoinFactoryModal —
+          // the modal only reads pubkey/alias/lnAddresses, so the other
+          // fields are placeholders.
+          setJoinModalFor({
+            id: `manual-${pk}`,
+            pubkey: pk,
+            alias: al,
+            capacitySats: null,
+            minChannelSats: null,
+            opensInBlocks: null,
+            status: 'pending',
+            isSelf: false,
+            nBreachEpochs: 0,
+            source: 'sample',
+            lnAddresses: addr ? [addr] : undefined,
+          });
+        }}
       />
     </>
 
