@@ -305,10 +305,10 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
           </Row>
         )}
 
-        {/* Polish 3.1: collapsible sections. defaultActiveKey opens Status
-            for everyone, Operator/Channels conditionally for LSPs / non-empty.
-            alwaysOpen lets multiple stay open without each click closing
-            others — operators routinely want Status + Operator both open. */}
+        {/* Collapsible sections. defaultActiveKey opens Status for everyone,
+            Operator/Channels conditionally for LSPs / non-empty. alwaysOpen
+            lets multiple stay open without each click closing others —
+            operators routinely want Status + Operator both open. */}
         <Accordion
           defaultActiveKey={[
             'status',
