@@ -111,6 +111,15 @@ const Settings = (props) => {
         </Dropdown.Item>
         <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, connectWalletModal: true }))}>Connect wallet</Dropdown.Item>
         <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, sqlTerminalModal: true }))}>SQL Terminal</Dropdown.Item>
+        <Dropdown.Item
+          data-bs-toggle='modal'
+          data-bs-target='#staticBackdrop'
+          onClick={() => dispatch(setShowModals({ ...showModals, glossaryModal: true }))}
+          title='Searchable reference for SuperScalar and bLIP-56 terms (factory, MuSig2, epoch, breach window, etc.)'
+          data-testid='settings-glossary'
+        >
+          Glossary
+        </Dropdown.Item>
         { serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true" ?
             <></>
           :

@@ -20,6 +20,7 @@ import { useSelector } from 'react-redux';
 import { selectAppMode, selectIsAuthenticated, selectIsDarkMode } from '../../store/rootSelectors';
 import SQLTerminal from '../modals/SQLTerminal/SQLTerminal';
 import QRCodeLarge from '../modals/QRCodeLarge/QRCodeLarge';
+import Glossary from '../modals/Glossary/Glossary';
 
 export const App = () => {
   const currentScreenSize = useBreakpoint();
@@ -50,6 +51,7 @@ export const App = () => {
       <LogoutComponent />
       <SetPasswordComponent />
       <SQLTerminal />
+      <Glossary />
     </>
   );
 };

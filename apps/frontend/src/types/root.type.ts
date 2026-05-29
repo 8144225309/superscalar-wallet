@@ -131,6 +131,7 @@ export type ModalConfig = {
   setPasswordModal: boolean;
   sqlTerminalModal: boolean;
   qrCodeLarge: boolean;
+  glossaryModal: boolean;
 };
 
 export type ToastConfig = {

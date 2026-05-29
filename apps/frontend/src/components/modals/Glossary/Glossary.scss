@@ -1,0 +1,40 @@
+.glossary-modal {
+  .glossary-search {
+    border-radius: 0.5rem;
+  }
+  .glossary-term {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .glossary-term-name {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .glossary-term-def {
+      font-size: 0.9em;
+      line-height: 1.45;
+      opacity: 0.85;
+    }
+
+    .glossary-term-tag {
+      display: inline-block;
+      font-size: 0.7em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 0.25rem;
+      background: rgba(128, 128, 128, 0.15);
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+  }
+
+  .glossary-empty {
+    padding: 2rem 0;
+    text-align: center;
+    opacity: 0.7;
+  }
+}
