@@ -126,11 +126,11 @@ const FactoryListItem = ({ factory, onClick, hidden, onToggleHide, onDiscard, di
           <OverlayTrigger
             placement='auto'
             delay={{ show: 250, hide: 250 }}
-            overlay={<Tooltip>{factory.lifecycle} - {factory.ceremony}</Tooltip>}
+            overlay={<Tooltip>Factory ID: {factory.instance_id}<br/>{factory.lifecycle} - {factory.ceremony}</Tooltip>}
           >
             <span>
               <div className={'d-inline-block mx-1 dot ' + lifecycleBadge(factory.lifecycle)}></div>
-              {factory.instance_id.substring(0, 16)}...
+              <code style={{ fontSize: '0.95em' }}>{factory.instance_id.substring(0, 16)}…</code>
             </span>
           </OverlayTrigger>
           <span
@@ -300,6 +300,7 @@ const FactoryList = (props: FactoryListProps) => {
     open: boolean,
     onToggle: () => void,
     testid: string,
+    extraBadge?: React.ReactNode,
   ) => (
     items.length > 0 ? (
       <div>
@@ -308,7 +309,11 @@ const FactoryList = (props: FactoryListProps) => {
           onClick={onToggle}
           data-testid={testid}
         >
-          <span>{label} <span className='badge bg-secondary ms-1'>{items.length}</span></span>
+          <span>
+            {label}{' '}
+            <span className='badge bg-secondary ms-1'>{items.length}</span>
+            {extraBadge}
+          </span>
           <span>{open ? '▾' : '▸'}</span>
         </div>
         {open && (
@@ -318,6 +323,13 @@ const FactoryList = (props: FactoryListProps) => {
         )}
       </div>
     ) : null
+  );
+
+  /* Polish 1.3: surface discardable count on the Failed/abandoned bucket header
+   * so operators see Discard is available without having to expand the section. */
+  const discardableCount = useMemo(
+    () => groups.incomplete.filter(canDiscard).length,
+    [groups.incomplete],
   );
 
   const anything =
@@ -371,7 +383,26 @@ const FactoryList = (props: FactoryListProps) => {
                 No active factories for this view.
               </div>
             )}
-            {renderSection('Failed / abandoned', groups.incomplete, showIncomplete, () => setShowIncomplete(v => !v), 'section-incomplete')}
+            {renderSection(
+              'Failed / abandoned',
+              groups.incomplete,
+              showIncomplete,
+              () => setShowIncomplete(v => !v),
+              'section-incomplete',
+              discardableCount > 0 ? (
+                <OverlayTrigger
+                  placement='auto'
+                  overlay={<Tooltip>{discardableCount} of these can be Discarded (no on-chain footprint). Expand the section to see the Discard buttons.</Tooltip>}
+                >
+                  <span
+                    className='badge bg-danger ms-1'
+                    data-testid='section-incomplete-discardable'
+                  >
+                    {discardableCount} discardable
+                  </span>
+                </OverlayTrigger>
+              ) : undefined,
+            )}
             {renderSection('History', groups.history, showHistory, () => setShowHistory(v => !v), 'section-history')}
             {renderSection('Hidden', groups.hiddenItems, showHidden, () => setShowHidden(v => !v), 'section-hidden')}
           </PerfectScrollbar>

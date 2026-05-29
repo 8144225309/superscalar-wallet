@@ -176,7 +176,7 @@ function ReviewProposalModal({ instanceId, lspPeerId, show, onClose }: Props) {
       </Modal.Header>
       <Modal.Body>
         <div className='meta-line'>
-          instance_id <span className='truncate'>{truncate(instanceId, 12, 8)}</span>
+          Factory ID <span className='truncate' title={instanceId}>{truncate(instanceId, 12, 8)}</span>
           {data?.lsp_peer_id && (
             <> · LSP <span className='truncate'>{truncate(data.lsp_peer_id, 12, 8)}</span></>
           )}
