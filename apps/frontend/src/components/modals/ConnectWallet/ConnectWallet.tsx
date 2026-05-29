@@ -5,7 +5,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { Modal, Col, Row, Dropdown, InputGroup, Form } from 'react-bootstrap';
 
 import { CopySVG } from '../../../svgs/Copy';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import { copyTextToClipboard } from '../../../utilities/data-formatters';
 import logger from '../../../services/logger.service';
 import { setConnectionUrl, setShowModals, setShowToast } from '../../../store/rootSlice';
@@ -85,7 +85,7 @@ const ConnectWallet = () => {
     <>
       <Modal show={showModals.connectWalletModal} onHide={closeHandler} centered className='modal-lg' data-testid='connect-wallet'>
         <Modal.Header className='d-flex align-items-start justify-content-end pb-0 border-0'>
-          <span data-testid='modal-close' className='span-close-svg' onClick={closeHandler}><CloseSVG /></span>
+          <CloseButton onClose={closeHandler} label='Close connect wallet' testId='modal-close' />
         </Modal.Header>
         <Modal.Body className='py-0 px-4'>
           <Row data-testid='qr-container' className='qr-container m-auto d-flex'>

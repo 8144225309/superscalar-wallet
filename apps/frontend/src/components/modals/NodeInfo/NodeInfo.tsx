@@ -5,7 +5,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { Modal, Row, InputGroup, Form } from 'react-bootstrap';
 
 import { CopySVG } from '../../../svgs/Copy';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import logger from '../../../services/logger.service';
 import { copyTextToClipboard } from '../../../utilities/data-formatters';
 import { setShowModals, setShowToast } from '../../../store/rootSlice';
@@ -46,7 +46,7 @@ const NodeInfo = () => {
   return (
       <Modal show={showModals.nodeInfoModal} onHide={closeHandler} centered className='modal-lg' data-testid='node-info-modal'>
         <Modal.Header className='d-flex align-items-start justify-content-end pb-0 border-0'>
-          <span className='span-close-svg' onClick={closeHandler}><CloseSVG /></span>
+          <CloseButton onClose={closeHandler} label='Close node info' />
         </Modal.Header>
         <Modal.Body className='py-0'>
           <Row className='qr-container m-auto d-flex'>

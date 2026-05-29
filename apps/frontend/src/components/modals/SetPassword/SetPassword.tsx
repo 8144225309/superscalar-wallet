@@ -11,7 +11,7 @@ import { PasswordSVG } from '../../../svgs/Password';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import { ShowSVG } from '../../../svgs/Show';
 import { HideSVG } from '../../../svgs/Hide';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import { RootService } from '../../../services/http.service';
 import { setAuthStatus, setShowModals, setShowToast } from '../../../store/rootSlice';
 import { useDispatch, useSelector } from 'react-redux';
@@ -128,7 +128,7 @@ const SetPasswordComponent = () => {
       <Modal show={showModals.setPasswordModal} onHide={isValidPassword ? closeHandler : ()=>{}} centered className='modal-lg' data-testid='set-password-modal'>
         <Modal.Header className='d-flex align-items-start justify-content-end pb-0 border-0'>
           { isValidPassword
-            ? <span className='span-close-svg' onClick={closeHandler}><CloseSVG /></span>
+            ? <CloseButton onClose={closeHandler} label='Close set password' />
             : <></>
           }
         </Modal.Header>

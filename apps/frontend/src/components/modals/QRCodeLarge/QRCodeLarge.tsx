@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Modal, Row } from 'react-bootstrap';
 
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import { setShowModals } from '../../../store/rootSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectConnectionUrl, selectIsDarkMode, selectShowModals } from '../../../store/rootSelectors';
@@ -22,7 +22,7 @@ const QRCodeLarge = () => {
     <>
       <Modal show={showModals.qrCodeLarge} onHide={closeHandler} centered className='modal-lg' data-testid='qr-code-large'>
         <Modal.Header className='d-flex align-items-start justify-content-end pb-0 border-0'>
-          <span data-testid='modal-close' className='span-close-svg' onClick={closeHandler}><CloseSVG /></span>
+          <CloseButton onClose={closeHandler} label='Close QR code' testId='modal-close' />
         </Modal.Header>
         <Modal.Body className='p-0'>
           <Row className='qr-container-large m-auto d-flex' data-testid='qr-container-large' data-key={connectionUrl}>
