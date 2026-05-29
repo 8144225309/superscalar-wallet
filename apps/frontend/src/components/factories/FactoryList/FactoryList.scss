@@ -7,6 +7,25 @@
   }
 }
 
+/* Polish #1.5 (R2.4): mobile responsive — the row's top line packs in
+ * Factory ID + Role badge + Status badge + Hide + Discard. On narrow
+ * viewports these overflow the right edge of the card. Wrap onto
+ * multiple lines instead of clipping. */
+.list-item-channel {
+  > .list-item-div > .d-flex.justify-content-between {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .list-item-channel code {
+    /* On the smallest break the truncated hex itself can wrap mid-string,
+     * which looks worse than letting it grow. Allow break-all. */
+    word-break: break-all;
+  }
+}
+
 .factory-section-header {
   border-bottom: 1px solid rgba($gray-400, 0.4);
   margin-bottom: 4px;
