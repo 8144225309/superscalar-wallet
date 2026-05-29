@@ -1,0 +1,18 @@
+/* Pills already wrap via flex-wrap but can still overflow at very
+ * narrow widths if a label is long. Allow the pill button text to
+ * shrink + reduce padding so "Signing Prefs" still fits on a 360px
+ * row at min. */
+
+.factories-nav {
+  .btn {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 575.98px) {
+    .btn {
+      font-size: 0.75rem;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+  }
+}
