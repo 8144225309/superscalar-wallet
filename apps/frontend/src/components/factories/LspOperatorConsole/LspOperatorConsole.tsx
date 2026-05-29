@@ -70,6 +70,13 @@ function LspOperatorConsole() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [refuseTarget, setRefuseTarget] = useState<RowWithFactory | null>(null);
   const [refuseReason, setRefuseReason] = useState('');
+  /* Bulk-action selection — only Pending rows (status === 0) are
+   * selectable. Refused/Cancelled/Signed/Already-member are terminal
+   * from this view; bulk-approve only makes sense on queued items. */
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkRefuseOpen, setBulkRefuseOpen] = useState(false);
+  const [bulkRefuseReason, setBulkRefuseReason] = useState('');
 
   const activeStatuses = useMemo(
     () => FILTER_TABS.find((t) => t.key === filter)?.statuses ?? [0],
@@ -129,6 +136,84 @@ function LspOperatorConsole() {
     }, 7000);
     return () => clearInterval(id);
   }, [lspFactories, filter]);
+
+  const rowKey = (r: { factory_instance_id_hex: string; client_pubkey_hex: string }) =>
+    `${r.factory_instance_id_hex}-${r.client_pubkey_hex}`;
+
+  /* Pending rows currently visible — what bulk-select will operate on.
+   * Recomputed when filter / rows change so the selection set never
+   * holds keys for rows no longer in the table. */
+  const selectablePending = useMemo(
+    () => rows.filter((r) => r.status === 0),
+    [rows],
+  );
+  const allSelected =
+    selectablePending.length > 0 &&
+    selectablePending.every((r) => selectedKeys.has(rowKey(r)));
+  const someSelected =
+    !allSelected && selectablePending.some((r) => selectedKeys.has(rowKey(r)));
+
+  const toggleSelect = (r: RowWithFactory) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      const k = rowKey(r);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedKeys(new Set());
+    } else {
+      setSelectedKeys(new Set(selectablePending.map(rowKey)));
+    }
+  };
+
+  /* Fan out approve / refuse across the currently-selected rows. We run
+   * them sequentially (not Promise.all) because the plugin's join queue
+   * lock is per-factory; parallel calls against the same factory would
+   * race anyway. Sequential keeps the error surface readable. */
+  const handleBulkApprove = async () => {
+    const targets = selectablePending.filter((r) => selectedKeys.has(rowKey(r)));
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    let failures = 0;
+    for (const r of targets) {
+      try {
+        await FactoriesService.approveJoinQueued(r.factory_instance_id_hex, r.client_pubkey_hex);
+      } catch {
+        failures++;
+      }
+    }
+    setSelectedKeys(new Set());
+    setBulkBusy(false);
+    if (failures > 0) setError(`Bulk approve: ${failures}/${targets.length} failed`);
+    await loadAll();
+  };
+  const handleBulkRefuse = async () => {
+    const targets = selectablePending.filter((r) => selectedKeys.has(rowKey(r)));
+    if (targets.length === 0) return;
+    setBulkBusy(true);
+    let failures = 0;
+    for (const r of targets) {
+      try {
+        await FactoriesService.refuseJoinQueued(
+          r.factory_instance_id_hex,
+          r.client_pubkey_hex,
+          bulkRefuseReason.trim() || undefined,
+        );
+      } catch {
+        failures++;
+      }
+    }
+    setSelectedKeys(new Set());
+    setBulkRefuseOpen(false);
+    setBulkRefuseReason('');
+    setBulkBusy(false);
+    if (failures > 0) setError(`Bulk refuse: ${failures}/${targets.length} failed`);
+    await loadAll();
+  };
 
   const handleApprove = async (r: RowWithFactory) => {
     const key = `${r.factory_instance_id_hex}-${r.client_pubkey_hex}`;
@@ -243,6 +328,48 @@ function LspOperatorConsole() {
           </Alert>
         )}
 
+        {/* Bulk action bar — only when 1+ pending rows are selected. */}
+        {selectedKeys.size > 0 && (
+          <div
+            className='d-flex align-items-center justify-content-between p-2 mb-2 rounded'
+            style={{ fontSize: '0.85rem', backgroundColor: 'rgba(13, 110, 253, 0.08)' }}
+            data-testid='bulk-action-bar'
+          >
+            <span>
+              <strong>{selectedKeys.size}</strong> pending row{selectedKeys.size === 1 ? '' : 's'} selected
+            </span>
+            <div className='d-flex gap-2'>
+              <Button
+                size='sm'
+                variant='outline-secondary'
+                onClick={() => setSelectedKeys(new Set())}
+                disabled={bulkBusy}
+                data-testid='bulk-clear'
+              >
+                Clear
+              </Button>
+              <Button
+                size='sm'
+                variant='success'
+                onClick={handleBulkApprove}
+                disabled={bulkBusy}
+                data-testid='bulk-approve'
+              >
+                {bulkBusy ? <Spinner animation='border' size='sm' /> : `Approve ${selectedKeys.size}`}
+              </Button>
+              <Button
+                size='sm'
+                variant='danger'
+                onClick={() => setBulkRefuseOpen(true)}
+                disabled={bulkBusy}
+                data-testid='bulk-refuse'
+              >
+                Refuse {selectedKeys.size}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className='text-center py-3'>
             <Spinner animation='border' size='sm' />
@@ -257,6 +384,20 @@ function LspOperatorConsole() {
             <Table size='sm' className='mb-0'>
               <thead>
                 <tr style={{ fontSize: '0.8rem' }}>
+                  <th style={{ width: '32px' }}>
+                    {selectablePending.length > 0 && (
+                      <Form.Check
+                        type='checkbox'
+                        checked={allSelected}
+                        ref={(el: HTMLInputElement | null) => {
+                          if (el) el.indeterminate = someSelected;
+                        }}
+                        onChange={toggleSelectAll}
+                        aria-label='Select all pending'
+                        data-testid='bulk-select-all'
+                      />
+                    )}
+                  </th>
                   <th>Factory</th>
                   <th>Client</th>
                   <th className='text-end'>Requested</th>
@@ -273,8 +414,21 @@ function LspOperatorConsole() {
                   const isBusy = busyKey === key;
                   const currentBlock = r.factory.creation_block + 0; // we don't have blockheight here; rely on received_at_block raw
                   const age = currentBlock > 0 ? Math.max(0, currentBlock - r.received_at_block) : 0;
+                  const selectable = r.status === 0;
+                  const isSelected = selectedKeys.has(key);
                   return (
-                    <tr key={key} style={{ fontSize: '0.85rem' }}>
+                    <tr key={key} style={{ fontSize: '0.85rem' }} className={isSelected ? 'table-active' : undefined}>
+                      <td>
+                        {selectable && (
+                          <Form.Check
+                            type='checkbox'
+                            checked={isSelected}
+                            onChange={() => toggleSelect(r)}
+                            aria-label={`Select ${r.client_pubkey_hex.slice(0, 8)}`}
+                            data-testid={`bulk-select-${r.client_pubkey_hex.slice(0, 8)}`}
+                          />
+                        )}
+                      </td>
                       <td>
                         <Link
                           to={`/factories/${r.factory.instance_id}`}
@@ -395,6 +549,58 @@ function LspOperatorConsole() {
           </Button>
           <Button variant='danger' onClick={handleRefuseSubmit} data-testid='console-refuse-confirm'>
             Refuse
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={bulkRefuseOpen}
+        onHide={() => {
+          setBulkRefuseOpen(false);
+          setBulkRefuseReason('');
+        }}
+        centered
+        data-testid='bulk-refuse-modal'
+      >
+        <Modal.Header closeButton>
+          <Modal.Title style={{ fontSize: '1.1rem' }}>
+            Refuse {selectedKeys.size} join request{selectedKeys.size === 1 ? '' : 's'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className='mb-2' style={{ fontSize: '0.9rem' }}>
+            Refusing all selected pending joins. Each client sees the same reason on retry.
+          </p>
+          <Form.Group>
+            <Form.Label>Reason (optional, applied to all)</Form.Label>
+            <Form.Control
+              as='textarea'
+              rows={2}
+              value={bulkRefuseReason}
+              onChange={(e) => setBulkRefuseReason(e.target.value)}
+              placeholder='e.g. capacity full for this epoch'
+              data-testid='bulk-refuse-reason'
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant='outline-secondary'
+            onClick={() => {
+              setBulkRefuseOpen(false);
+              setBulkRefuseReason('');
+            }}
+            disabled={bulkBusy}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant='danger'
+            onClick={handleBulkRefuse}
+            disabled={bulkBusy}
+            data-testid='bulk-refuse-confirm'
+          >
+            {bulkBusy ? <Spinner animation='border' size='sm' /> : `Refuse ${selectedKeys.size}`}
           </Button>
         </Modal.Footer>
       </Modal>
