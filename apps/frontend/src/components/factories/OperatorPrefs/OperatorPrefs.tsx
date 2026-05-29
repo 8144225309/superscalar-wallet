@@ -72,8 +72,8 @@ function OperatorPrefs() {
       const next: Record<PrefKey, string> = { ...values };
       for (const f of FIELDS) {
         try {
-          const r = await FactoriesService.getOperatorPref(null, f.key);
-          const v = (r as any)?.value;
+          const r: { value?: string | number | null } = await FactoriesService.getOperatorPref(null, f.key);
+          const v = r?.value;
           next[f.key] = v == null ? '' : String(v);
         } catch {
           next[f.key] = '';

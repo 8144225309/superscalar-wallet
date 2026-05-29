@@ -126,7 +126,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
   // Audit item #6: confirm modal for close + force-close
   const [confirmCloseMode, setConfirmCloseMode] = useState<'close' | 'force' | null>(null);
   const isLsp = factory.is_lsp;
-  const currentBlock = (nodeInfo as any)?.blockheight || 0;
+  const currentBlock = nodeInfo?.blockheight ?? 0;
   const [showInvite, setShowInvite] = useState(false);
   const closeSafety = classifyCloseSafety(factory, currentBlock);
 
@@ -705,7 +705,7 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
         show={showInvite}
         onHide={() => setShowInvite(false)}
         factoryInstanceIdHex={factory.instance_id}
-        factoryLabel={(factory as any).label}
+        factoryLabel={factory.label}
       />
     </>
   );
