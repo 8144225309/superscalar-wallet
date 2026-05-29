@@ -1,5 +1,37 @@
 import './FactoryDetail.scss';
 import { useState } from 'react';
+
+/**
+ * Factory Detail page.
+ *
+ * What it renders
+ *   The full per-factory view: identity (alias, iid), unified status
+ *   header, lifecycle / channels / policy / activity sections inside
+ *   an accordion (R2.2), the action row pinned above (Open Channels /
+ *   Rotate / Close / Force Close / Trigger Ceremony depending on
+ *   lifecycle), and the invite modal trigger.
+ *
+ *   LSP-only sub-cards mount conditionally on `factory.is_lsp`:
+ *   - JoinRequestsCard (per-factory join queue)
+ *   - OperatorPrefsCard (per-factory operator preference overrides)
+ *
+ * Key state
+ *   - Modal flags for Close, Force Close, Trigger Ceremony confirmations
+ *   - Call-status alerts (Idle / Pending / Success / Error) driven via
+ *     StatusAlert + CLEAR_STATUS_ALERT_DELAY (consistent with the rest
+ *     of the codebase)
+ *
+ * Side effects
+ *   - Plugin RPCs invoked from the action row: factory-rotate,
+ *     factory-open-channels, factory-close-proposal, factory-force-close,
+ *     factory-trigger-ceremony, factory-forget
+ *   - Mutating actions are audit-logged server-side (R7.8)
+ *
+ * Props contract
+ *   `factory: Factory` — the row from the factory list. Caller (router
+ *   loader) resolves the iid path param into this object before mount.
+ */
+
 import { Card, Row, Col, ListGroup, OverlayTrigger, Tooltip, Form, Modal, Button, Badge, Accordion } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';

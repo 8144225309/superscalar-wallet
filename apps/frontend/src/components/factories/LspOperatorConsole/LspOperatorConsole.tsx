@@ -7,17 +7,35 @@ import { Factory } from '../../../types/factories.type';
 import { FactoriesService } from '../../../services/http.service';
 import SatsWithFiat from '../../shared/SatsWithFiat/SatsWithFiat';
 
-/* Task #82: LSP operator console for incoming joins.
+/**
+ * LSP Operator Console — task #82.
  *
- * Aggregates lsp_join_queue rows across every factory where this node
- * is LSP into a single review surface — so the operator doesn't have to
- * bounce between FactoryDetail pages to handle pending joins one at a
- * time. Powered by the same plugin RPCs that JoinRequestsCard uses
- * (wallet-list-join-queue-by-status / wallet-approve-join-queued /
- * wallet-refuse-join-queued).
+ * What it renders
+ *   A single review surface that aggregates `lsp_join_queue` rows
+ *   across every factory where this node is LSP. Operators don't have
+ *   to bounce between FactoryDetail pages to handle pending joins
+ *   one at a time.
  *
- * Polls every 7s (same cadence as JoinQueueBanner). Filter tabs let the
- * operator scope the view to one status family.
+ * Key state
+ *   - `entries`: in-memory list of join-queue rows, polled from the
+ *     plugin every 7s
+ *   - `statusFilter`: which lifecycle bucket to display
+ *   - `selected`: rows currently checked for bulk Approve/Refuse
+ *     (R3.2 shipped bulk actions)
+ *   - `actionInFlight`: true while any row action is pending —
+ *     suppresses the 7s poll to avoid fighting the operator's click
+ *     (R1.5 polish)
+ *
+ * Side effects
+ *   - Plugin RPC calls: wallet-list-join-queue-by-status (poll),
+ *     wallet-approve-join-queued, wallet-refuse-join-queued
+ *   - On approve/refuse: refetches the list and clears selection
+ *   - Bulk approve fans out sequentially to avoid swamping the plugin;
+ *     bulk refuse shares one operator-supplied reason across all rows
+ *
+ * Props contract
+ *   None — reads factory list from Redux to determine which factories
+ *   to query. Caller mounts it inside the operator-only routes.
  */
 
 type JoinEntry = {

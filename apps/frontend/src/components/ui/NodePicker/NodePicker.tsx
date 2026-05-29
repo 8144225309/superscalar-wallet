@@ -1,5 +1,32 @@
 import './NodePicker.scss';
 import { Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
+
+/**
+ * Node Picker — multi-CLN-node profile dropdown.
+ *
+ * What it renders
+ *   The header profile control: active profile alias, dropdown with
+ *   every discovered profile, per-row health dots (red/green/dashed),
+ *   and inline spinners while a switch is in flight.
+ *
+ * Key state (Redux-backed via nodesSlice)
+ *   - `profiles`: discovered CLN profiles (R7-era env-gated discovery)
+ *   - `activeProfileId`
+ *   - `isSwitching` / `isDiscovering`: spinner gates
+ *   - `profileHealth`: per-profile last-known reachability (event-driven
+ *     after PR #160 — no busy-polling)
+ *
+ * Side effects
+ *   - On switch: fans out parallel calls to refetch dashboard state
+ *     (PR #68 parallelized RootService.fetchRootData + refreshData)
+ *   - Clears Redux node-scoped stores (clnSlice / bkprSlice /
+ *     factoriesSlice / root.nodeInfo) before refetching so the UI
+ *     doesn't show stale data from the previous profile
+ *
+ * Props contract
+ *   None — fully self-contained. Mounted in Header.
+ */
+
 import InlineSpinner from '../InlineSpinner/InlineSpinner';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
