@@ -8,6 +8,26 @@ import handleError from '../shared/error-handler.js';
 import { verifyPassword, isAuthenticated, isValidPassword } from '../shared/utils.js';
 import { AuthError } from '../models/errors.js';
 
+/* Cookie security: when running in production (NODE_ENV=production), require
+ * HTTPS for the token cookie. Dev/regtest stays http-friendly. The httpOnly
+ * flag is always on so client-side JS can't read the token. */
+const cookieFlags = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+};
+
+/* Password strength gate for set/reset. The frontend pre-hashes the
+ * password before sending (sha256 — see app config flow), so we can't
+ * inspect length/charset of the user's actual plaintext from here. To
+ * still enforce a strength floor, the frontend should call this same
+ * helper before hashing. The server-side check below only verifies that
+ * the hash being stored isn't trivially malformed (empty / wrong length).
+ * Real strength enforcement happens client-side in the password-set UI. */
+function isValidHashFormat(hash: unknown): boolean {
+  return typeof hash === 'string' && /^[0-9a-f]{64}$/i.test(hash);
+}
+
 export class AuthController {
   userLogin = async (req: Request, res: Response, next: NextFunction) => {
     logger.info('Logging in');
@@ -16,7 +36,7 @@ export class AuthController {
       if (vpRes === true) {
         const token = jwt.sign({ userID: SECRET_KEY }, SECRET_KEY);
         // Expire the token in a day
-        res.cookie('token', token, { httpOnly: true, maxAge: 3600000 * 24 });
+        res.cookie('token', token, { ...cookieFlags, maxAge: 3600000 * 24 });
         return res.status(201).json({ isAuthenticated: true, isValidPassword: isValidPassword() });
       } else {
         const err = new AuthError(HttpStatusCode.UNAUTHORIZED, vpRes);
@@ -43,6 +63,14 @@ export class AuthController {
       const isValid = req.body.isValid;
       const currPassword = req.body.currPassword;
       const newPassword = req.body.newPassword;
+      /* Server-side floor: reject if the new password hash isn't a
+       * valid 64-char hex sha256. The frontend pre-hashes plaintext,
+       * so anything not matching this shape is a malformed request
+       * (and would be impossible to verify on subsequent login). */
+      if (!isValidHashFormat(newPassword)) {
+        const err = new AuthError(HttpStatusCode.INVALID_DATA, 'New password is malformed.');
+        return handleError(err, req, res, next);
+      }
       if (fs.existsSync(APP_CONSTANTS.APP_CONFIG_FILE)) {
         try {
           const config = JSON.parse(fs.readFileSync(APP_CONSTANTS.APP_CONFIG_FILE, 'utf-8'));
@@ -56,7 +84,11 @@ export class AuthController {
                   'utf-8',
                 );
                 const token = jwt.sign({ userID: SECRET_KEY }, SECRET_KEY);
-                res.cookie('token', token, { httpOnly: true, maxAge: 3600 * 24 * 7 });
+                /* Fix prior bug: this used `maxAge: 3600 * 24 * 7` which is
+                 * 604800 *milliseconds* (≈10 min) — wildly shorter than the
+                 * stated "7-day" intent. Match the login cookie (24h) until
+                 * a deliberate refresh story is shipped. */
+                res.cookie('token', token, { ...cookieFlags, maxAge: 3600000 * 24 });
                 res.status(201).json({ isAuthenticated: true, isValidPassword: isValidPassword() });
               } catch (error: any) {
                 handleError(error, req, res, next);
