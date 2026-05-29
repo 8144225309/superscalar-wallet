@@ -59,16 +59,67 @@ app.use((req, res, next) => {
    * info endpoints. `connect-src 'self' wss: https:` permits both
    * without hardcoding any specific relay set (which is operator-
    * configurable per network). default-src remains 'self' so script,
-   * style, image, etc. loads stay locked to the wallet's own origin. */
-  // style-src 'unsafe-inline' is required because react-perfect-scrollbar
-  // (used app-wide via Channels/AccountEvents/FactoryList/ConnectList scroll
-  // containers) injects <style> tags at runtime. The strict policy blocked
-  // these in CSP-strict browsers (Dashboard / #158 repro). XSS surface
-  // remains low because script-src is still 'self'.
+   * style, image, etc. loads stay locked to the wallet's own origin.
+   *
+   * style-src 'unsafe-inline' is required because react-perfect-scrollbar
+   * (used app-wide via Channels/AccountEvents/FactoryList/ConnectList scroll
+   * containers) injects <style> tags at runtime. The strict policy blocked
+   * these in CSP-strict browsers (Dashboard / #158 repro). XSS surface
+   * remains low because script-src is still 'self'.
+   *
+   * frame-src 'none' / frame-ancestors 'none': we never embed external
+   * frames and we never want to be embedded ourselves (clickjacking
+   * defense complements X-Frame-Options: DENY below).
+   *
+   * object-src 'none': no Flash, PDF, applet plugins.
+   *
+   * base-uri 'self' / form-action 'self': locks down two often-exploited
+   * vectors. We never need to set <base> nor submit forms cross-origin. */
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; font-src 'self'; img-src 'self' data:; script-src 'self'; frame-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss: https:;",
+    [
+      "default-src 'self'",
+      "font-src 'self'",
+      "img-src 'self' data:",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "connect-src 'self' wss: https:",
+      "frame-src 'none'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ') + ';',
   );
+  /* Defense-in-depth headers. helmet-equivalent posture without the dep. */
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  /* Permissions-Policy: explicitly deny browser features the wallet
+   * does not use. Reduces blast radius if XSS lands a payload. */
+  res.setHeader(
+    'Permissions-Policy',
+    [
+      'accelerometer=()',
+      'camera=()',
+      'geolocation=()',
+      'gyroscope=()',
+      'magnetometer=()',
+      'microphone=()',
+      'payment=()',
+      'usb=()',
+      'interest-cohort=()',
+    ].join(', '),
+  );
+  /* HSTS only when production AND https — issuing HSTS over http or
+   * in dev locks browsers into a broken state if the operator later
+   * switches schemes. */
+  if (process.env.NODE_ENV === 'production' && APP_PROTOCOL === 'https') {
+    res.setHeader(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains',
+    );
+  }
   next();
 });
 
