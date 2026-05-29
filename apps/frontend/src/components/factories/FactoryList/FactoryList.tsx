@@ -77,9 +77,9 @@ const bucketOf = (f: Factory): Bucket => {
   return 'live';
 };
 
-/* Polish 2.3: status badge fields now come from the shared
- * `factoryStatus()` helper so FactoryList / FactoryDetail / etc all
- * render the same badge variant + label + glyph + tooltip. */
+/* Status badge fields come from the shared `factoryStatus()` helper
+ * so FactoryList / FactoryDetail / etc render the same badge variant
+ * + label + glyph + tooltip. */
 
 const sortFactories = (list: Factory[]): Factory[] =>
   [...list].sort((a, b) => {

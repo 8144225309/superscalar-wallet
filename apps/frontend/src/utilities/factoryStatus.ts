@@ -1,20 +1,11 @@
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../types/factories.type';
 
-/* Polish #2.3: single source of truth for "what does this factory's status
- * look like?" across FactoryList, FactoryDetail, LspOperatorConsole, and
- * JoinFactoryModal.
- *
- * Previously every render site re-derived its own (bg / label / glyph)
- * triple from `factory.lifecycle` + `factory.ceremony`, with subtle
- * differences:
- *   - FactoryList showed "Active"/"Signed"/"Failed"/"Aborted"/<ceremony>
- *   - FactoryDetail showed raw `factory.lifecycle`
- *   - JoinFactoryModal showed raw `f.lifecycle`
- *   - LspOperatorConsole tracked queue-row status, not factory status,
- *     but reused similar badge variants
- *
- * Now every status indicator imports this and gets the same look + label
- * + tooltip, including the colorblind-redundant glyph from R1.3. */
+/* Single source of truth for "what does this factory's status look like?"
+ * across FactoryList, FactoryDetail, LspOperatorConsole, and
+ * JoinFactoryModal. Previously every render site re-derived its own
+ * (bg / label / glyph) triple from `factory.lifecycle` + `factory.ceremony`
+ * with subtle differences. Now every status indicator imports this and
+ * gets the same look + label + tooltip + colorblind-redundant glyph. */
 
 export type FactoryStatusKey =
   | 'active'
