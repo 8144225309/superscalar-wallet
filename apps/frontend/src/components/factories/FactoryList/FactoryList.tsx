@@ -198,6 +198,7 @@ const FactoryList = (props: FactoryListProps) => {
   const nodeId = nodeInfo?.id;
 
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+  const [search, setSearch] = useState('');
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [showIncomplete, setShowIncomplete] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -257,12 +258,33 @@ const FactoryList = (props: FactoryListProps) => {
     }
   };
 
+  /* Search match: case-insensitive substring against the factory ID OR
+   * any participant pubkey carried on the factory. Operators paste
+   * partial pubkeys to find which factory a peer is in, or paste a
+   * partial Factory ID to find one specific factory. Empty search
+   * disables the filter entirely (every factory matches). */
+  const searchMatches = (f: Factory, q: string): boolean => {
+    if (!q) return true;
+    const needle = q.toLowerCase();
+    if (f.instance_id.toLowerCase().includes(needle)) return true;
+    if ((f as any).lsp_node_id && String((f as any).lsp_node_id).toLowerCase().includes(needle)) return true;
+    if ((f as any).clients && Array.isArray((f as any).clients)) {
+      for (const c of (f as any).clients) {
+        const pk = (c?.node_id || c?.client_pubkey || '').toLowerCase();
+        if (pk && pk.includes(needle)) return true;
+      }
+    }
+    if ((f as any).label && String((f as any).label).toLowerCase().includes(needle)) return true;
+    return false;
+  };
+
   const groups = useMemo(() => {
+    const trimmed = search.trim();
     const base = !factories
       ? []
-      : roleFilter === 'all'
-        ? factories
-        : factories.filter(f => (roleFilter === 'lsp' ? f.is_lsp : !f.is_lsp));
+      : factories
+          .filter(f => roleFilter === 'all' ? true : roleFilter === 'lsp' ? f.is_lsp : !f.is_lsp)
+          .filter(f => searchMatches(f, trimmed));
     const live: Factory[] = [];
     const history: Factory[] = [];
     const incomplete: Factory[] = [];
@@ -280,7 +302,7 @@ const FactoryList = (props: FactoryListProps) => {
       incomplete: sortFactories(incomplete),
       hiddenItems: sortFactories(hiddenItems),
     };
-  }, [factories, roleFilter, hidden]);
+  }, [factories, roleFilter, search, hidden]);
 
   const renderItems = (items: Factory[]) =>
     items.map((factory, idx) => (
@@ -338,33 +360,47 @@ const FactoryList = (props: FactoryListProps) => {
 
   return (
     <Card className='h-100 d-flex align-items-stretch px-4 pt-4 pb-3' data-testid='factory-list'>
-      <Card.Header className='px-1 pb-2 fs-18px p-0 fw-bold text-dark d-flex justify-content-between align-items-center flex-wrap gap-2'>
-        <span>Channel Factories</span>
-        {showPill && (
-          <ButtonGroup size='sm' aria-label='Role filter' data-testid='role-filter'>
-            <Button
-              variant={roleFilter === 'all' ? 'primary' : 'outline-secondary'}
-              onClick={() => setRoleFilter('all')}
-              data-testid='role-filter-all'
-            >
-              All <span className='badge bg-light text-dark ms-1'>{roleCounts.lsp + roleCounts.client}</span>
-            </Button>
-            <Button
-              variant={roleFilter === 'lsp' ? 'primary' : 'outline-secondary'}
-              onClick={() => setRoleFilter('lsp')}
-              data-testid='role-filter-lsp'
-            >
-              LSP <span className='badge bg-light text-dark ms-1'>{roleCounts.lsp}</span>
-            </Button>
-            <Button
-              variant={roleFilter === 'client' ? 'primary' : 'outline-secondary'}
-              onClick={() => setRoleFilter('client')}
-              data-testid='role-filter-client'
-            >
-              Client <span className='badge bg-light text-dark ms-1'>{roleCounts.client}</span>
-            </Button>
-          </ButtonGroup>
-        )}
+      <Card.Header className='px-1 pb-2 fs-18px p-0 fw-bold text-dark d-flex flex-column gap-2'>
+        <div className='d-flex justify-content-between align-items-center flex-wrap gap-2'>
+          <span>Channel Factories</span>
+          {showPill && (
+            <ButtonGroup size='sm' aria-label='Role filter' data-testid='role-filter'>
+              <Button
+                variant={roleFilter === 'all' ? 'primary' : 'outline-secondary'}
+                onClick={() => setRoleFilter('all')}
+                data-testid='role-filter-all'
+              >
+                All <span className='badge bg-light text-dark ms-1'>{roleCounts.lsp + roleCounts.client}</span>
+              </Button>
+              <Button
+                variant={roleFilter === 'lsp' ? 'primary' : 'outline-secondary'}
+                onClick={() => setRoleFilter('lsp')}
+                data-testid='role-filter-lsp'
+              >
+                LSP <span className='badge bg-light text-dark ms-1'>{roleCounts.lsp}</span>
+              </Button>
+              <Button
+                variant={roleFilter === 'client' ? 'primary' : 'outline-secondary'}
+                onClick={() => setRoleFilter('client')}
+                data-testid='role-filter-client'
+              >
+                Client <span className='badge bg-light text-dark ms-1'>{roleCounts.client}</span>
+              </Button>
+            </ButtonGroup>
+          )}
+        </div>
+        {/* Quick search — partial Factory ID OR partial participant pubkey
+            OR factory label substring. Empty string disables. */}
+        <input
+          type='text'
+          className='form-control form-control-sm fs-7'
+          placeholder='Search by Factory ID, peer pubkey, or label…'
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          data-testid='factory-list-search'
+          aria-label='Search factories'
+          style={{ maxWidth: '100%', fontWeight: 400 }}
+        />
       </Card.Header>
       <Card.Body className='py-0 px-1 channels-scroll-container' style={{ overflowY: 'auto' }}>
         {isAuthenticated && isLoading ? (
@@ -410,10 +446,26 @@ const FactoryList = (props: FactoryListProps) => {
         ) : (
           <Row className='text-light fs-6 mt-3 h-100 mt-2 align-items-center justify-content-center'>
             <Row className='d-flex align-items-center justify-content-center'>
-              <Row className='text-center pb-4'>
-                {roleFilter === 'all'
-                  ? 'No factories found. Create a factory to start!'
-                  : `No ${roleFilter === 'lsp' ? 'LSP' : 'Client'} factories for this node.`}
+              <Row className='text-center pb-4' data-testid='factory-list-empty-state'>
+                {search.trim() ? (
+                  <>
+                    No factories match <code>&ldquo;{search.trim()}&rdquo;</code>.
+                    <div className='mt-2'>
+                      <button
+                        type='button'
+                        className='btn btn-sm btn-outline-secondary'
+                        onClick={() => setSearch('')}
+                        data-testid='factory-list-clear-search'
+                      >
+                        Clear search
+                      </button>
+                    </div>
+                  </>
+                ) : roleFilter === 'all' ? (
+                  'No factories found. Create a factory to start!'
+                ) : (
+                  `No ${roleFilter === 'lsp' ? 'LSP' : 'Client'} factories for this node.`
+                )}
               </Row>
             </Row>
           </Row>
