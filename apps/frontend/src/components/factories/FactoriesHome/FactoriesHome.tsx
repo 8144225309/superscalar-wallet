@@ -20,6 +20,7 @@ import PendingProposalsCard from '../ReviewProposal/PendingProposalsCard';
 import JoinQueueBanner from '../JoinQueueBanner/JoinQueueBanner';
 import HeldProposalsBanner from '../ReviewProposal/HeldProposalsBanner';
 import MissedCeremoniesBanner from '../ReviewProposal/MissedCeremoniesBanner';
+import LspOperatorConsole from '../LspOperatorConsole/LspOperatorConsole';
 
 function FactoriesHome() {
   useInjectReducer('factories', factoriesReducer);
@@ -31,6 +32,7 @@ function FactoriesHome() {
   const isSigningPrefs = pathname.endsWith('/factories/signing-prefs');
   const isOperatorPrefs = pathname.endsWith('/factories/operator-prefs');
   const isKnownPeers = pathname.endsWith('/factories/peers');
+  const isOperatorConsole = pathname.endsWith('/factories/console');
 
   return (
     <div data-testid='factories-container'>
@@ -63,6 +65,12 @@ function FactoriesHome() {
         <Row className='px-3'>
           <Col xs={12}>
             <KnownPeers />
+          </Col>
+        </Row>
+      ) : isOperatorConsole ? (
+        <Row className='px-3'>
+          <Col xs={12}>
+            <LspOperatorConsole />
           </Col>
         </Row>
       ) : (
@@ -105,6 +113,9 @@ function FactoriesHome() {
           </Row>
           <Row className='px-3'>
             <Col xs={12} className='d-flex justify-content-end mb-3'>
+              <Link to='/factories/console' className='text-decoration-none me-3' data-testid='operator-console-link'>
+                <small>LSP operator console &rsaquo;</small>
+              </Link>
               <Link to='/factories/operator-prefs' className='text-decoration-none me-3' data-testid='operator-prefs-link'>
                 <small>LSP operator preferences &rsaquo;</small>
               </Link>
