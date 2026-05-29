@@ -1,7 +1,7 @@
-/* Polish #1.5 (R2.4): mobile responsive — pills already wrap via
- * flex-wrap but can still overflow at very narrow widths if a label
- * is long. Allow the pill button text to shrink + reduce padding so
- * "Signing Prefs" still fits on a 360px row at min. */
+/* Pills already wrap via flex-wrap but can still overflow at very
+ * narrow widths if a label is long. Allow the pill button text to
+ * shrink + reduce padding so "Signing Prefs" still fits on a 360px
+ * row at min. */
 
 .factories-nav {
   .btn {

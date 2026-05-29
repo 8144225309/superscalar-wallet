@@ -7,10 +7,10 @@
   }
 }
 
-/* Polish #1.5 (R2.4): mobile responsive — the row's top line packs in
- * Factory ID + Role badge + Status badge + Hide + Discard. On narrow
- * viewports these overflow the right edge of the card. Wrap onto
- * multiple lines instead of clipping. */
+/* Mobile responsive — the row's top line packs Factory ID + Role badge
+ * + Status badge + Hide + Discard. On narrow viewports these overflow
+ * the right edge of the card. Wrap onto multiple lines instead of
+ * clipping. */
 .list-item-channel {
   > .list-item-div > .d-flex.justify-content-between {
     flex-wrap: wrap;
