@@ -14,6 +14,7 @@ import JoinRequestsCard from "../JoinRequestsCard/JoinRequestsCard";
 import OperatorPrefsCard from "../OperatorPrefsCard/OperatorPrefsCard";
 import FactoryActivityCard from "../FactoryActivityCard/FactoryActivityCard";
 import InviteModal from "../InviteModal/InviteModal";
+import InfoIcon from '../../ui/InfoIcon/InfoIcon';
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -303,7 +304,10 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
 
         <Row className='mb-2'>
           <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Lifecycle</div>
+            <div className='fs-7 text-light'>
+              Lifecycle
+              <InfoIcon text='The current stage of this factory: init → awaiting_joins → ready_to_trigger → ceremony_running → signed → active → (eventually) dying / expired / closed. Determines which buttons are available.' />
+            </div>
             <div className='fw-bold text-dark'>{factory.lifecycle}</div>
           </Col>
           <Col xs={6} md={4}>
@@ -318,7 +322,10 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
 
         <Row className='mb-2'>
           <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Epoch</div>
+            <div className='fs-7 text-light'>
+              Epoch
+              <InfoIcon text='An epoch is one rotation cycle of the factory. Each rotation re-signs the distribution tree at a fresh state; max_epochs caps how many rotations the original DW timelock budget supports before the factory expires.' />
+            </div>
             <div className='fw-bold text-dark'>{factory.epoch} / {factory.max_epochs || '?'}</div>
           </Col>
           <Col xs={6} md={4}>
@@ -326,7 +333,10 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
             <div className='fw-bold text-dark'>{factory.n_channels}</div>
           </Col>
           <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Rotation</div>
+            <div className='fs-7 text-light'>
+              Rotation
+              <InfoIcon text='Whether a MuSig2 ceremony is currently rotating the factory to a fresh epoch. Operators trigger this manually from the Rotate button on an Active factory; clients see it as an offered ROTATE_PROPOSE that must be signed.' />
+            </div>
             <div className='fw-bold text-dark'>{factory.rotation_in_progress ? 'In Progress' : 'None'}</div>
           </Col>
         </Row>
@@ -337,18 +347,27 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
             <div className='fw-bold text-dark'>{formatBlock(factory.creation_block)}</div>
           </Col>
           <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Expiry Block</div>
+            <div className='fs-7 text-light'>
+              Expiry Block
+              <InfoIcon text='Decker-Wattenhofer timelock budget: the latest block at which the kickoff TX can still be claimed cooperatively. Past this height the factory expires and on-chain timeout paths become the only way to claim leaf outputs.' />
+            </div>
             <div className='fw-bold text-dark'>{formatBlock(factory.expiry_block)}</div>
           </Col>
           <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Breach Epochs</div>
+            <div className='fs-7 text-light'>
+              Breach Epochs
+              <InfoIcon text='Count of historical epochs where a participant published a stale (revoked) state on chain. Each one would have triggered a punishment burn TX. Non-zero = at least one breach was detected and handled.' />
+            </div>
             <div className={'fw-bold ' + (factory.n_breach_epochs > 0 ? 'text-danger' : 'text-dark')}>{factory.n_breach_epochs}</div>
           </Col>
         </Row>
 
         <Row className='mb-2'>
           <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Dist TX Status</div>
+            <div className='fs-7 text-light'>
+              Dist TX Status
+              <InfoIcon text='The distribution transaction is the second-stage TX (after the kickoff) that fans funds out to each leaf. Status tracks whether it has been signed, broadcast, confirmed, or replaced by a newer-epoch dist TX.' />
+            </div>
             <div className='fw-bold text-dark'>{factory.dist_tx_status && factory.dist_tx_status !== 'unknown' ? factory.dist_tx_status : 'N/A'}</div>
           </Col>
           <Col xs={6} md={4}>
