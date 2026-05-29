@@ -190,6 +190,31 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     }
   };
 
+  // Task #98 wallet half: surface the plugin's factory-recover-stuck-openings
+  // RPC so an operator can clean up CLN channels left stuck in OPENINGD by a
+  // partial factory-open-channels run. Plugin enforces real safety (LSP-only,
+  // OPENINGD-only, peer-membership); this button just wraps the call.
+  const handleRecoverStuckOpenings = async () => {
+    setResponseStatus(CallStatus.PENDING);
+    setResponseMessage('Scanning for stuck OPENINGD channels…');
+    try {
+      const res = await FactoriesService.recoverStuckOpenings(factory.instance_id);
+      setResponseStatus(CallStatus.SUCCESS);
+      const n = res?.n_closed ?? 0;
+      setResponseMessage(
+        n === 0
+          ? 'No stuck OPENINGD channels found for this factory.'
+          : `Closed ${n} stuck channel(s): ${(res.closed_channel_ids || []).map(id => id.slice(0, 12) + '…').join(', ')}`,
+      );
+      FactoriesService.fetchFactoriesData();
+      resetStatus();
+    } catch (err: any) {
+      setResponseStatus(CallStatus.ERROR);
+      setResponseMessage(typeof err === 'string' ? err : err.message || 'Recover failed');
+      resetStatus();
+    }
+  };
+
   const handleInvite = () => {
     const text = `Factory ID: ${factory.instance_id}\nLSP Pubkey: ${nodeInfo.id || 'unknown'}`;
     copyTextToClipboard(text);
@@ -209,6 +234,13 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
     && (factory.lifecycle === FactoryLifecycle.SIGNED
         || (factory.lifecycle === FactoryLifecycle.ACTIVE && factory.n_channels < factory.n_clients));
   const canInvite = isLsp && factory.lifecycle === FactoryLifecycle.ACTIVE;
+  // Task #98 wallet half: show recover button whenever an open attempt was
+  // possible — same gate as Open Channels, since stuck OPENINGDs only happen
+  // after we've tried to open at least once.
+  const canRecoverStuckOpenings = isLsp
+    && factory.ceremony === FactoryCeremony.COMPLETE
+    && (factory.lifecycle === FactoryLifecycle.SIGNED
+        || factory.lifecycle === FactoryLifecycle.ACTIVE);
 
   return (
     <>
@@ -419,6 +451,29 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
               data-testid='open-channels-btn'
             >
               Open Channels
+            </button>
+          </OverlayTrigger>
+        )}
+        {canRecoverStuckOpenings && (
+          <OverlayTrigger
+            placement='auto'
+            overlay={
+              <Tooltip>
+                Scan CLN for channels stuck in OPENINGD that belong to this
+                factory and unilateral-close them. Use after a partial
+                factory-open-channels run (peer dropped, PSBT failed) when
+                CLN is left with orphaned half-open channels that won&apos;t
+                progress on their own.
+              </Tooltip>
+            }
+          >
+            <button
+              className='btn-rounded bg-warning btn-sm'
+              onClick={handleRecoverStuckOpenings}
+              disabled={responseStatus === CallStatus.PENDING}
+              data-testid='recover-stuck-openings-btn'
+            >
+              Recover stuck
             </button>
           </OverlayTrigger>
         )}

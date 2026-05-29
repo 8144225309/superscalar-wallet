@@ -738,6 +738,22 @@ export class FactoriesService {
   }
 
   /**
+   * Task #98: clean up CLN channels stuck in OPENINGD that belong to this
+   * factory. Used when factory-open-channels failed partway through (peer
+   * dropped during fundchannel_complete, PSBT build failed mid-flight) and
+   * the operator wants to unblock the next open attempt. Plugin gates:
+   * LSP-only, state==OPENINGD only, peer must be a factory member.
+   * Plugin RPC: factory-recover-stuck-openings.
+   */
+  static async recoverStuckOpenings(instanceId: string): Promise<{
+    instance_id: string;
+    closed_channel_ids: string[];
+    n_closed: number;
+  }> {
+    return HttpService.clnCall('factory-recover-stuck-openings', { instance_id: instanceId });
+  }
+
+  /**
    * Client-side: fetch the persisted signing preference thresholds that
    * the plugin's pre-sign validator checks against. Returns canonical
    * defaults if the user has never customized them.
