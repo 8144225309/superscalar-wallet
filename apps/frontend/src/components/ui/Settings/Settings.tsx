@@ -99,6 +99,8 @@ const Settings = (props) => {
         <SettingsSVG className={((!!nodeInfo.error || (isAuthenticated && nodeInfo.isLoading)) ? 'mt-1 svg-fill-disabled' : 'mt-1')} />
       </Dropdown.Toggle>
       <Dropdown.Menu className='fs-7 inner-box-shadow'>
+        {/* About */}
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>About</Dropdown.Header>
         <Dropdown.Item>Version: {connectWallet.APP_VERSION}</Dropdown.Item>
         <Dropdown.Item
           data-bs-toggle='modal'
@@ -109,8 +111,6 @@ const Settings = (props) => {
         >
           Show node ID
         </Dropdown.Item>
-        <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, connectWalletModal: true }))}>Connect wallet</Dropdown.Item>
-        <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, sqlTerminalModal: true }))}>SQL Terminal</Dropdown.Item>
         <Dropdown.Item
           data-bs-toggle='modal'
           data-bs-target='#staticBackdrop'
@@ -129,12 +129,23 @@ const Settings = (props) => {
         >
           What&apos;s new
         </Dropdown.Item>
+
+        {/* Network */}
+        <Dropdown.Divider />
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>Network</Dropdown.Header>
+        <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, connectWalletModal: true }))}>Connect wallet</Dropdown.Item>
+        <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, sqlTerminalModal: true }))}>SQL Terminal</Dropdown.Item>
+
+        {/* Security / Backup */}
+        <Dropdown.Divider />
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>
+          {(serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true") ? 'Backup' : 'Security'}
+        </Dropdown.Header>
         { serverConfig.singleSignOn === true || serverConfig.singleSignOn === "true" ?
             <></>
           :
             <Dropdown.Item data-bs-toggle='modal' data-bs-target='#staticBackdrop' onClick={() => dispatch(setShowModals({ ...showModals, setPasswordModal: true }))}>Reset Password</Dropdown.Item>
         }
-        <Dropdown.Divider />
         <Dropdown.Item
           onClick={exportConfigHandler}
           title='Download a JSON backup of your wallet UI settings (currency, fiat, theme). Password and node-side keys are NOT exported — see docs/SEED_BACKUP.md for key backup.'
@@ -157,7 +168,10 @@ const Settings = (props) => {
           onChange={importConfigHandler}
           data-testid='settings-import-config-input'
         />
+
+        {/* Display */}
         <Dropdown.Divider />
+        <Dropdown.Header className='fw-bold text-uppercase fs-8'>Display</Dropdown.Header>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Fiat Currency <FiatSelection className='ms-4 fiat-dropdown' /></Dropdown.Item>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Currency <ToggleSwitch onChange={changeCurrencyUnitHandler} values={CURRENCY_UNITS} selIndex={uiConfigUnit === Units.BTC ? 1 : 0} /></Dropdown.Item>
         <Dropdown.Item as='div' className='d-flex align-items-center justify-content-between'>Fiat beside sats <ToggleSwitch onChange={changeShowFiatHandler} values={['Off', 'On']} selIndex={showFiatBesideSats ? 1 : 0} /></Dropdown.Item>
