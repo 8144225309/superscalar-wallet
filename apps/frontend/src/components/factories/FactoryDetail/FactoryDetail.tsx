@@ -1,6 +1,6 @@
 import './FactoryDetail.scss';
 import { useState } from 'react';
-import { Card, Row, Col, ListGroup, OverlayTrigger, Tooltip, Form, Modal, Button, Badge } from 'react-bootstrap';
+import { Card, Row, Col, ListGroup, OverlayTrigger, Tooltip, Form, Modal, Button, Badge, Accordion } from 'react-bootstrap';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
 import { FactoriesService } from '../../../services/http.service';
@@ -259,13 +259,16 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
         <button className='btn btn-sm btn-outline-secondary btn-rounded' onClick={onClose}>Back</button>
       </Card.Header>
       <Card.Body className='py-2 px-1 factory-detail-scroll'>
+        {/* Identity — always visible, no collapse: this is the
+            "what factory am I looking at" header context. */}
         <Row className='mb-2'>
           <Col xs={12}>
-            <div className='fs-7 text-light'>Instance ID</div>
+            <div className='fs-7 text-light'>Factory ID</div>
             <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy</Tooltip>}>
               <div
                 className='fw-bold text-dark fs-7 cursor-pointer text-break'
                 onClick={() => copyTextToClipboard(factory.instance_id)}
+                data-testid='factory-detail-id'
               >
                 {factory.instance_id}
               </div>
@@ -302,150 +305,182 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
           </Row>
         )}
 
-        <Row className='mb-2'>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>
-              Lifecycle
-              <InfoIcon text='The current stage of this factory: init → awaiting_joins → ready_to_trigger → ceremony_running → signed → active → (eventually) dying / expired / closed. Determines which buttons are available.' />
-            </div>
-            <div className='fw-bold text-dark'>{factory.lifecycle}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Role</div>
-            <div className='fw-bold text-dark'>{factory.is_lsp ? 'LSP' : 'Client'}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Clients</div>
-            <div className='fw-bold text-dark'>{factory.n_clients}</div>
-          </Col>
-        </Row>
+        {/* Polish 3.1: collapsible sections. defaultActiveKey opens Status
+            for everyone, Operator/Channels conditionally for LSPs / non-empty.
+            alwaysOpen lets multiple stay open without each click closing
+            others — operators routinely want Status + Operator both open. */}
+        <Accordion
+          defaultActiveKey={[
+            'status',
+            ...(factory.channels && factory.channels.length > 0 ? ['channels'] : []),
+            ...(factory.is_lsp ? ['operator'] : []),
+          ]}
+          alwaysOpen
+          className='factory-detail-accordion'
+          data-testid='factory-detail-sections'
+        >
+          <Accordion.Item eventKey='status'>
+            <Accordion.Header data-testid='section-status-header'>Status</Accordion.Header>
+            <Accordion.Body>
+              <Row className='mb-2'>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>
+                    Lifecycle
+                    <InfoIcon text='The current stage of this factory: init → awaiting_joins → ready_to_trigger → ceremony_running → signed → active → (eventually) dying / expired / closed. Determines which buttons are available.' />
+                  </div>
+                  <div className='fw-bold text-dark'>{factory.lifecycle}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>Role</div>
+                  <div className='fw-bold text-dark'>{factory.is_lsp ? 'LSP' : 'Client'}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>Clients</div>
+                  <div className='fw-bold text-dark'>{factory.n_clients}</div>
+                </Col>
+              </Row>
 
-        <Row className='mb-2'>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>
-              Epoch
-              <InfoIcon text='An epoch is one rotation cycle of the factory. Each rotation re-signs the distribution tree at a fresh state; max_epochs caps how many rotations the original DW timelock budget supports before the factory expires.' />
-            </div>
-            <div className='fw-bold text-dark'>{factory.epoch} / {factory.max_epochs || '?'}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Channels</div>
-            <div className='fw-bold text-dark'>{factory.n_channels}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>
-              Rotation
-              <InfoIcon text='Whether a MuSig2 ceremony is currently rotating the factory to a fresh epoch. Operators trigger this manually from the Rotate button on an Active factory; clients see it as an offered ROTATE_PROPOSE that must be signed.' />
-            </div>
-            <div className='fw-bold text-dark'>{factory.rotation_in_progress ? 'In Progress' : 'None'}</div>
-          </Col>
-        </Row>
+              <Row className='mb-2'>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>
+                    Epoch
+                    <InfoIcon text='An epoch is one rotation cycle of the factory. Each rotation re-signs the distribution tree at a fresh state; max_epochs caps how many rotations the original DW timelock budget supports before the factory expires.' />
+                  </div>
+                  <div className='fw-bold text-dark'>{factory.epoch} / {factory.max_epochs || '?'}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>Channels</div>
+                  <div className='fw-bold text-dark'>{factory.n_channels}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>
+                    Rotation
+                    <InfoIcon text='Whether a MuSig2 ceremony is currently rotating the factory to a fresh epoch. Operators trigger this manually from the Rotate button on an Active factory; clients see it as an offered ROTATE_PROPOSE that must be signed.' />
+                  </div>
+                  <div className='fw-bold text-dark'>{factory.rotation_in_progress ? 'In Progress' : 'None'}</div>
+                </Col>
+              </Row>
 
-        <Row className='mb-2'>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Creation Block</div>
-            <div className='fw-bold text-dark'>{formatBlock(factory.creation_block)}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>
-              Expiry Block
-              <InfoIcon text='Decker-Wattenhofer timelock budget: the latest block at which the kickoff TX can still be claimed cooperatively. Past this height the factory expires and on-chain timeout paths become the only way to claim leaf outputs.' />
-            </div>
-            <div className='fw-bold text-dark'>{formatBlock(factory.expiry_block)}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>
-              Breach Epochs
-              <InfoIcon text='Count of historical epochs where a participant published a stale (revoked) state on chain. Each one would have triggered a punishment burn TX. Non-zero = at least one breach was detected and handled.' />
-            </div>
-            <div className={'fw-bold ' + (factory.n_breach_epochs > 0 ? 'text-danger' : 'text-dark')}>{factory.n_breach_epochs}</div>
-          </Col>
-        </Row>
+              <Row className='mb-2'>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>Creation Block</div>
+                  <div className='fw-bold text-dark'>{formatBlock(factory.creation_block)}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>
+                    Expiry Block
+                    <InfoIcon text='Decker-Wattenhofer timelock budget: the latest block at which the kickoff TX can still be claimed cooperatively. Past this height the factory expires and on-chain timeout paths become the only way to claim leaf outputs.' />
+                  </div>
+                  <div className='fw-bold text-dark'>{formatBlock(factory.expiry_block)}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>
+                    Breach Epochs
+                    <InfoIcon text='Count of historical epochs where a participant published a stale (revoked) state on chain. Each one would have triggered a punishment burn TX. Non-zero = at least one breach was detected and handled.' />
+                  </div>
+                  <div className={'fw-bold ' + (factory.n_breach_epochs > 0 ? 'text-danger' : 'text-dark')}>{factory.n_breach_epochs}</div>
+                </Col>
+              </Row>
 
-        <Row className='mb-2'>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>
-              Dist TX Status
-              <InfoIcon text='The distribution transaction is the second-stage TX (after the kickoff) that fans funds out to each leaf. Status tracks whether it has been signed, broadcast, confirmed, or replaced by a newer-epoch dist TX.' />
-            </div>
-            <div className='fw-bold text-dark'>{factory.dist_tx_status && factory.dist_tx_status !== 'unknown' ? factory.dist_tx_status : 'N/A'}</div>
-          </Col>
-          <Col xs={6} md={4}>
-            <div className='fs-7 text-light'>Tree Nodes</div>
-            <div className='fw-bold text-dark'>{factory.tree_nodes > 0 ? factory.tree_nodes : 'N/A'}</div>
-          </Col>
-          <Col xs={12}>
-            <div className='fs-7 text-light'>Funding TXID</div>
-            {isValidTxid(factory.funding_txid) ? (
-              <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy</Tooltip>}>
-                <div
-                  className='fw-bold text-dark fs-7 cursor-pointer text-break'
-                  onClick={() => copyTextToClipboard(factory.funding_txid)}
-                >
-                  {factory.funding_txid}:{factory.funding_outnum}
+              <Row className='mb-2'>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>
+                    Dist TX Status
+                    <InfoIcon text='The distribution transaction is the second-stage TX (after the kickoff) that fans funds out to each leaf. Status tracks whether it has been signed, broadcast, confirmed, or replaced by a newer-epoch dist TX.' />
+                  </div>
+                  <div className='fw-bold text-dark'>{factory.dist_tx_status && factory.dist_tx_status !== 'unknown' ? factory.dist_tx_status : 'N/A'}</div>
+                </Col>
+                <Col xs={6} md={4}>
+                  <div className='fs-7 text-light'>Tree Nodes</div>
+                  <div className='fw-bold text-dark'>{factory.tree_nodes > 0 ? factory.tree_nodes : 'N/A'}</div>
+                </Col>
+                <Col xs={12}>
+                  <div className='fs-7 text-light'>Funding TXID</div>
+                  {isValidTxid(factory.funding_txid) ? (
+                    <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy</Tooltip>}>
+                      <div
+                        className='fw-bold text-dark fs-7 cursor-pointer text-break'
+                        onClick={() => copyTextToClipboard(factory.funding_txid)}
+                      >
+                        {factory.funding_txid}:{factory.funding_outnum}
+                      </div>
+                    </OverlayTrigger>
+                  ) : (
+                    <div className='fw-bold text-dark'>N/A</div>
+                  )}
+                </Col>
+              </Row>
+            </Accordion.Body>
+          </Accordion.Item>
+
+          {factory.channels && factory.channels.length > 0 && (
+            <Accordion.Item eventKey='channels'>
+              <Accordion.Header data-testid='section-channels-header'>
+                Factory Channels ({factory.channels.length})
+              </Accordion.Header>
+              <Accordion.Body>
+                <ListGroup variant='flush' className='fs-7'>
+                  {factory.channels.map((ch, idx) => (
+                    <ListGroup.Item key={ch.channel_id || idx} className='px-0 py-1'>
+                      <div className='d-flex justify-content-between'>
+                        <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy channel ID</Tooltip>}>
+                          <span className='text-dark cursor-pointer' onClick={() => copyTextToClipboard(ch.channel_id)}>
+                            {ch.channel_id.substring(0, 20)}...
+                          </span>
+                        </OverlayTrigger>
+                        <span className='text-light'>leaf {ch.leaf_index} ({ch.leaf_side})</span>
+                      </div>
+                      {isValidTxid(ch.funding_txid) && (
+                        <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy leaf funding outpoint</Tooltip>}>
+                          <div className='text-light fs-8 cursor-pointer' onClick={() => copyTextToClipboard(`${ch.funding_txid}:${ch.funding_outnum}`)}>
+                            funding: {ch.funding_txid!.substring(0, 16)}...:{ch.funding_outnum}
+                          </div>
+                        </OverlayTrigger>
+                      )}
+                    </ListGroup.Item>
+                  ))}
+                </ListGroup>
+              </Accordion.Body>
+            </Accordion.Item>
+          )}
+
+          <Accordion.Item eventKey='policy'>
+            <Accordion.Header data-testid='section-policy-header'>Policy</Accordion.Header>
+            <Accordion.Body>
+              <FactoryPolicyView instanceId={factory.instance_id} />
+            </Accordion.Body>
+          </Accordion.Item>
+
+          {factory.is_lsp && (
+            <Accordion.Item eventKey='operator'>
+              <Accordion.Header data-testid='section-operator-header'>LSP Operator</Accordion.Header>
+              <Accordion.Body>
+                <JoinRequestsCard
+                  factoryInstanceIdHex={factory.instance_id}
+                  currentBlock={currentBlock || 0}
+                />
+                <div className='mb-3'>
+                  <button
+                    type='button'
+                    className='btn btn-sm btn-outline-primary'
+                    onClick={() => setShowInvite(true)}
+                    data-testid='open-invite-modal'
+                  >
+                    Show invite QR ›
+                  </button>
                 </div>
-              </OverlayTrigger>
-            ) : (
-              <div className='fw-bold text-dark'>N/A</div>
-            )}
-          </Col>
-        </Row>
+                <OperatorPrefsCard factoryInstanceIdHex={factory.instance_id} />
+              </Accordion.Body>
+            </Accordion.Item>
+          )}
 
-        {factory.channels && factory.channels.length > 0 && (
-          <Row className='mb-2'>
-            <Col xs={12}>
-              <div className='fs-7 text-light fw-bold mb-1'>Factory Channels</div>
-              <ListGroup variant='flush' className='fs-7'>
-                {factory.channels.map((ch, idx) => (
-                  <ListGroup.Item key={ch.channel_id || idx} className='px-0 py-1'>
-                    <div className='d-flex justify-content-between'>
-                      <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy channel ID</Tooltip>}>
-                        <span className='text-dark cursor-pointer' onClick={() => copyTextToClipboard(ch.channel_id)}>
-                          {ch.channel_id.substring(0, 20)}...
-                        </span>
-                      </OverlayTrigger>
-                      <span className='text-light'>leaf {ch.leaf_index} ({ch.leaf_side})</span>
-                    </div>
-                    {isValidTxid(ch.funding_txid) && (
-                      <OverlayTrigger placement='auto' overlay={<Tooltip>Click to copy leaf funding outpoint</Tooltip>}>
-                        <div className='text-light fs-8 cursor-pointer' onClick={() => copyTextToClipboard(`${ch.funding_txid}:${ch.funding_outnum}`)}>
-                          funding: {ch.funding_txid!.substring(0, 16)}...:{ch.funding_outnum}
-                        </div>
-                      </OverlayTrigger>
-                    )}
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-            </Col>
-          </Row>
-        )}
-
-
-        {/* Phase C: cached policy snapshot for this factory */}
-        <FactoryPolicyView instanceId={factory.instance_id} />
-
-      {factory.is_lsp && (
-        <JoinRequestsCard
-          factoryInstanceIdHex={factory.instance_id}
-          currentBlock={currentBlock || 0}
-        />
-      )}
-      {factory.is_lsp && (
-        <div className="mb-3">
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-primary"
-            onClick={() => setShowInvite(true)}
-            data-testid="open-invite-modal"
-          >
-            Show invite QR ›
-          </button>
-        </div>
-      )}
-      {factory.is_lsp && (
-        <OperatorPrefsCard factoryInstanceIdHex={factory.instance_id} />
-      )}
-      <FactoryActivityCard factoryInstanceIdHex={factory.instance_id} />
+          <Accordion.Item eventKey='activity'>
+            <Accordion.Header data-testid='section-activity-header'>Activity</Accordion.Header>
+            <Accordion.Body>
+              <FactoryActivityCard factoryInstanceIdHex={factory.instance_id} />
+            </Accordion.Body>
+          </Accordion.Item>
+        </Accordion>
 
         {responseStatus !== CallStatus.NONE && (
           <StatusAlert responseStatus={responseStatus} responseMessage={responseMessage} />
