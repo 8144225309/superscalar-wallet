@@ -144,6 +144,7 @@ export const mockShowModals = {
   sqlTerminalModal: false,
   qrCodeLarge: false,
   glossaryModal: false,
+  whatsNewModal: false,
 };
 
 export const mockShowToast = {

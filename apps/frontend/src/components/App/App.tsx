@@ -21,6 +21,7 @@ import { selectAppMode, selectIsAuthenticated, selectIsDarkMode } from '../../st
 import SQLTerminal from '../modals/SQLTerminal/SQLTerminal';
 import QRCodeLarge from '../modals/QRCodeLarge/QRCodeLarge';
 import Glossary from '../modals/Glossary/Glossary';
+import WhatsNew from '../modals/WhatsNew/WhatsNew';
 
 export const App = () => {
   const currentScreenSize = useBreakpoint();
@@ -52,6 +53,7 @@ export const App = () => {
       <SetPasswordComponent />
       <SQLTerminal />
       <Glossary />
+      <WhatsNew />
     </>
   );
 };

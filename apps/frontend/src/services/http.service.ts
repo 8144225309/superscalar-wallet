@@ -242,6 +242,10 @@ export class RootService {
     return HttpService.post('/shared/config/import', { envelope });
   }
 
+  static async getChangelog(): Promise<any> {
+    return HttpService.get('/shared/changelog');
+  }
+
   static async getConnectWallet() {
     return HttpService.get('/shared/connectwallet');
   }
