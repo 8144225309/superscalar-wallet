@@ -9,6 +9,7 @@ import { selectFactories, selectFactoriesLoading, selectFactoriesError, selectRo
 import { FactoriesService } from '../../../services/http.service';
 import logger from '../../../services/logger.service';
 import { Factory, FactoryLifecycle, FactoryCeremony } from '../../../types/factories.type';
+import { factoryStatus } from '../../../utilities/factoryStatus';
 
 // Task #150: a factory qualifies for plugin-side Discard (factory-forget RPC)
 // only when it has zero on-chain footprint. Mirrors the plugin's safety gate
@@ -76,32 +77,9 @@ const bucketOf = (f: Factory): Bucket => {
   return 'live';
 };
 
-const statusBadgeClass = (f: Factory): string => {
-  if (f.lifecycle === FactoryLifecycle.ACTIVE) return 'bg-success';
-  if (f.lifecycle === FactoryLifecycle.ABORTED) return 'bg-secondary';
-  if (f.ceremony === FactoryCeremony.FAILED) return 'bg-danger';
-  if (f.ceremony === FactoryCeremony.COMPLETE) return 'bg-primary';
-  return 'bg-secondary';
-};
-
-const statusBadgeLabel = (f: Factory): string => {
-  if (f.lifecycle === FactoryLifecycle.ACTIVE) return 'Active';
-  if (f.lifecycle === FactoryLifecycle.ABORTED) return 'Aborted';
-  if (f.ceremony === FactoryCeremony.FAILED) return 'Failed';
-  if (f.ceremony === FactoryCeremony.COMPLETE) return 'Signed';
-  return f.ceremony;
-};
-
-/* Polish 1.1 — color-blind redundant cue: prefix the badge label with
- * a shape glyph so the status is conveyed without relying on green vs
- * yellow vs red distinguishability. */
-const statusBadgeGlyph = (f: Factory): string => {
-  if (f.lifecycle === FactoryLifecycle.ACTIVE) return '●';
-  if (f.lifecycle === FactoryLifecycle.ABORTED) return '⊘';
-  if (f.ceremony === FactoryCeremony.FAILED) return '✕';
-  if (f.ceremony === FactoryCeremony.COMPLETE) return '◆';
-  return '○';
-};
+/* Polish 2.3: status badge fields now come from the shared
+ * `factoryStatus()` helper so FactoryList / FactoryDetail / etc all
+ * render the same badge variant + label + glyph + tooltip. */
 
 const sortFactories = (list: Factory[]): Factory[] =>
   [...list].sort((a, b) => {
@@ -152,13 +130,21 @@ const FactoryListItem = ({ factory, onClick, hidden, onToggleHide, onDiscard, di
           </span>
         </div>
         <div className='d-flex align-items-center gap-2'>
-          <span
-            className={'badge ' + statusBadgeClass(factory)}
-            aria-label={statusBadgeLabel(factory) + ' (' + factory.lifecycle + ')'}
-          >
-            <span aria-hidden='true' className='me-1'>{statusBadgeGlyph(factory)}</span>
-            {statusBadgeLabel(factory)}
-          </span>
+          {(() => {
+            const s = factoryStatus(factory);
+            return (
+              <OverlayTrigger placement='auto' overlay={<Tooltip>{s.tooltip}</Tooltip>}>
+                <span
+                  className={`badge bg-${s.bg}`}
+                  aria-label={`${s.label} (${factory.lifecycle})`}
+                  data-testid={`factory-status-${s.key}`}
+                >
+                  <span aria-hidden='true' className='me-1'>{s.glyph}</span>
+                  {s.label}
+                </span>
+              </OverlayTrigger>
+            );
+          })()}
           <Button
             variant='link'
             size='sm'

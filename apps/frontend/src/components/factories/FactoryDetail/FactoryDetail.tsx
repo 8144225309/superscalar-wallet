@@ -15,6 +15,7 @@ import OperatorPrefsCard from "../OperatorPrefsCard/OperatorPrefsCard";
 import FactoryActivityCard from "../FactoryActivityCard/FactoryActivityCard";
 import InviteModal from "../InviteModal/InviteModal";
 import InfoIcon from '../../ui/InfoIcon/InfoIcon';
+import { factoryStatus } from '../../../utilities/factoryStatus';
 
 const ZERO_TXID = '0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -255,6 +256,21 @@ const FactoryDetail = ({ factory, onClose }: FactoryDetailProps) => {
           >
             {isLsp ? 'LSP' : 'Client'}
           </span>
+          {(() => {
+            const s = factoryStatus(factory);
+            return (
+              <OverlayTrigger placement='auto' overlay={<Tooltip>{s.tooltip}</Tooltip>}>
+                <span
+                  className={`badge bg-${s.bg}`}
+                  aria-label={`${s.label} (${factory.lifecycle})`}
+                  data-testid={`factory-detail-status-${s.key}`}
+                >
+                  <span aria-hidden='true' className='me-1'>{s.glyph}</span>
+                  {s.label}
+                </span>
+              </OverlayTrigger>
+            );
+          })()}
         </span>
         <button className='btn btn-sm btn-outline-secondary btn-rounded' onClick={onClose}>Back</button>
       </Card.Header>
