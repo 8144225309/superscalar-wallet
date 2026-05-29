@@ -179,10 +179,10 @@ function JoinFactoryModal({ show, onClose, lspPubkey, lspAlias, lnAddresses }: P
                   <thead>
                     <tr style={{ fontSize: '0.8rem', color: '#6c757d' }}>
                       <th style={{ width: '40px' }}></th>
-                      <th>instance_id</th>
-                      <th style={{ textAlign: 'right' }}>funding (sat)</th>
-                      <th style={{ textAlign: 'center' }}>participants</th>
-                      <th>lifecycle</th>
+                      <th>Factory ID</th>
+                      <th style={{ textAlign: 'right' }}>Funding (sat)</th>
+                      <th style={{ textAlign: 'center' }}>Participants</th>
+                      <th>Lifecycle</th>
                     </tr>
                   </thead>
                   <tbody>

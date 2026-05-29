@@ -207,11 +207,11 @@ const NodePicker = () => {
           </>
         ) : (
           <>
-            {displayAlias}
+            <strong>{displayAlias}</strong>
             {displayPubkey && (
-              <span className='ms-1 opacity-75'>({truncatePubkey(displayPubkey)})</span>
+              <span className='ms-1 opacity-50' style={{ fontSize: '0.85em' }}>({truncatePubkey(displayPubkey)})</span>
             )}
-            {nodeInfo.version && <span className='ms-1'>({nodeInfo.version})</span>}
+            {nodeInfo.version && <span className='ms-1 opacity-50' style={{ fontSize: '0.85em' }}>({nodeInfo.version})</span>}
           </>
         )}
       </span>
@@ -236,9 +236,9 @@ const NodePicker = () => {
           <>{displayAlias} — <span className='text-danger'>unreachable</span></>
         ) : (
           <>
-            {displayAlias}
+            <strong>{displayAlias}</strong>
             {displayPubkey && (
-              <span className='ms-1 opacity-75'>({truncatePubkey(displayPubkey)})</span>
+              <span className='ms-1 opacity-50' style={{ fontSize: '0.85em' }}>({truncatePubkey(displayPubkey)})</span>
             )}
           </>
         )}
