@@ -5,7 +5,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCode, faTable } from '@fortawesome/free-solid-svg-icons';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import logger from '../../../services/logger.service';
 import { SQLSVG } from '../../../svgs/SQL';
 import { CopySVG } from '../../../svgs/Copy';
@@ -277,7 +277,7 @@ const SQLTerminal = () => {
     <Modal ref={containerRef} show={showModals.sqlTerminalModal} onHide={closeHandler} centered className='modal-xl' data-testid='sql-terminal'>
       <Modal.Header className='d-flex align-items-start justify-content-between pb-0 mx-2 border-0'>
         <h4>SQL Terminal</h4>
-        <span className='span-close-svg' onClick={closeHandler}><CloseSVG /></span>
+        <CloseButton onClose={closeHandler} label='Close SQL terminal' />
       </Modal.Header>
       <Modal.Body className='py-0 px-4'>
         <div data-testid='terminal-container'>
