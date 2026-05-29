@@ -2,7 +2,8 @@ import './FactoryCreate.scss';
 import { useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { bumpVouchRefreshTrigger } from '../../../store/rendezvousSlice';
-import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert } from 'react-bootstrap';
+import InfoIcon from '../../ui/InfoIcon/InfoIcon';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import { FactoriesService, RendezvousService } from '../../../services/http.service';
 import { publishSignedEvent } from '../../../services/nostr.service';
@@ -71,12 +72,6 @@ const formatErr = (err: any, fallback: string): string => {
   } catch { /* circular ref or non-stringifiable */ }
   return fallback;
 };
-
-const InfoIcon = ({ text }: { text: string }) => (
-  <OverlayTrigger placement='auto' overlay={<Tooltip>{text}</Tooltip>}>
-    <span className='ms-1 text-info cursor-pointer'>&#9432;</span>
-  </OverlayTrigger>
-);
 
 const FactoryCreate = ({ onClose }: FactoryCreateProps) => {
   const [factoryLabel, setFactoryLabel] = useState('');

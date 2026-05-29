@@ -1,8 +1,9 @@
 import './SigningPrefs.scss';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Card, Row, Col, Form, Button, Spinner, Alert, OverlayTrigger, Tooltip,
+  Card, Row, Col, Form, Button, Spinner, Alert,
 } from 'react-bootstrap';
+import InfoIcon from '../../ui/InfoIcon/InfoIcon';
 import { FactoriesService } from '../../../services/http.service';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
@@ -125,12 +126,6 @@ const FIELD_SPECS: { section: string; fields: FieldSpec[] }[] = [
     ],
   },
 ];
-
-const InfoIcon = ({ text }: { text: string }) => (
-  <OverlayTrigger placement='auto' overlay={<Tooltip>{text}</Tooltip>}>
-    <span className='ms-1 text-info' style={{ cursor: 'help' }}>&#9432;</span>
-  </OverlayTrigger>
-);
 
 const formatErr = (err: any, fallback: string): string => {
   if (typeof err === 'string') return err;
