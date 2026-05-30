@@ -4,16 +4,31 @@ import { Card, Table, Button, Form, Badge, Spinner, Alert, Modal } from 'react-b
 import { FactoriesService } from '../../../services/http.service';
 import SatsWithFiat from '../../shared/SatsWithFiat/SatsWithFiat';
 
-/* Session 4 slice D: cross-factory peer management.
+/**
+ * Known Peers — cross-factory peer manager (Session 4 slice D).
  *
- * Aggregates lsp_join_queue + peer_notes + peer_reputation into a
- * single per-peer view. Operator can ban/unban (reputation = -1
- * sentinel), set a reputation score, edit per-peer notes.
+ * What it renders
+ *   The /factories/peers page. Aggregates every peer this node has
+ *   interacted with across factories into a single table:
+ *   - Pubkey + alias (when known)
+ *   - Reputation score (with -1 sentinel = banned, shown as a Badge)
+ *   - Lifetime totals: join requests, accepted, refused, sats opened
+ *   - Per-peer notes (free-text, persisted)
  *
- * Backed by plugin RPCs:
- *   wallet-list-known-peers
- *   wallet-set-peer-reputation
- *   wallet-set-peer-note
+ *   Inline actions per row: ban / unban, set reputation score (modal),
+ *   edit notes (modal).
+ *
+ * Key state
+ *   - `peers`: full list, refreshed by wallet-list-known-peers
+ *   - `filter`: free-text filter over pubkey + alias + notes
+ *   - `editing` / `repModal`: per-row mutation modal targets
+ *
+ * Side effects
+ *   - Plugin RPCs: wallet-list-known-peers (on mount + refresh),
+ *     wallet-set-peer-reputation, wallet-set-peer-note
+ *
+ * Props contract
+ *   None — fully self-contained page.
  */
 
 type KnownPeer = {
