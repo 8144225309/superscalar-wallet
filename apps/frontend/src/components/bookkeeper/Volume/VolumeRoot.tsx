@@ -4,6 +4,24 @@ import VolumeGraph from './VolumeGraph/VolumeGraph';
 import { CloseSVG } from '../../../svgs/Close';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * Volume Root — /bookkeeper/volume full view.
+ *
+ * What it renders
+ *   The routing-volume deep-dive: VolumeGraph (Recharts heatmap-style
+ *   in_channel × out_channel routing-fee aggregation) inside a Card
+ *   with a back X.
+ *
+ *   The underlying VolumeSQL groups settled forwards by
+ *   in_channel/out_channel pairs and sums total_in_msat +
+ *   total_out_msat + total_fee_msat.
+ *
+ * Side effects
+ *   None — VolumeGraph reads selectVolumeData and renders.
+ *
+ * Props contract
+ *   None — mounted by the router.
+ */
 const VolumeRoot = () => {
   const navigate = useNavigate();
   return (
