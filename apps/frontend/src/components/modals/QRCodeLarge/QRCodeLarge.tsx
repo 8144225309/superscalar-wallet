@@ -8,7 +8,28 @@ import { setShowModals } from '../../../store/rootSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectConnectionUrl, selectIsDarkMode, selectShowModals } from '../../../store/rootSelectors';
 
-const QRCodeLarge = () => {
+/**
+ * QR Code Large — expanded QR-code preview.
+ *
+ * What it renders
+ *   A modal showing a large (≥400px) QR code for the connectionUrl
+ *   currently in Redux. The smaller inline QR codes elsewhere in the
+ *   UI (NodeInfo, InviteModal, BTCDeposit) all let the user "click to
+ *   enlarge", which dispatches setShowModals.qrCodeLarge=true and
+ *   sets connectionUrl in Redux.
+ *
+ * Why a separate modal
+ *   Phone scanners often struggle with the small inline QR codes.
+ *   The large modal makes scanning across the room work.
+ *
+ * Side effects
+ *   None — pure render keyed off Redux.
+ *
+ * Props contract
+ *   None — visibility driven by selectShowModals.qrCodeLarge and
+ *   payload by selectConnectionUrl.
+ */
+
   const dispatch = useDispatch();
   const isDarkMode = useSelector(selectIsDarkMode);
   const showModals = useSelector(selectShowModals);

@@ -9,6 +9,32 @@ import { RootService } from '../../../services/http.service';
 import { setShowModals } from '../../../store/rootSlice';
 import { selectShowModals } from '../../../store/rootSelectors';
 
+/**
+ * What's New — changelog feed modal (R3.5).
+ *
+ * What it renders
+ *   A modal that fetches /v1/shared/changelog (backend parses
+ *   CHANGELOG.md → JSON sections) and renders each version with its
+ *   grouped items (Added / Changed / Fixed / Security). Wired from
+ *   the Settings dropdown.
+ *
+ * NEW tagging
+ *   localStorage tracks the last-seen version. On open, items newer
+ *   than that get a NEW badge. On close, the last-seen pointer
+ *   advances to the current head, clearing the badges for next
+ *   open.
+ *
+ * Key state
+ *   - `sections` (loaded via RootService.getChangelog)
+ *   - `loading` / `error` per fetch
+ *
+ * Side effects
+ *   - RootService.getChangelog() on open
+ *   - localStorage.set last-seen on close
+ *
+ * Props contract
+ *   None — visibility driven by selectShowModals.whatsNewModal.
+ */
 interface ChangelogGroup {
   name: string;
   items: string[];

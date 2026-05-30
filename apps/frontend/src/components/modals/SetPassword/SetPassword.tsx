@@ -2,6 +2,36 @@ import './SetPassword.scss';
 import { useState } from 'react';
 import SHA256 from "crypto-js/sha256";
 import { Modal, Row, Col, Spinner, InputGroup, Form } from 'react-bootstrap';
+
+/**
+ * Set Password — first-run + reset password modal.
+ *
+ * What it renders
+ *   The password set/reset modal. Two modes selected by isValid prop:
+ *   - First-run: only the New Password + Confirm fields (no current
+ *     password gate — there isn't one yet)
+ *   - Reset: Current Password + New + Confirm fields
+ *   Both submit a SHA-256 hash to /v1/auth/reset-password; the
+ *   backend's isValidHashFormat() gate accepts only /^[0-9a-f]{64}$/i.
+ *
+ * Why client-side hash
+ *   Pre-hashing in the browser avoids the backend seeing plaintext
+ *   in any log path. Same posture as Login.
+ *
+ * Key state
+ *   - 3 useInput-managed password fields (current/new/confirm)
+ *   - Show/hide eye toggles per field
+ *   - responseStatus / responseMessage for StatusAlert
+ *
+ * Side effects
+ *   - On submit: RootService.resetPassword(SHA256(current), SHA256(new))
+ *   - On success: dispatch setShowModals to close, reset cookie via
+ *     server response (refreshes the JWT)
+ *
+ * Props contract
+ *   None — driven by selectShowModals.setPasswordModal.
+ */
+
 import logger from '../../../services/logger.service';
 import useInput from '../../../hooks/use-input';
 import { CallStatus } from '../../../utilities/constants';
