@@ -9,6 +9,28 @@ import { clearCLNStore } from '../../../store/clnSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { selectShowModals } from '../../../store/rootSelectors';
 
+/**
+ * Logout — confirm-logout modal.
+ *
+ * What it renders
+ *   A small confirmation modal triggered from the Header's logout
+ *   button. Two-button: Confirm / Cancel.
+ *
+ * Side effects
+ *   - Confirm: RootService.userLogout() → clearRootStore +
+ *     clearCLNStore + clearBKPRStore → dispatch setShowModals to
+ *     close the modal. The JWT cookie is cleared server-side; the
+ *     Login modal will mount on the next render because
+ *     isAuthenticated flips false.
+ *
+ * Why explicit confirm
+ *   The wallet UI persists per-session form drafts and timeline
+ *   filters. An accidental logout discards them. The modal makes
+ *   logout intentional.
+ *
+ * Props contract
+ *   None — visibility driven by selectShowModals.logoutModal.
+ */
 const LogoutComponent = () => {
   const dispatch = useDispatch();
   const showModals = useSelector(selectShowModals); 
