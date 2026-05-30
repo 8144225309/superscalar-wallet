@@ -24,7 +24,7 @@ describe('InviteModal', () => {
   it('renders nothing when show=false', async () => {
     await renderWithProviders(
       <InviteModal show={false} onHide={() => undefined} factoryInstanceIdHex={IID} />,
-      { preloadedState: storeWithNodeInfo({ id: LSP_PUBKEY, address: [{ type: 'ipv4', address: '203.0.113.5', port: 9735 }] }) },
+      { useRouter: false, preloadedState: storeWithNodeInfo({ id: LSP_PUBKEY, address: [{ type: 'ipv4', address: '203.0.113.5', port: 9735 }] }) },
     );
     expect(screen.queryByText(/Share invite/i)).not.toBeInTheDocument();
   });
@@ -32,7 +32,7 @@ describe('InviteModal', () => {
   it('builds an invite URL with the LSP pubkey + ipv4 address when no tor', async () => {
     await renderWithProviders(
       <InviteModal show={true} onHide={() => undefined} factoryInstanceIdHex={IID} />,
-      { preloadedState: storeWithNodeInfo({
+      { useRouter: false, preloadedState: storeWithNodeInfo({
         id: LSP_PUBKEY,
         address: [{ type: 'ipv4', address: '203.0.113.5', port: 9735 }],
       }) },
@@ -49,7 +49,7 @@ describe('InviteModal', () => {
   it('prefers tor address when both ipv4 and .onion are present (preferTor default)', async () => {
     await renderWithProviders(
       <InviteModal show={true} onHide={() => undefined} factoryInstanceIdHex={IID} />,
-      { preloadedState: storeWithNodeInfo({
+      { useRouter: false, preloadedState: storeWithNodeInfo({
         id: LSP_PUBKEY,
         address: [
           { type: 'ipv4', address: '203.0.113.5', port: 9735 },
@@ -66,7 +66,7 @@ describe('InviteModal', () => {
   it('shows the privacy warning when only a public ipv4 address is available', async () => {
     await renderWithProviders(
       <InviteModal show={true} onHide={() => undefined} factoryInstanceIdHex={IID} />,
-      { preloadedState: storeWithNodeInfo({
+      { useRouter: false, preloadedState: storeWithNodeInfo({
         id: LSP_PUBKEY,
         address: [{ type: 'ipv4', address: '203.0.113.5', port: 9735 }],
       }) },
@@ -77,7 +77,7 @@ describe('InviteModal', () => {
   it('does NOT show privacy warning when address is .onion', async () => {
     await renderWithProviders(
       <InviteModal show={true} onHide={() => undefined} factoryInstanceIdHex={IID} />,
-      { preloadedState: storeWithNodeInfo({
+      { useRouter: false, preloadedState: storeWithNodeInfo({
         id: LSP_PUBKEY,
         address: [{ type: 'torv3', address: 'abc.onion', port: 9735 }],
       }) },
