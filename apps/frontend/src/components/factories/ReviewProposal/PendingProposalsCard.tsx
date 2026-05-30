@@ -10,7 +10,12 @@ const truncate = (s: string, head = 8, tail = 4): string => {
   return `${s.slice(0, head)}…${s.slice(-tail)}`;
 };
 
-const ceremonyBadge = (ceremony: string) => {
+/* Bootstrap Badge's `text` prop is a fixed color-token union; using a
+ * raw string would lose that constraint and the prior code worked
+ * around it with `as any`. */
+type BadgeTextColor = 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'light' | 'dark' | 'muted' | 'white' | 'body' | 'black';
+
+const ceremonyBadge = (ceremony: string): { bg: string; text: BadgeTextColor; label: string } => {
   switch (ceremony) {
     case FactoryCeremony.PROPOSED:
       return { bg: 'warning', text: 'dark', label: 'PENDING REVIEW' };
@@ -68,7 +73,7 @@ function PendingProposalsCard() {
                 <div className='row-item' key={f.instance_id}>
                   <span className='iid'>{truncate(f.instance_id, 12, 8)}</span>
                   <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>
-                    <Badge bg={badge.bg} text={badge.text as any} className='me-2'>
+                    <Badge bg={badge.bg} text={badge.text} className='me-2'>
                       {badge.label}
                     </Badge>
                     epoch {f.epoch} · {f.n_clients + 1} participants

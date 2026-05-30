@@ -71,7 +71,7 @@ async function executeRequests<T extends Record<string, Promise<any>>>(
   );
 
   // Still return the combined results for the caller
-  return entries.reduce((acc, [name], index) => {
+  return entries.reduce<Record<keyof T, unknown>>((acc, [name], index) => {
     const result = settledResults[index];
     acc[name] = {
       ...(result.status === 'fulfilled' ? result.value : null),
@@ -79,7 +79,7 @@ async function executeRequests<T extends Record<string, Promise<any>>>(
       isLoading: false,
     };
     return acc;
-  }, {} as any);
+  }, {} as Record<keyof T, unknown>);
 }
 
 export class HttpService {
