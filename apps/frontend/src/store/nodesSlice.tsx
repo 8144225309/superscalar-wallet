@@ -1,3 +1,29 @@
+/**
+ * Nodes Slice — Redux state for the multi-profile picker.
+ *
+ * What it manages
+ *   The list of known node profiles (sanitized: rune stripped on the
+ *   backend), the active profile id, and the per-profile health snapshot
+ *   (ProfileHealth = { reachable, latency_ms, last_probed_at }) so
+ *   NodePicker can show the up/down dot per row.
+ *
+ *   `hasFactoryPlugin` is a per-profile boolean that drives whether
+ *   the /factories nav pill appears at all — non-SuperScalar nodes
+ *   shouldn't show the protocol UI.
+ *
+ * Boot-time vs lazy
+ *   `nodes` is part of the BASE appStore (unlike factories/cln/bkpr).
+ *   The profile picker is rendered in the global header, so the slice
+ *   has to exist before any route mounts.
+ *
+ * Side effects
+ *   - `switchActiveProfile` triggers a /v1/nodes/switch RPC, which
+ *     reconfigures the backend's NodeManager. The wallet reloads on
+ *     success.
+ *
+ * Selectors
+ *   See [[nodesSelectors]] for memoized accessors.
+ */
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { NodeProfile, ProfileHealth } from '../types/node.type';
 import { defaultNodesState } from './nodesSelectors';

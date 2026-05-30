@@ -1,3 +1,26 @@
+/**
+ * BKPR Slice — Redux state for bookkeeper-domain UI surfaces.
+ *
+ * What it manages
+ *   AccountEvents (cumulative balance timeline), SatsFlow (period
+ *   in/out flow chart), VolumeData (routing volume by channel). Each
+ *   read comes from one of the bkpr SQL strings (see
+ *   bookkeeper-sql.ts) and is then transformed by the data-transform
+ *   service into the chart-ready shape.
+ *
+ * Time bucketing
+ *   Each surface carries a TimeGranularity (DAILY / WEEKLY / MONTHLY)
+ *   + startTimestamp + endTimestamp. The time-picker on the page
+ *   updates these and the next setX call re-buckets without losing
+ *   the rest of the state tree.
+ *
+ * Lazy injection
+ *   Not in the base appStore — useInjectReducer adds it when the user
+ *   navigates into /bookkeeper/* routes.
+ *
+ * Selectors
+ *   See [[bkprSelectors]] for memoized accessors.
+ */
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { TimeGranularity } from '../utilities/constants';
 import { AccountEvents, SatsFlowEvent, VolumeData } from '../types/bookkeeper.type';
