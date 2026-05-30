@@ -1,9 +1,23 @@
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 
-/* Shared widget: a small ⓘ icon that reveals a tooltip on hover.
- * Used to attach lightweight inline explanations to protocol terms
- * (MuSig2, kickoff TX, epoch, DW timelock, L-stock, etc.) without
- * cluttering the label itself. */
+/**
+ * Info Icon — ⓘ tooltip badge for protocol-term explanations.
+ *
+ * What it renders
+ *   A small Unicode ⓘ (U+24D8) wrapped in an OverlayTrigger so hover
+ *   reveals an inline tooltip with the explanation. Used everywhere
+ *   a protocol term appears in a label: MuSig2, kickoff TX, epoch,
+ *   DW timelock, L-stock, factory-join-request, etc.
+ *
+ * Why a shared component
+ *   The R1.2 tooltip pass identified ~20 surfaces where InfoIcon was
+ *   needed; consolidating into one widget keeps the placement +
+ *   delay + styling consistent across the wallet.
+ *
+ * Props contract
+ *   - `text: string`   — the tooltip body
+ *   - `testid?: string` — optional data-testid override (for tests)
+ */
 
 type InfoIconProps = {
   text: string;
