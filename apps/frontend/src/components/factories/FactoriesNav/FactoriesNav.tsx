@@ -2,14 +2,34 @@ import './FactoriesNav.scss';
 import { Link, useLocation } from 'react-router-dom';
 import { Nav } from 'react-bootstrap';
 
-/* Polish #2.7: nav pill row across the top of every /factories sub-page.
- * Replaces the 4 tiny `›` footer links that previously hid sub-pages
- * from anyone who didn't scroll to the bottom. Each pill highlights when
- * the user is on its route. Overview pill takes them back to the root
- * /factories view (the dashboard with FactoryList + ExpiryWarnings etc).
+/**
+ * Factories Nav — pill row across every /factories sub-page (Polish #2.7).
  *
- * Routes are matched by suffix so deep nested paths still work
- * (e.g. /factories/<iid> detail page leaves all pills inactive). */
+ * What it renders
+ *   A 6-pill nav (Overview / LSP Console / LSP Prefs / Signing Prefs /
+ *   Known Peers / Host Factory) replacing the 4 tiny `›` footer links
+ *   that previously hid sub-pages from anyone who didn't scroll to the
+ *   bottom.
+ *
+ * Active-pill matching
+ *   Driven by `isActive(pathname, section)`:
+ *   - Overview pill matches ONLY `/factories` or `/factories/` —
+ *     never a deeper path, so navigating into a sub-page doesn't
+ *     keep Overview visually highlighted.
+ *   - Every other section uses prefix-or-sub-path match (e.g.
+ *     `/factories/console` and `/factories/console/anything`).
+ *   - Factory-detail deep paths (`/factories/<iid>`) leave ALL pills
+ *     inactive — the user is "off the nav row".
+ *
+ * Side effects
+ *   None — pure routing-driven render.
+ *
+ * Props contract
+ *   None — reads useLocation() and emits <Link to=...> for each pill.
+ *
+ * Test coverage
+ *   FactoriesNav.test.tsx pins the 6 cases described above.
+ */
 
 type Section = {
   to: string;

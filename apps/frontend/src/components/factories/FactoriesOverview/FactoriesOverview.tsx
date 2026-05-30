@@ -7,6 +7,29 @@ import { selectIsAuthenticated } from '../../../store/rootSelectors';
 import { selectFactoryCounts, selectFactoriesLoading, selectFactoriesError } from '../../../store/factoriesSelectors';
 import { FactorySVG } from '../../../svgs/Factory';
 
+/**
+ * Factories Overview — top stats strip on /factories.
+ *
+ * What it renders
+ *   Three animated counters (total / active / channels-aggregated)
+ *   above the factories list. Mirrors the CLN Overview pattern:
+ *   - selectFactoryCounts produces { total, active, init, dying,
+ *     expired, signed, totalChannels } from the Redux factories slice
+ *   - useMotionValue + useTransform drive a count-up animation on each
+ *     metric across COUNTUP_DURATION on mount and on count change
+ *   - Spinner while loading; Alert when selectFactoriesError fires
+ *
+ * Key state
+ *   - countTotal / countChannels: framer-motion MotionValue refs
+ *   - roundedTotal / roundedChannels: rounded MotionValue projections
+ *
+ * Side effects
+ *   - animate(motionValue, target, …) on each mount + count change
+ *
+ * Props contract
+ *   None — reads from Redux only.
+ */
+
 const FactoriesOverview = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const counts = useSelector(selectFactoryCounts);
