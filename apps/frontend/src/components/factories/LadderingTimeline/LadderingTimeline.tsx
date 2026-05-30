@@ -5,6 +5,29 @@ import { selectNodeInfo } from '../../../store/rootSelectors';
 import { selectFactories, selectFactoriesLoading } from '../../../store/factoriesSelectors';
 import { FactoryLifecycle } from '../../../types/factories.type';
 
+/**
+ * Laddering Timeline — visual factory schedule for /factories.
+ *
+ * What it renders
+ *   A horizontal timeline showing each factory's active window
+ *   (creation_block → expiry_block) relative to the current block.
+ *   Communicates the "ladder" of staggered factory lifetimes that an
+ *   LSP maintains — see project-roadmap-to-gold and ZmnSCPxj's
+ *   design posts for the 30+3 / 7+2 day ladder rationale.
+ *
+ *   Renders nothing while loading or when no factories have valid
+ *   creation/expiry blocks (avoid an empty-timeline tease).
+ *
+ * Key state
+ *   None — derived entirely from Redux node + factories selectors.
+ *
+ * Side effects
+ *   None — pure render.
+ *
+ * Props contract
+ *   None — reads from Redux only.
+ */
+
 const LadderingTimeline = () => {
   const nodeInfo = useSelector(selectNodeInfo);
   const factories = useSelector(selectFactories);
