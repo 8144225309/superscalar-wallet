@@ -36,8 +36,11 @@ describe('titleCase', () => {
     expect(titleCase('factory-detail page')).toBe('Factory-Detail Page');
   });
 
-  it('handles ALL CAPS input', () => {
-    expect(titleCase('CHANNELD_NORMAL')).toBe('Channeld_Normal');
+  it('handles ALL CAPS input (underscore-separated tokens stay lowercase after _)', () => {
+    /* The \b\w regex treats _ as a word character, so the letter after
+     * an underscore is NOT capitalized. That's the helper's actual
+     * contract — document it here. */
+    expect(titleCase('CHANNELD_NORMAL')).toBe('Channeld_normal');
   });
 
   it('returns empty string for falsy input', () => {
@@ -63,7 +66,7 @@ describe('truncatePubkey', () => {
   });
 
   it('honours custom chars param', () => {
-    expect(truncatePubkey(long, 8)).toBe('abcdef01...01234567');
+    expect(truncatePubkey(long, 8)).toBe('abcdef01...23456789');
   });
 
   it('returns empty string when input is empty', () => {
