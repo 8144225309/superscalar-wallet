@@ -13,6 +13,7 @@ import { FeeRateSVG } from '../../../svgs/FeeRate';
 import { BitcoinWalletSVG } from '../../../svgs/BitcoinWallet';
 import FiatBox from '../../shared/FiatBox/FiatBox';
 import InvalidInputMessage from '../../shared/InvalidInputMessage/InvalidInputMessage';
+import { CloseSVG } from '../../../svgs/Close';
 import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import FeerateRange from '../../shared/FeerateRange/FeerateRange';
