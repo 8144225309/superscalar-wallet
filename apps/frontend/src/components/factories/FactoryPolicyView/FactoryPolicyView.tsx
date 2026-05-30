@@ -2,6 +2,32 @@ import { useEffect, useState } from 'react';
 import { Card, Spinner, Table, Alert, Badge } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
 
+/**
+ * Factory Policy View — Phase C v2 carry surface.
+ *
+ * What it renders
+ *   The Policy tab inside FactoryDetail's accordion. Renders the
+ *   advertised policy fields the LSP communicated via FACTORY_PROPOSE
+ *   (htlc bounds, max_concurrent_htlcs, CLTV deltas, capacity bounds,
+ *   proof_tier, rotation cadence, tier-B rollover, state-replay
+ *   defense window) as a labeled key/value table.
+ *
+ * Key state
+ *   - `entry`: cached LspPolicyEntry from the wallet DB, populated by
+ *     wallet-get-lsp-policy. Includes the LSP peer_id, instance_id,
+ *     cached_at_block, and the policy field map.
+ *   - `loading` / `error`: per-fetch UI state
+ *
+ * Side effects
+ *   Plugin RPC: wallet-get-lsp-policy on mount. The cache table is
+ *   populated by the plugin's wire-message handlers when proposals
+ *   come in — this view is a read-only surface.
+ *
+ * Props contract
+ *   `instanceId: string` — factory iid to fetch the cached policy for.
+ */
+
+
 type CachedEntry = {
   lsp_peer_id: string;
   instance_id: string;
