@@ -12,7 +12,7 @@ import { LightningWalletSVG } from '../../../svgs/LightningWallet';
 import QRCodeComponent from '../../shared/QRCode/QRCode';
 import FiatBox from '../../shared/FiatBox/FiatBox';
 import InvalidInputMessage from '../../shared/InvalidInputMessage/InvalidInputMessage';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import { CLNService } from '../../../services/http.service';
 import { useSelector } from 'react-redux';
@@ -123,9 +123,7 @@ const CLNReceive = (props) => {
                 <LightningWalletSVG svgClassName="svg-small me-2" className="fill-primary" />
                 <span className="fw-bold">Lightning Wallet</span>
               </div>
-              <span className="span-close-svg" onClick={props.onClose}>
-                <CloseSVG />
-              </span>
+              <CloseButton onClose={props.onClose} label='Close receive' />
             </Card.Header>
             <h4 className="text-blue fw-bold mt-2">
               {paymentType === PaymentType.OFFER ? 'Offer' : 'Invoice'}
@@ -157,7 +155,7 @@ const CLNReceive = (props) => {
                 <LightningWalletSVG svgClassName='svg-small me-2' className='fill-primary' />
                 <span className='fw-bold'>Lightning Wallet</span>
               </div>
-              <span className='span-close-svg' onClick={props.onClose}><CloseSVG /></span>
+              <CloseButton onClose={props.onClose} label='Close receive' />
             </Card.Header>
             <h4 className='text-blue fw-bold mt-2'>Generate {paymentType === PaymentType.OFFER ? 'Offer' : 'Invoice'}</h4>
             <Card.Body className='pb-0 px-1 d-flex flex-column align-items-start justify-content-between'>

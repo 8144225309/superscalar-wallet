@@ -6,7 +6,7 @@ import { Spinner, Card, Row, Col, ProgressBar, OverlayTrigger, Tooltip } from 'r
 import { copyTextToClipboard, formatCurrency, titleCase } from '../../../utilities/data-formatters';
 import { CallStatus, channelStateMap, CLEAR_STATUS_ALERT_DELAY, Units } from '../../../utilities/constants';
 import { ActionSVG } from '../../../svgs/Action';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import logger from '../../../services/logger.service';
 import { CopySVG } from '../../../svgs/Copy';
@@ -110,7 +110,7 @@ const ChannelDetails = (props) => {
             <div className='fs-4 p-0 fw-bold text-dark'>
               Channel Detail
             </div>
-            <span className='span-close-svg' onClick={props.onClose}><CloseSVG /></span>
+            <CloseButton onClose={props.onClose} label='Close channel details' />
           </Card.Header>
           <Card.Body className='pt-1 pb-0 px-1 d-flex flex-column align-items-stretch justify-content-between channel-scroll-container'>
             <PerfectScrollbar options={{ suppressScrollX: true }}>
