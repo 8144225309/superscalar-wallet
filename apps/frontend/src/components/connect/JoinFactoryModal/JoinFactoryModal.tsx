@@ -3,6 +3,36 @@ import { Modal, Button, Form, Alert, Table, Badge } from 'react-bootstrap';
 import InlineSpinner from '../../ui/InlineSpinner/InlineSpinner';
 import { FactoriesService } from '../../../services/http.service';
 
+/**
+ * Join Factory Modal — client-side join flow.
+ *
+ * What it renders
+ *   The modal a client opens after selecting an LSP (from ConnectList
+ *   or via AcceptInviteModal). Loads the LSP's advertised factories
+ *   via factory-browse-host, shows the per-factory L-stock and policy,
+ *   lets the user pick one + requested capacity + optional notes, and
+ *   fires factory-join-request.
+ *
+ * Key state
+ *   - `lspPubkey` + `lspAddress` — connection target (from caller)
+ *   - `factories` (LspBrowsedFactory[]) loaded from
+ *     factory-browse-host
+ *   - `selectedFactory`: row currently selected
+ *   - `requestedCapacity`: input field for the join amount
+ *   - `responseStatus` / `responseMessage` for StatusAlert
+ *
+ * Side effects
+ *   - factory-browse-host on open
+ *   - factory-join-request on submit
+ *   - Optional autoConnect: peer-connect first if not already peered
+ *
+ * Props contract
+ *   - `show: boolean` — visibility
+ *   - `onHide: () => void` — close
+ *   - `lspPubkey?: string` / `lspAddress?: string` — pre-filled target
+ *   - `invite?: Invite` — when launched from AcceptInviteModal, pre-
+ *     fills the requested capacity + factory iid
+ */
 type LspBrowsedFactory = {
   factory_instance_id?: string;
   instance_id?: string;
