@@ -9,6 +9,35 @@ import logger from '../../../services/logger.service';
 import { setShowToast } from '../../../store/rootSlice';
 import { useDispatch } from 'react-redux';
 
+/**
+ * Status Alert — universal in-flight / outcome banner.
+ *
+ * What it renders
+ *   The one banner every mutating-action surface uses to surface
+ *   Idle / Pending / Success / Error. Variants:
+ *   - PENDING: spinner + neutral title (warning Alert)
+ *   - SUCCESS: information glyph + titleCase(message) (success Alert)
+ *   - ERROR:   information glyph + titleCase(message) + Copy button
+ *              (danger Alert) — operator can grab the error text for
+ *              an issue or paste it into a debug session
+ *   - NONE:    renders nothing (collapsed)
+ *
+ *   Wired with framer-motion OPACITY_VARIANTS for the fade-in.
+ *
+ * Side effects
+ *   - Copy button: copyTextToClipboard → dispatch(setShowToast(...))
+ *     to surface a transient "Response Copied!" confirmation
+ *
+ * Props contract
+ *   - `responseStatus: CallStatus` — Idle / Pending / Success / Error
+ *   - `responseMessage: string` — the message to render (titleCased)
+ *
+ * Why a single component
+ *   Every mutating-action surface used to ship its own banner with
+ *   slightly different spacing/copy/icon. Consolidating into one
+ *   reusable widget per CallStatus is what made the R4.1 inline-style
+ *   audit possible.
+ */
 const StatusAlert = props => {
   const dispatch = useDispatch();
 
