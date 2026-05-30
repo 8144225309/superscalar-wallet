@@ -1,3 +1,30 @@
+/**
+ * Root Slice — Redux state for the wallet's global state.
+ *
+ * What it manages
+ *   The "root" slice is the cross-cutting state every page reads:
+ *   auth status, modal visibility, toasts, the connect-wallet form,
+ *   the node info from CLN getinfo, ListFunds/ListChannels aggregates,
+ *   wallet balances (cln local/remote/pending/inactive + btc spendable/
+ *   reserved), uiConfig (unit/appMode/fiatUnit/showFiatBesideSats),
+ *   and fiatConfig (CoinGecko rate + symbol).
+ *
+ * Aggregation helpers
+ *   `aggregatePeerChannels` is the single source of truth for splitting
+ *   raw peerchannels into active/pending/inactive/merged buckets. Every
+ *   page that shows channels reads this — keeping the bucket math in
+ *   one place avoids the "what counts as inactive?" drift seen in
+ *   earlier forks.
+ *
+ * Reducer surface
+ *   set-prefixed actions for each persisted shape (setNodeInfo,
+ *   setListChannels, setListFunds, setWalletBalances, setUIConfig,
+ *   setShowModals, setShowToast, setConnectWallet, setFiatConfig).
+ *
+ * Selectors
+ *   See [[rootSelectors]] for the memoized accessors. Components
+ *   should never reach into state.root directly.
+ */
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Fund, FundChannel, FundOutput, RootState } from '../types/root.type';
 import { SATS_MSAT } from '../utilities/constants';

@@ -1,3 +1,24 @@
+/**
+ * Factories Slice — Redux state for the SuperScalar factories surface.
+ *
+ * What it manages
+ *   The factoryList (every factory this node knows about, polled +
+ *   pushed via factoryEvents), selectedFactory (the one open in
+ *   FactoryDetail), and actionStatus (one of Idle/Pending/Success/
+ *   Error — drives StatusAlert in mutating action flows).
+ *
+ * Lazy injection
+ *   Not in the base appStore — useInjectReducer adds it the first
+ *   time FactoriesHome mounts. See [[use-injectreducer]].
+ *
+ * Reducer surface
+ *   setFactoryList, setSelectedFactory, setActionStatus, plus
+ *   factoryUpserted (used by useFactoryEventStream to splice in
+ *   a single updated factory without re-fetching the list).
+ *
+ * Selectors
+ *   See [[factoriesSelectors]] for memoized accessors and counts.
+ */
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Factory, FactoriesState } from '../types/factories.type';
 import { defaultFactoriesState } from './factoriesSelectors';
