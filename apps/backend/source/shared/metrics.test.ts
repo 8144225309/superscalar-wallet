@@ -1,20 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-/* metrics.ts uses a module-level singleton registry. Each test needs
- * a fresh registry; we get that by re-importing the module via
- * vi.resetModules-equivalent — vitest's import.meta.glob doesn't help
- * here, but a dynamic import with a query-string suffix forces a
- * fresh module instance. */
-async function freshMetrics() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).__metricsCacheBust = ((globalThis as any).__metricsCacheBust || 0) + 1;
-  return import(`./metrics.js?bust=${(globalThis as any).__metricsCacheBust}`);
-}
-
+/* metrics.ts uses a module-level singleton registry. vi.resetModules()
+ * clears the cached module so the next dynamic import returns a fresh
+ * instance. */
 describe('metrics', () => {
   let M: typeof import('./metrics.js');
   beforeEach(async () => {
-    M = await freshMetrics();
+    vi.resetModules();
+    M = await import('./metrics.js');
   });
 
   it('renderMetrics on an empty registry returns trailing newline only', () => {
