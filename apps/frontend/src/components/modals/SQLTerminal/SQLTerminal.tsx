@@ -1,6 +1,37 @@
 import './SQLTerminal.scss';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ButtonGroup, Form, InputGroup, Modal, OverlayTrigger, Tooltip } from 'react-bootstrap';
+
+/**
+ * SQL Terminal — power-user CLN SQL console.
+ *
+ * What it renders
+ *   A modal with a textarea for arbitrary CLN `sql` RPC queries, two
+ *   result-rendering modes (JSON / Table), Copy buttons per result,
+ *   a history scroller (last N queries persist in component state),
+ *   and a Run button.
+ *
+ *   Aimed at operators debugging the wallet against a live CLN node.
+ *   Not exposed by default — wired from the Settings dropdown.
+ *
+ * Key state
+ *   - `query`: current textarea contents
+ *   - `result`: last response (rows + columns)
+ *   - `mode`: 'json' | 'table'
+ *   - `history`: ring buffer of recent queries
+ *
+ * Side effects
+ *   - On Run: HttpService.clnCall('sql', { query }) → updates `result`
+ *   - Copy buttons: copyTextToClipboard + dispatch setShowToast
+ *
+ * Security posture
+ *   The plugin's sql RPC is read-only by design; CLN restricts to
+ *   SELECT. There is no danger of stateful mutation from this UI.
+ *
+ * Props contract
+ *   None — visibility driven by selectShowModals.sqlTerminalModal.
+ */
+
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
