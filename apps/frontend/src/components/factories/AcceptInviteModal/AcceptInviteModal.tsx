@@ -4,6 +4,40 @@ import InlineSpinner from '../../ui/InlineSpinner/InlineSpinner';
 import { parseInviteUrlDetailed, Invite } from '../../../utilities/inviteUrl';
 import { FactoriesService } from '../../../services/http.service';
 
+/**
+ * Accept Invite Modal — client side of the invite flow.
+ *
+ * What it renders
+ *   The modal a client opens from the Connect page to paste an
+ *   incoming superscalar:// URL and review what they're about to
+ *   join. Shows:
+ *   - Parsed invite fields: iid, lsp pubkey, address, min/max
+ *     contribution, label, expires
+ *   - Privacy hint: classifies the LSP's address (.onion / loopback
+ *     / RFC1918 / public) so the client knows what they're calling
+ *     out to. Public IPs get an explicit trust warning.
+ *   - Contribution input + Join button
+ *
+ * Key state
+ *   - `rawUrl`: textarea contents
+ *   - `parsed`: result of parseInviteUrlDetailed; null when malformed
+ *     or expired
+ *   - `error`: 'malformed' | 'expired' | null — drives which warning
+ *     banner shows
+ *   - `contribution`: client's chosen contribution amount in sats
+ *
+ * Side effects
+ *   - factory-browse-host plugin RPC (verifies LSP is alive and
+ *     advertising)
+ *   - factory-join-request plugin RPC on Join (the actual wire
+ *     message that creates a pending join queue entry on the LSP)
+ *
+ * Props contract
+ *   `show: boolean`, `onHide: () => void`. Caller decides when to
+ *   open it (typically a "Paste invite" button on the Connect page).
+ */
+
+
 /* Address class used by the "trust this address" gate. Public IPs mean the
  * wallet's about to phone home to a stranger's box; loopback is local dev /
  * regtest demo; tor is privacy-preserving; private means inside the same

@@ -5,6 +5,38 @@ import { useSelector } from 'react-redux';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { buildInviteUrl } from '../../../utilities/inviteUrl';
 
+/**
+ * Invite Modal — LSP side of the invite flow.
+ *
+ * What it renders
+ *   The modal an LSP opens from FactoryDetail to share an invite URL
+ *   for one of their factories. Shows:
+ *   - The generated superscalar:// URL (copyable)
+ *   - QR code for mobile transfer
+ *   - Optional fields editor: address override, contribution min/max,
+ *     label, expires-at
+ *   - Privacy hint: classifies the LSP's address (.onion / loopback /
+ *     RFC1918 / public) and warns the user before they share a
+ *     public-routable invite that reveals their location
+ *
+ * Key state
+ *   Per-field overrides for the optional invite params; QR scale
+ *   toggle.
+ *
+ * Side effects
+ *   None on the plugin side — URLs are purely client-built via
+ *   buildInviteUrl. The LSP can paste the URL anywhere; the client
+ *   side parses it with parseInviteUrl when accepting (see
+ *   AcceptInviteModal).
+ *
+ * Props contract
+ *   `show: boolean` — controls visibility
+ *   `onHide: () => void` — close handler
+ *   `factoryInstanceIdHex: string` — the iid the invite points at
+ *   `factoryLabel?: string` — optional human label embedded in the URL
+ */
+
+
 /* Address shape inspection — used for the privacy hint. Public-routable
  * IPv4/IPv6 reveal the LSP's location to anyone the URL is shared with;
  * .onion is privacy-preserving; loopback is local-only and effectively
