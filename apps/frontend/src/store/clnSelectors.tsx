@@ -1,3 +1,23 @@
+/**
+ * CLN Selectors — memoized accessors for the `cln` slice.
+ *
+ * What it provides
+ *   Accessors for the CLN-domain UI surfaces: paginated offers list,
+ *   lightning transactions list, BTC transactions list, current
+ *   on-chain feeRate. Each list slice carries `isLoading` + `page` +
+ *   `hasMore` to support infinite-scroll patterns; the BTCWallet and
+ *   CLNWallet pages call setListLightningTransactions etc. with
+ *   page=current+1 to advance.
+ *
+ * `defaultCLNState`
+ *   Used by tests and as the fallback when the cln slice has not yet
+ *   been injected. cln is lazily injected via useInjectReducer when
+ *   the user navigates into a CLN route.
+ *
+ * Public API
+ *   Each selector is a named export. Components import selectors
+ *   directly.
+ */
 import { createSelector } from '@reduxjs/toolkit';
 import { CLNState } from '../types/cln.type';
 

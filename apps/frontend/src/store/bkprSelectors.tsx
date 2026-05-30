@@ -1,3 +1,25 @@
+/**
+ * BKPR Selectors — memoized accessors for the `bkpr` slice.
+ *
+ * What it provides
+ *   Accessors for the bookkeeper-domain UI surfaces: accountEvents
+ *   (BkprHome timeline + AccountEvents page), satsflow
+ *   (SatsFlowGraph + SatsFlowRoot), volume (VolumeRoot routing
+ *   aggregations). Each carries a TimeGranularity + startTimestamp +
+ *   endTimestamp so the time-picker on the page can re-query without
+ *   touching component state.
+ *
+ * `defaultBKPRState`
+ *   Used by tests + as the fallback when the bkpr slice has not yet
+ *   been injected. bkpr is lazily injected when /bookkeeper mounts.
+ *
+ * `defaultSummaryRoute`
+ *   Used by selectSummaryRoutes when a route group has no entries
+ *   for the period — the UI shows an empty row rather than no row.
+ *
+ * Public API
+ *   Each selector is a named export. Components import directly.
+ */
 import { createSelector } from '@reduxjs/toolkit';
 import { BKPRState } from '../types/bookkeeper.type';
 import { TimeGranularity } from '../utilities/constants';

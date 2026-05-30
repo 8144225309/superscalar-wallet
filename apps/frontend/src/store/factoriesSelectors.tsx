@@ -1,3 +1,26 @@
+/**
+ * Factories Selectors — memoized accessors for the `factories` slice.
+ *
+ * What it provides
+ *   Memoized accessors for the factories list, selected factory,
+ *   action-status (Idle / Pending / Success / Error), per-status
+ *   counts (selectFactoryCounts: total / active / init / dying /
+ *   expired / signed / totalChannels), and per-role counts
+ *   (selectRoleCounts: lsp / client).
+ *
+ *   selectFactoryCounts + selectRoleCounts are the input for
+ *   FactoriesOverview's animated count-up stats strip.
+ *
+ * `defaultFactoriesState`
+ *   Used as the fallback in selectFactoriesState when the slice is
+ *   not yet injected — appStore boots WITHOUT factories, and
+ *   useInjectReducer adds it on /factories mount.
+ *
+ * Public API
+ *   Each selector is a named export. The factory enum imports
+ *   (FactoryCeremony / FactoryLifecycle) are scoped to the counts
+ *   computation only.
+ */
 import { createSelector } from '@reduxjs/toolkit';
 import { FactoriesState, FactoryCeremony, FactoryLifecycle } from '../types/factories.type';
 

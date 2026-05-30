@@ -1,3 +1,29 @@
+/**
+ * Root Selectors — memoized accessors for the `root` slice.
+ *
+ * What it provides
+ *   `createSelector`-memoized accessors for every UI surface that
+ *   reads the root slice: auth status, modals, toasts, connect-wallet
+ *   form, nodeInfo, listChannels, listFunds, uiConfig (unit / appMode
+ *   / fiatUnit / showFiatBesideSats / singleSignOn), fiatConfig.
+ *
+ * `defaultRootState`
+ *   Exported sentinel used by tests and any code that needs a known-
+ *   shape baseline. Importantly, also used as the fallback when the
+ *   `root` slice hasn't loaded yet (selectRootState) — every selector
+ *   tolerates an undefined slice so a partial Redux tree doesn't
+ *   crash the UI.
+ *
+ * Selector pattern
+ *   Each selector is `createSelector(parentSelector, projection)`.
+ *   The projection function is reference-equality-stable, so
+ *   useSelector won't re-render on unrelated state changes.
+ *
+ * Public API
+ *   Re-exports each selector as a named export. Components are
+ *   expected to import selectors directly (no barrel re-export
+ *   through index.ts).
+ */
 import { faDollarSign } from '@fortawesome/free-solid-svg-icons';
 import { createSelector } from '@reduxjs/toolkit';
 import { RootState } from '../types/root.type';
