@@ -90,7 +90,7 @@ describe('appendAudit + tailAuditLog', () => {
   });
 
   it('captures ip and ua from the request', () => {
-    M.appendAudit('login_success', fakeReq({ ip: '203.0.113.5' } as Partial<Request>));
+    M.appendAudit('login_success', fakeReq({ ip: '203.0.113.5' } as unknown as Partial<Request>));
     const entry = JSON.parse(fs.readFileSync(tempFile, 'utf-8').trim());
     expect(entry.ip).toBe('203.0.113.5');
     expect(entry.ua).toBe('TestAgent/1.0');
@@ -98,7 +98,7 @@ describe('appendAudit + tailAuditLog', () => {
 
   it('truncates ua to 200 chars', () => {
     const longUA = 'X'.repeat(500);
-    M.appendAudit('login_success', fakeReq({ get: () => longUA } as Partial<Request>));
+    M.appendAudit('login_success', fakeReq({ get: () => longUA } as unknown as Partial<Request>));
     const entry = JSON.parse(fs.readFileSync(tempFile, 'utf-8').trim());
     expect(entry.ua).toHaveLength(200);
   });
