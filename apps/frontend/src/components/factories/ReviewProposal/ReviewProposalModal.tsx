@@ -8,6 +8,40 @@ import {
 } from '../../../types/review-proposal.type';
 import { ProofTier } from '../../../types/signing-prefs.type';
 
+/**
+ * Review Proposal Modal — B4 client-side no-blind-signing surface.
+ *
+ * What it renders
+ *   The detail modal a client opens from HeldProposalsBanner to
+ *   review exactly what the LSP wants them to sign before
+ *   approving or refusing. Shows:
+ *   - Funding sats + allocations (their own + others)
+ *   - Validation verdict (OK / HARD_FAIL / SOFT_FAIL) from the
+ *     plugin's joiner_enforceable_hard check
+ *   - Per-field advertised policy values vs. the user's signing
+ *     prefs (so the user can see why a HARD_FAIL fired)
+ *   - Approve / Refuse action buttons
+ *
+ * Key state
+ *   - `data`: ReviewProposalResponse from the plugin, fetched on
+ *     mount via factory-review-proposal
+ *   - `loading` / `error` for the fetch
+ *   - `submitting`: in-flight while approve/refuse RPC runs
+ *
+ * Side effects
+ *   - Plugin RPCs:
+ *     factory-review-proposal (read the held proposal + validator
+ *     verdict)
+ *     factory-approve-proposal / factory-refuse-proposal (action)
+ *
+ * Props contract
+ *   `instanceId: string` — factory iid the proposal is for
+ *   `lspPeerId?: string` — LSP pubkey hint for display
+ *   `show: boolean` — modal visibility
+ *   `onClose: () => void` — close + clear selection in parent banner
+ */
+
+
 type Props = {
   instanceId: string;
   lspPeerId?: string;
