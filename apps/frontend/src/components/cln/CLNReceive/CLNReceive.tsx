@@ -2,6 +2,29 @@ import './CLNReceive.scss';
 import { useState } from 'react';
 import { Card, Row, Col, Spinner, Button, Form, InputGroup } from 'react-bootstrap';
 
+/**
+ * CLN Receive — Lightning receive form.
+ *
+ * What it renders
+ *   The receive view for CLNWallet. Two PaymentType modes:
+ *   - Invoice (BOLT11): one-shot, amount-fixed-or-any
+ *   - Offer (BOLT12): re-usable; supports zero-amount = any
+ *   Fields per mode: amount + description, plus the rendered QR +
+ *   copyable invoice/offer string on success.
+ *
+ * Key state
+ *   - useInput-managed amount + description
+ *   - selPaymentType: PaymentType.INVOICE | PaymentType.OFFER
+ *   - generated invoice/offer string for QR
+ *
+ * Side effects
+ *   - CLNService.createInvoice or CLNService.createOffer on submit
+ *
+ * Props contract
+ *   - `onClose: () => void` — back to CLNWallet
+ */
+
+
 import logger from '../../../services/logger.service';
 import useInput from '../../../hooks/use-input';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY, PaymentType, SATS_MSAT } from '../../../utilities/constants';

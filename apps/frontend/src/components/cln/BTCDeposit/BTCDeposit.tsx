@@ -10,6 +10,23 @@ import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import { CLNService } from '../../../services/http.service';
 
+/**
+ * BTC Deposit — on-chain receive surface.
+ *
+ * What it renders
+ *   The receive view for BTCWallet. Calls CLNService.newAddress on
+ *   mount to allocate a fresh receive address, then displays it as
+ *   a QR code + copyable text. The address is bech32 by default.
+ *
+ *   Click-to-enlarge wires through to QRCodeLarge for scan-across-
+ *   the-room readability.
+ *
+ * Side effects
+ *   - CLNService.newAddress on mount
+ *
+ * Props contract
+ *   - `onClose: () => void` — back to BTCWallet
+ */
 const BTCDeposit = props => {
   const [responseStatus, setResponseStatus] = useState(CallStatus.NONE);
   const [responseMessage, setResponseMessage] = useState('');
