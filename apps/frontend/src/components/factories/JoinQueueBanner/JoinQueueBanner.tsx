@@ -28,8 +28,8 @@ function JoinQueueBanner() {
       const out: Record<string, number> = {};
       for (const f of lspFactories) {
         try {
-          const r = await FactoriesService.countJoinQueueByStatus(f.instance_id, 0);
-          out[f.instance_id] = Number((r as any)?.count ?? 0);
+          const r: { count?: number } = await FactoriesService.countJoinQueueByStatus(f.instance_id, 0);
+          out[f.instance_id] = Number(r?.count ?? 0);
         } catch {
           out[f.instance_id] = 0;
         }

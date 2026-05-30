@@ -42,8 +42,8 @@ function KnownPeers() {
 
   const load = async () => {
     try {
-      const r = await FactoriesService.listKnownPeers();
-      setPeers((r as any)?.peers ?? []);
+      const r: { peers?: KnownPeer[] } = await FactoriesService.listKnownPeers();
+      setPeers(r?.peers ?? []);
       setError(null);
     } catch (e: any) {
       setError(`Failed to load peers: ${e?.message ?? e}`);

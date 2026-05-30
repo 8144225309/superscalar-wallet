@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useSelector } from 'react-redux';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { buildInviteUrl } from '../../../utilities/inviteUrl';
+import type { Address } from '../../../types/root.type';
 
 /**
  * Invite Modal — LSP side of the invite flow.
@@ -80,7 +81,7 @@ type Props = {
 };
 
 function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props) {
-  const nodeInfo: any = useSelector(selectNodeInfo);
+  const nodeInfo = useSelector(selectNodeInfo);
   const [minSats, setMinSats] = useState('');
   const [maxSats, setMaxSats] = useState('');
   const [copied, setCopied] = useState(false);
@@ -97,10 +98,10 @@ function InviteModal({ show, onHide, factoryInstanceIdHex, factoryLabel }: Props
   const ourNodeId: string | undefined = nodeInfo?.id;
 
   const candidateAddresses = useMemo(() => {
-    const addrs = nodeInfo?.address ?? [];
-    const ipv4 = addrs.find((a: any) => a.type === 'ipv4');
-    const ipv6 = addrs.find((a: any) => a.type === 'ipv6');
-    const tor = addrs.find((a: any) => String(a.type).startsWith('torv'));
+    const addrs: Address[] = nodeInfo?.address ?? [];
+    const ipv4 = addrs.find((a) => a.type === 'ipv4');
+    const ipv6 = addrs.find((a) => a.type === 'ipv6');
+    const tor = addrs.find((a) => String(a.type).startsWith('torv'));
     return {
       ipv4: ipv4 ? `${ipv4.address}:${ipv4.port}` : undefined,
       ipv6: ipv6 ? `[${ipv6.address}]:${ipv6.port}` : undefined,
