@@ -49,8 +49,9 @@ describe('getFiatRate', () => {
 
   beforeEach(async () => {
     /* Re-import axios after vi.mock + vi.resetModules so the mock
-     * is fresh per test. */
-    axios = await import('axios');
+     * is fresh per test. The vi.mock factory shape doesn't match the
+     * real axios module type, so cast through unknown. */
+    axios = (await import('axios')) as unknown as { default: { get: ReturnType<typeof vi.fn> } };
     axios.default.get.mockReset();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     controller = await freshController() as any;
