@@ -4,6 +4,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar';
 import { Spinner, Card, Row, Col, ListGroup, Alert, OverlayTrigger, Tooltip, ButtonGroup, Button } from 'react-bootstrap';
 import { ActionSVG } from '../../../svgs/Action';
 import { useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { selectIsAuthenticated, selectNodeInfo } from '../../../store/rootSelectors';
 import { selectFactories, selectFactoriesLoading, selectFactoriesError, selectRoleCounts } from '../../../store/factoriesSelectors';
 import { FactoriesService } from '../../../services/http.service';
@@ -462,7 +463,29 @@ const FactoryList = (props: FactoryListProps) => {
                     </div>
                   </>
                 ) : roleFilter === 'all' ? (
-                  'No factories found. Create a factory to start!'
+                  <div className='py-4' data-testid='factory-list-first-run'>
+                    <h5 className='text-blue fw-bold mb-2'>No factories yet</h5>
+                    <p className='text-muted mb-3' style={{ fontSize: '0.9rem', maxWidth: 540, margin: '0 auto' }}>
+                      A SuperScalar factory is a single on-chain UTXO that
+                      funds many Lightning channels at once. You can either
+                      <strong> host one as an LSP</strong> (run the ceremony,
+                      offer inbound liquidity) or <strong>join one as a
+                      client</strong> (accept an invite from an LSP).
+                    </p>
+                    <div className='d-flex justify-content-center gap-2 flex-wrap'>
+                      <Link to='/factories/create' className='btn btn-sm btn-primary' data-testid='factory-list-first-run-create'>
+                        Create factory
+                      </Link>
+                      <Link to='/connect' className='btn btn-sm btn-outline-secondary' data-testid='factory-list-first-run-connect'>
+                        Browse / accept invite
+                      </Link>
+                    </div>
+                    <p className='mt-3' style={{ fontSize: '0.78rem' }}>
+                      <Link to='#' onClick={(e) => { e.preventDefault(); /* delegate to Settings glossary */ document.querySelector<HTMLElement>('[data-testid="settings-glossary"]')?.click(); }}>
+                        Not sure what a factory is? Open the glossary.
+                      </Link>
+                    </p>
+                  </div>
                 ) : (
                   `No ${roleFilter === 'lsp' ? 'LSP' : 'Client'} factories for this node.`
                 )}
