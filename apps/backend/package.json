@@ -10,7 +10,8 @@
     "serve": "node ./dist/server.js",
     "start": "tsc --project tsconfig.json --watch & prettier --write source/ & nodemon ./dist/server.js",
     "watch": "tsc --project tsconfig.json --watch & prettier --write source/",
-    "lint": "eslint source --ext .js,.ts"
+    "lint": "eslint source --ext .js,.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "axios": "1.13.6",
@@ -46,7 +47,8 @@
     "nodemon": "3.1.11",
     "prettier": "3.6.2",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.48.0"
+    "typescript-eslint": "8.48.0",
+    "vitest": "2.1.9"
   },
   "overrides": {
     "chalk": "4.1.2",
