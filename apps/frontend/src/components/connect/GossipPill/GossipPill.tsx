@@ -4,6 +4,28 @@ import { useSelector } from 'react-redux';
 import { HttpService } from '../../../services/http.service';
 import { selectActiveProfileId } from '../../../store/nodesSelectors';
 
+/**
+ * Gossip Pill — live status pill on /connect.
+ *
+ * What it renders
+ *   A small pill that tells the user how big their gossip view is:
+ *   N nodes / M channels. Formatted as compact "1.2k" / "1M" using
+ *   the local formatCount helper.
+ *
+ *   Why it's there: when discovery seems "thin" (few LSPs in the
+ *   discovered list), the user wants to know whether the wallet's
+ *   own node sees enough of the network to find them. A pill saying
+ *   "12k nodes / 50k channels" reassures them the discovery is
+ *   real; "5 nodes / 0 channels" tells them their CLN is still
+ *   syncing.
+ *
+ * Side effects
+ *   - HttpService.fetchGossipCounts() every 30s (GOSSIP_REFRESH_MS)
+ *
+ * Props contract
+ *   None — reads activeProfileId from Redux and the gossip counts
+ *   from the backend on a poll.
+ */
 const GOSSIP_REFRESH_MS = 30_000;
 
 const formatCount = (n: number): string => {

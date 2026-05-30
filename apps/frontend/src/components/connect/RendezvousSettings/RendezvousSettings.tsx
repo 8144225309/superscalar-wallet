@@ -2,6 +2,35 @@ import './RendezvousSettings.scss';
 import { useEffect, useState } from 'react';
 import { Accordion, Card, Form, Button, Row, Col, Spinner, Badge } from 'react-bootstrap';
 import { useDispatch, useSelector } from 'react-redux';
+
+/**
+ * Rendezvous Settings — Nostr relay + coordinator config.
+ *
+ * What it renders
+ *   The /connect page's RendezvousSettings accordion. Lets the
+ *   operator edit:
+ *   - Relay list (which Nostr relays to query for vouches)
+ *   - Coordinator npubs (which voucher identities to trust, per
+ *     network: mainnet / signet / testnet4 / regtest)
+ *   - Per-tier caps (channel / utxo / peer max vouches kept)
+ *   - includePeer toggle (peer-tier is weaker; off by default)
+ *
+ *   These settings flow through to the nostr.service.fetchVouches
+ *   call inside ConnectList for discovery.
+ *
+ * Key state
+ *   - `draft`: in-progress edits (separate from Redux until Save)
+ *   - `saving` / `error` for the persist round-trip
+ *
+ * Side effects
+ *   - On mount: RendezvousService.fetchSettings → dispatch into
+ *     rendezvousSlice (lazy-injected here)
+ *   - On Save: RendezvousService.saveSettings → re-dispatch
+ *
+ * Props contract
+ *   None — fully self-contained accordion on /connect.
+ */
+
 import {
   CoordinatorEntry,
   CoordinatorNetwork,

@@ -1,17 +1,30 @@
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 
-/* Task #119: manual-connect modal.
+/**
+ * Manual Connect Modal — pubkey@host:port direct-target form (Task #119).
  *
- * The "Open Factories" Card on the Connect page only lists LSPs that a
- * rendezvous coordinator has advertised. "Join via invite link" requires
- * a full superscalar:// URL with iid baked in. This modal fills the
- * remaining gap: someone DMs you "my LSP is <pubkey>@<host:port>, come
- * browse my factories" and you want to talk to that LSP directly.
+ * What it renders
+ *   The form that fills the gap between rendezvous-discovered LSPs
+ *   (in ConnectList's discovered tab) and full invite URLs (which
+ *   bake in a specific iid). The user pastes a "pubkey@host:port"
+ *   string and the parent pops JoinFactoryModal pointed at that LSP.
  *
- * On submit we validate format and pass the entered pubkey + address back
- * to the parent, which pops the existing JoinFactoryModal with those
- * values. The plugin's auto-connect helper (#118) handles the BOLT-8 hop.
+ *   Trigger scenario: someone DMs you "my LSP is X, browse my
+ *   factories" without sending a full invite link.
+ *
+ * Validation
+ *   - Pubkey must be 66 hex chars
+ *   - Host:port required and parses successfully
+ *
+ * Side effects
+ *   None — the parent owns the BOLT-8 connect via the plugin's
+ *   auto-connect helper (#118).
+ *
+ * Props contract
+ *   - `show: boolean`
+ *   - `onHide: () => void`
+ *   - `onSubmit: (pubkey, address) => void` — fires on valid submit
  *
  * No plugin RPC of our own: factory-browse-host (called by
  * JoinFactoryModal) takes a peer + optional address hint, and the plugin
