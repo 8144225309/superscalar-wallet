@@ -47,7 +47,22 @@ export function normalizePort(val: string) {
 
 app.use(bodyParser.json({ limit: '25mb' }));
 app.use(bodyParser.urlencoded({ extended: false, limit: '25mb' }));
-app.set('trust proxy', true);
+/* Express 'trust proxy' configuration.
+ *
+ * Was previously `true`, which means "trust the X-Forwarded-For header
+ * from any upstream." express-rate-limit (R7.1) flags this as
+ * ERR_ERL_PERMISSIVE_TRUST_PROXY and refuses to operate — a permissive
+ * setting lets any client spoof the X-Forwarded-For header to evade
+ * IP-based rate limits.
+ *
+ * Set to 1 instead: trust exactly one upstream hop (typical nginx /
+ * caddy / cloudflare layer in front of the wallet). Operators with
+ * more hops should override via APP_TRUST_PROXY env var. Setting to 0
+ * disables proxy trust entirely (correct when the wallet binds
+ * directly to 0.0.0.0 with no reverse proxy). */
+const trustProxyEnv = process.env.APP_TRUST_PROXY;
+const trustProxyHops = trustProxyEnv !== undefined ? parseInt(trustProxyEnv, 10) : 1;
+app.set('trust proxy', Number.isFinite(trustProxyHops) ? trustProxyHops : 1);
 app.use(cookieParser());
 app.use(csurf({ cookie: true }) as unknown as express.RequestHandler);
 app.use((req, res, next) => {
