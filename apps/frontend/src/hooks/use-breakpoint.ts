@@ -6,6 +6,34 @@
  * Modified by Shahana to remove `use-debounce` package and use enums.
  */
 
+/**
+ * use-breakpoint — Bootstrap-aligned responsive viewport hook.
+ *
+ * What it provides
+ *   The current viewport breakpoint enum (XS / SM / MD / LG / XL),
+ *   keyed off window.innerWidth at the same thresholds Bootstrap
+ *   uses (576 / 768 / 992 / 1200 / 1400+).
+ *
+ * Why debounced
+ *   resize fires dozens of times per drag. A 200ms debounce keeps
+ *   re-renders manageable while the user resizes a window. Tests
+ *   should use jest.useFakeTimers + vi.advanceTimersByTime to step
+ *   past the debounce window.
+ *
+ * Side effects
+ *   - Adds a window 'resize' listener on mount
+ *   - Removes it on unmount
+ *   - logs the new breakpoint via console.log on change (debug aid;
+ *     the level-gated logger.service is the planned replacement)
+ *
+ * Return
+ *   `Breakpoints` enum value. Components branch off it for things
+ *   like "compact nav-pill font at XS" or "two-column at LG+".
+ *
+ * Test coverage
+ *   use-breakpoint.test.ts (R8.20) pins the threshold map + debounce
+ *   semantics (15 cases).
+ */
 import { useState, useEffect } from 'react';
 import { Breakpoints } from '../utilities/constants';
 
