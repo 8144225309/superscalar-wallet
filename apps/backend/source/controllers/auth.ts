@@ -1,3 +1,37 @@
+/**
+ * Auth Controller — /v1/auth/* express handlers.
+ *
+ * What it provides
+ *   The full session lifecycle for the wallet UI:
+ *   - `userLogin`: verify the user-provided password against the
+ *     persisted bcrypt-style hash, issue a JWT, set the httpOnly
+ *     token cookie. Honors APP_JWT_SECRET (stable across restarts)
+ *     when set; falls back to a per-process random.
+ *   - `userLogout`: clears the cookie (the JWT itself is stateless).
+ *   - `setPassword`: persists the user's chosen password hash on
+ *     first run or a reset; gated on isValidHashFormat() so a
+ *     malformed POST can't lock the user out.
+ *   - `isUserAuthenticated`: middleware/endpoint that checks the
+ *     incoming JWT and returns the auth status.
+ *
+ * Side effects
+ *   - Reads/writes APP_CONFIG_FILE (the persisted hash lives there)
+ *   - Increments `soupwallet_auth_login_*` counters on every login
+ *     attempt (success/failure breakdown) for /v1/shared/metrics
+ *   - Appends `login_success` / `login_failure` / `logout` events to
+ *     the audit log (audit-log.ts)
+ *
+ * Security posture
+ *   - Cookie is httpOnly, sameSite:strict, secure-in-production
+ *   - Server-side hash format gate accepts only /^[0-9a-f]{64}$/i —
+ *     real strength enforcement happens in the client-side password
+ *     setter (PR R7.1 covers the rationale)
+ *   - SECRET_KEY default: 1024-bit per-process random when
+ *     APP_JWT_SECRET unset (sessions don't survive restarts)
+ *
+ * Routing
+ *   Mounted under /v1/auth/* by source/routes/auth.routes.ts.
+ */
 import jwt from 'jsonwebtoken';
 import * as fs from 'fs';
 import { Request, Response, NextFunction } from 'express';
