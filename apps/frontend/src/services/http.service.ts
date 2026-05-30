@@ -1,3 +1,37 @@
+/**
+ * HTTP Service — wallet backend RPC bridge.
+ *
+ * What it provides
+ *   Static-method service classes that wrap the wallet backend's HTTP
+ *   API (express server under apps/backend) for every UI surface:
+ *   - `AuthService`: /v1/auth/* (login, logout, reset)
+ *   - `SharedService`: /v1/shared/* (config get/set/export/import,
+ *     fiat rate, audit-log, metrics)
+ *   - `CLNService`: /v1/cln/* (node info, peers, channels, payments,
+ *     SQL terminal)
+ *   - `BKPRService`: /v1/bookkeeper/* (volume, account events, satsflow)
+ *   - `FactoriesService`: /v1/factories/* (the SuperScalar plugin RPCs:
+ *     factory-create / approve / refuse / rotate / close / etc., plus
+ *     wallet-* helpers like wallet-list-events-since,
+ *     wallet-list-known-peers, wallet-set-peer-reputation)
+ *   - `NodesService` / `RendezvousService`: profile-switch + Nostr
+ *     vouching bridge
+ *
+ * Common pattern
+ *   Every method calls axios.get / .post, normalizes errors via
+ *   logger.error('… failed for …', { params, error }), and (for
+ *   read-paths) dispatches the result to a slice action so components
+ *   re-render via useSelector instead of useState+useEffect.
+ *
+ * Error handling
+ *   - Caller-supplied try/catch wraps higher-level orchestration
+ *   - At this layer, errors are logged + re-thrown for the UI to
+ *     surface in a StatusAlert
+ *
+ * Module-init side effects
+ *   None — but each request reads API_BASE_URL + API_VERSION from
+ *   constants; do NOT reach into this module before constants load.
+ */
 import axios from 'axios';
 import moment from 'moment';
 import { ApplicationConfiguration, AuthResponse, Peer } from '../types/root.type';

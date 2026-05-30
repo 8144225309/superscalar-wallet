@@ -1,3 +1,32 @@
+/**
+ * Nostr Service — vouch / rendezvous Nostr layer.
+ *
+ * What it provides
+ *   Client-side bridge to the SuperScalar rendezvous Nostr protocol.
+ *   The wallet UI uses this to discover other LSP coordinators by
+ *   fetching kind=38101 vouch events from a relay pool, dedupe and
+ *   rank them by tier (channel > utxo > peer), and to PUBLISH the
+ *   user's own vouches (LSP info advertising) when the operator
+ *   opts in during factory-create or the rendezvous settings page.
+ *
+ * Tier ranking
+ *   - channel: strongest — voucher has a real channel with the target
+ *   - utxo:    medium — voucher signed with a UTXO ownership proof
+ *   - peer:    weakest — voucher merely peered with the target
+ *   TIER_RANK encodes the strict ordering; weaker tiers get truncated
+ *   harder by the per-tier caps.
+ *
+ * Public API
+ *   - `fetchVouches(pool, relays, options)`: dedup + rank + cap
+ *   - `publishVouch(pool, relays, signedEvent)`: emit a vouch event
+ *   - Helpers: HEX_PUBKEY_RE validation, VOUCH_KIND constant export
+ *
+ * Constants
+ *   - `VOUCH_KIND = 38101`: Nostr event kind reserved for SuperScalar
+ *     vouches (see docs/RENDEZVOUS_NOSTR.md for kind reservations)
+ *   - `QUERY_MAX_WAIT_MS = 8000`: relay query timeout — relays often
+ *     just don't respond; cap the wait so the UI doesn't hang
+ */
 import { SimplePool, nip19, type Event as NostrEvent, type Filter } from 'nostr-tools';
 import {
   CoordinatorEntry,
