@@ -1,15 +1,35 @@
-/* Tiny in-process metrics registry that emits Prometheus text format.
+/**
+ * Metrics — tiny in-process Prometheus-text emitter.
  *
- * Scope: WALLET-side only. CLN node, plugin, and protocol-level
- * metrics belong to the plugin team's `factory-metrics` RPC, not here.
+ * What it does
+ *   Holds a process-local Map of counters and gauges and renders them
+ *   in Prometheus text format. Scraped via GET /v1/shared/metrics.
  *
- * No external dependency — Prometheus text format is trivial:
- *   # HELP <name> <help text>
- *   # TYPE <name> <counter|gauge|histogram>
- *   <name>{label="value"} <number>
+ * Why no client lib
+ *   The wire format is trivial (~30 lines of code) and avoids pulling
+ *   prom-client just for ~5 counters. No buckets/histograms here yet.
  *
- * Counters reset to zero on process restart. For long-horizon
- * dashboards, scrape into a real TSDB. */
+ *     # HELP <name> <help text>
+ *     # TYPE <name> <counter|gauge>
+ *     <name>{label="value",...} <number>
+ *
+ * Scope boundary
+ *   WALLET-side only — login attempts, http errors, audit-write
+ *   failures. CLN node, plugin, and protocol-level metrics belong to
+ *   the plugin team's `factory-metrics` RPC and the lib's prometheus
+ *   adapter, NOT here.
+ *
+ * Lifecycle
+ *   Counters reset to zero on process restart. For long-horizon
+ *   dashboards, scrape into a real TSDB (Prometheus, Mimir, etc.).
+ *
+ * Public API
+ *   - `initMetrics()`: pre-register the standard set so they appear
+ *     at zero before any traffic
+ *   - `incrementCounter(name, labels?)` / `setGauge(name, value, labels?)`
+ *   - `renderMetrics(): string` — Prometheus text body
+ *   - `clearRegistryForTesting()` — reset between vitest cases
+ */
 
 type Labels = Record<string, string>;
 
