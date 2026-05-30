@@ -2,7 +2,6 @@ import reducer, {
   setSettingsLoading,
   setSettings,
   setSettingsError,
-  setVouchListLoading,
   setVouchList,
   setBrowseCacheEntry,
   clearBrowseCache,
