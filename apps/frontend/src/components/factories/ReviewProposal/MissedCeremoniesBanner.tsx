@@ -2,6 +2,36 @@ import { useEffect, useState, useCallback } from 'react';
 import { Alert, Button, Badge } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
 
+/**
+ * Missed Ceremonies Banner — client-side sign-queue surface.
+ *
+ * What it renders
+ *   A sticky Alert at the bottom of /factories that surfaces sign-queue
+ *   events the client missed: MISSED (state 2), REFUSED (state 3),
+ *   EXPIRED (state 4). Each entry shows the iid, LSP peer, deadline
+ *   block, observed block, and a Dismiss button.
+ *
+ *   Renders nothing when there are zero un-dismissed events.
+ *
+ * Why this exists
+ *   When a client wallet is offline during a ceremony, the LSP keeps
+ *   the request enqueued; the plugin records the state transition in
+ *   its sign-queue when the deadline passes. Surfacing missed/refused/
+ *   expired events here gives the user an audit trail of what they
+ *   missed and why — without re-attempting the ceremony.
+ *
+ * Key state
+ *   - `events`: filtered list (dismissed=false)
+ *   - Polled every 7s via wallet-list-sign-queue
+ *
+ * Side effects
+ *   - Plugin RPCs:
+ *     wallet-list-sign-queue (refresh)
+ *     wallet-dismiss-sign-queue-event (Dismiss button)
+ *
+ * Props contract
+ *   None — fully self-contained banner.
+ */
 type SignQueueEvent = {
   instance_id: string;
   lsp_peer_id: string;

@@ -5,6 +5,33 @@ import { selectFactoryList } from '../../../store/factoriesSelectors';
 import { Factory, FactoryCeremony } from '../../../types/factories.type';
 import ReviewProposalModal from './ReviewProposalModal';
 
+/**
+ * Pending Proposals Card — B4 client-side proposal queue.
+ *
+ * What it renders
+ *   A Card surfacing every factory whose ceremony is PROPOSED — i.e.
+ *   the LSP has emitted a B3 proposal the client hasn't yet signed.
+ *   Each row shows:
+ *   - Truncated iid (head=8, tail=4)
+ *   - LSP node label / pubkey
+ *   - Proposed-at timestamp
+ *   - A Review → button that opens ReviewProposalModal (the
+ *     "no-blind-signing" surface where the client inspects the full
+ *     advertised policy + tier and approves/refuses)
+ *
+ *   Renders nothing when there are zero PROPOSED factories — keeps
+ *   the bottom of /factories clean when there's nothing to act on.
+ *
+ * Key state
+ *   - `reviewing`: the factory currently open in ReviewProposalModal
+ *
+ * Side effects
+ *   - Approve / Refuse flows happen inside ReviewProposalModal; this
+ *     card just gates which factory is open for review.
+ *
+ * Props contract
+ *   None — reads PROPOSED factories from Redux only.
+ */
 const truncate = (s: string, head = 8, tail = 4): string => {
   if (s.length <= head + tail + 3) return s;
   return `${s.slice(0, head)}…${s.slice(-tail)}`;
