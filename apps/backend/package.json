@@ -11,6 +11,8 @@
     "start": "tsc --project tsconfig.json --watch & prettier --write source/ & nodemon ./dist/server.js",
     "watch": "tsc --project tsconfig.json --watch & prettier --write source/",
     "lint": "eslint source --ext .js,.ts",
+    "format": "prettier --write source/",
+    "format:check": "prettier --check source/",
     "test": "vitest run"
   },
   "dependencies": {
