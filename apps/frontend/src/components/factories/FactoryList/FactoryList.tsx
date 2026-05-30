@@ -1,5 +1,32 @@
 import './FactoryList.scss';
 import { useState, useMemo, useEffect } from 'react';
+
+/**
+ * Factory List — primary inventory view inside /factories.
+ *
+ * What it renders
+ *   Searchable, role-filterable list of all factories on this node:
+ *   - LSP vs Client role filter (ButtonGroup)
+ *   - Search box (matches iid prefix or peer alias)
+ *   - Empty-state CTA: "Host your first factory →"
+ *   - Per-factory row: factoryStatus()-driven badge + alias + capacity
+ *   - Failed/Aborted bucket: collapsible, surfaces Discard counter and
+ *     per-row Discard button (factory-forget RPC, only when the gate
+ *     check `canDiscard()` passes — no on-chain footprint)
+ *
+ * Key state
+ *   - `roleFilter`: 'all' | 'lsp' | 'client'
+ *   - `searchTerm`: free text matched against iid + peer alias
+ *   - `discardingId`: in-flight Discard target (button → spinner)
+ *
+ * Side effects
+ *   - factory-forget plugin RPC on Discard button click
+ *
+ * Props contract
+ *   `onCreateFactory: () => void`  — Host CTA wiring (navigates to /create)
+ *   `onFactoryClick: (f) => void`  — row click wiring (navigates to detail)
+ */
+
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { Spinner, Card, Row, Col, ListGroup, Alert, OverlayTrigger, Tooltip, ButtonGroup, Button } from 'react-bootstrap';
 import { ActionSVG } from '../../../svgs/Action';

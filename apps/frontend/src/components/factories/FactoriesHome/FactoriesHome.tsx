@@ -1,6 +1,35 @@
 import './FactoriesHome.scss';
 import { Row, Col } from 'react-bootstrap';
 import { useLocation } from 'react-router-dom';
+
+/**
+ * Factories Home — top-level /factories route container.
+ *
+ * What it renders
+ *   The route shell for every /factories sub-page. Mounts:
+ *   - Page Header
+ *   - FactoriesNav (pill row for Overview / Console / Prefs / Peers / Create)
+ *   - One of the route children based on the current pathname:
+ *     bare /factories → FactoriesOverview + FactoryListCard + warnings
+ *     /factories/console → LspOperatorConsole
+ *     /factories/operator-prefs → OperatorPrefs
+ *     /factories/signing-prefs → SigningPrefs
+ *     /factories/peers → KnownPeers
+ *     /factories/create or /factories/<iid> → handled by FactoryListCard
+ *
+ * Reducer injection
+ *   Lazily injects `factories` + `factoryEvents` reducers via
+ *   useInjectReducer — the reducerManager pattern from appStore.tsx
+ *   keeps the base store small until the user navigates here.
+ *
+ * Side effects
+ *   - Starts useFactoryEventStream on mount (5s polling with
+ *     offline-catchup via wallet-list-events-since)
+ *
+ * Props contract
+ *   None — fully self-contained, mounted by the router.
+ */
+
 import Header from '../../ui/Header/Header';
 import FactoriesNav from '../FactoriesNav/FactoriesNav';
 import { useSelector } from 'react-redux';
