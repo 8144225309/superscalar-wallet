@@ -4,10 +4,29 @@ import { FactoriesService } from '../../../services/http.service';
 import logger from '../../../services/logger.service';
 
 /**
- * Task #152: surface the client's outgoing factory-join-request attempts
- * + current status. Powered by the plugin's client-list-outgoing-joins RPC
- * (added in PR #77). Renders on the Connect page so users can see what
- * happened to invites they sent without having to grep CLN logs.
+ * My Join Attempts Card — outgoing factory-join-request audit (Task #152).
+ *
+ * What it renders
+ *   A Card on /connect listing every factory-join-request this client
+ *   has sent, with the LSP target + factory iid + status (queued /
+ *   approved / refused / expired). Powered by the plugin's
+ *   client-list-outgoing-joins RPC.
+ *
+ *   Closes the "did my join go through?" question without making
+ *   users grep CLN logs — important for first-time SuperScalar users
+ *   whose first attempt may fail for any number of reasons (LSP
+ *   offline, request rejected by auto-accept-threshold, expired).
+ *
+ * Key state
+ *   - `attempts`: the list from client-list-outgoing-joins
+ *   - `loading` / `error` per fetch
+ *   - 10s refresh interval while modal open
+ *
+ * Side effects
+ *   - Plugin RPC: client-list-outgoing-joins (poll every 10s)
+ *
+ * Props contract
+ *   None — fully self-contained card on /connect.
  */
 
 type OutgoingJoin = {
