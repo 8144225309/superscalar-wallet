@@ -1,5 +1,35 @@
 import { FactoryAllocation } from '../types/factories.type';
 
+/**
+ * Factory Planner — local UI-side preview helper.
+ *
+ * What it does
+ *   Pure functions that turn a FactoryPlanInputs object into a
+ *   FactoryAllocation preview the wizard shows before the operator
+ *   commits. Mirrors the lib's allocation math closely enough to give
+ *   accurate per-leaf capacity, kickoff fee, and CLTV ladder previews
+ *   WITHOUT round-tripping to the plugin for every keystroke.
+ *
+ * Why a duplicate
+ *   The plugin/lib own canonical allocation; this is a UI mirror so
+ *   the form can validate and surface warnings synchronously. The
+ *   actual factory is always built from plugin-side numbers on submit.
+ *   When constants drift, the form may show slightly-off previews but
+ *   the on-chain output is still safe.
+ *
+ * Constants exported
+ *   - `BLOCKS_PER_DAY` / `BLOCKS_PER_HOUR` — handy for time<->block math
+ *   - `FACTORY_PLAN_DEFAULTS` — the wizard's initial form state
+ *
+ * Pure / side-effect-free
+ *   All functions are pure. No fetches, no Redux dispatch, no logging.
+ *   Safe to call inside `useMemo` on every input change.
+ *
+ * Test coverage
+ *   factory-planner.test.ts pins the allocation math, CLTV warnings,
+ *   epoch cliff threshold, and capacity invariants.
+ */
+
 export const BLOCKS_PER_DAY = 144;
 export const BLOCKS_PER_HOUR = 6;
 

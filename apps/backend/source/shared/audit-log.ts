@@ -3,26 +3,40 @@ import * as path from 'path';
 import { Request } from 'express';
 import { logger } from './logger.js';
 
-/* Append-only audit log of mutating user actions on the wallet UI.
+/**
+ * Audit Log — wallet UI mutating-action JSONL trail.
  *
- * Scope: WALLET-side actions only. Plugin/lib emit their own structured
- * logs for protocol events. This log is for "who clicked what when" —
- * useful for post-incident review on mainnet.
+ * What it does
+ *   Appends one JSON line per mutating wallet-UI action ("who clicked
+ *   what when"). Useful for post-incident review on mainnet.
  *
- * Format: one JSON object per line (JSONL). Each line:
- *   {
- *     ts: ISO-8601 timestamp,
- *     ip: source IP (best-effort, via req.ip with trust-proxy),
- *     ua: user-agent (truncated to 200 chars),
- *     event: short event name,
- *     details: arbitrary JSON object — small, never includes secrets
- *   }
+ * Format
+ *   One JSON object per line (JSONL):
+ *     {
+ *       ts:      ISO-8601 timestamp,
+ *       ip:      source IP (req.ip, best-effort under trust-proxy),
+ *       ua:      user-agent (truncated to 200 chars),
+ *       event:   short event name (AuditEvent type),
+ *       details: arbitrary small JSON — NEVER includes secrets
+ *     }
  *
- * The log lives at process.env.APP_AUDIT_LOG_FILE (default
- * ./audit-log.jsonl). Operators should rotate it via logrotate.
+ * Scope boundary
+ *   WALLET-side actions ONLY. Plugin/lib emit their own structured
+ *   logs for protocol events — don't double-log here.
  *
- * Failure to write is logged but not surfaced to the user — audit
- * logging must never break a working request. */
+ * Location & rotation
+ *   process.env.APP_AUDIT_LOG_FILE (default `./audit-log.jsonl`).
+ *   Operators should rotate via logrotate; the writer reopens lazily.
+ *
+ * Failure handling
+ *   Failure to write is logged via the winston logger but NEVER
+ *   surfaced to the user — audit logging must never break a working
+ *   request. The caller is fire-and-forget.
+ *
+ * Public API
+ *   - `recordAuditEvent(event, req, details)`: enqueue an entry
+ *   - `AuditEvent`: closed string-literal union of allowed event names
+ */
 
 const AUDIT_LOG_PATH = process.env.APP_AUDIT_LOG_FILE || './audit-log.jsonl';
 
