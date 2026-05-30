@@ -10,6 +10,28 @@ import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import clnReducer from '../../../store/clnSlice';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 
+/**
+ * CLN Home — /cln route shell.
+ *
+ * What it renders
+ *   The default landing dashboard for an authenticated user:
+ *   - Page Header
+ *   - Overview stats hero (balance/peers/capacity/channels count-up)
+ *   - BTCCard + CLNCard + ChannelsCard side-by-side
+ *
+ *   Pre-SuperScalar this was the only home; with /factories live,
+ *   /cln is now "the lightning side" specifically (the BTC + LN
+ *   primitives), while /factories owns the SuperScalar surface.
+ *
+ * Lazy injection
+ *   useInjectReducer('cln', clnReducer) the first time this mounts.
+ *
+ * Side effects
+ *   None — children own their RPC polling.
+ *
+ * Props contract
+ *   None — mounted by the router at /cln.
+ */
 function CLNHome() {
   useInjectReducer('cln', clnReducer);
   const nodeInfo = useSelector(selectNodeInfo);

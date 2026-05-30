@@ -2,6 +2,32 @@ import './BTCWallet.scss';
 import { lazy, Suspense } from 'react';
 import { Spinner, Alert, Card, Col, ButtonGroup } from 'react-bootstrap';
 const BTCTransactionsList = lazy(() => import('../BTCTransactionsList/BTCTransactionsList'));
+
+/**
+ * BTC Wallet — /cln/btc-wallet on-chain surface.
+ *
+ * What it renders
+ *   The on-chain Bitcoin side: spendable + reserved balance hero,
+ *   Withdraw / Deposit action buttons, a lazy-loaded transactions
+ *   list with infinite-scroll pagination.
+ *
+ *   Counterpart to CLNWallet (Lightning side). Both share the
+ *   CurrencyBox + Action button pattern.
+ *
+ * Lazy-loaded children
+ *   BTCTransactionsList is React.lazy() to keep CLNHome's first
+ *   render small. Each route that mounts under /cln/* pays the
+ *   one-time fetch on first visit.
+ *
+ * Side effects
+ *   - CLNService.listBTCTransactions() on mount (via Refresh button
+ *     or scroll-to-bottom)
+ *   - resetListBitcoinTransactions on Refresh
+ *
+ * Props contract
+ *   None — fully self-contained route.
+ */
+
 import { BitcoinWalletSVG } from '../../../svgs/BitcoinWallet';
 import { WithdrawSVG } from '../../../svgs/Withdraw';
 import { DepositSVG } from '../../../svgs/Deposit';

@@ -12,6 +12,30 @@ import CurrencyBox from '../../shared/CurrencyBox/CurrencyBox';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectListChannels, selectNumPeers, selectWalletBalances } from '../../../store/rootSelectors';
 
+/**
+ * Overview — /cln stats hero strip.
+ *
+ * What it renders
+ *   The top stats strip on /cln: four animated count-up cards —
+ *   - Balance (clnLocalBalance + btcSpendableBalance)
+ *   - Peers (num_peers from selectNumPeers)
+ *   - Capacity (sum of channel.channel_total_sat across active)
+ *   - Channels (count of activeChannels)
+ *
+ *   Wired via framer-motion MotionValue + useTransform for the
+ *   roll-up animation on mount and on value change.
+ *
+ * Responsive
+ *   useBreakpoint() gates the 4-col layout at LG+; collapses to 2-col
+ *   at MD and 1-col at XS/SM.
+ *
+ * Side effects
+ *   - animate(motionValue, target, …) per metric on change
+ *
+ * Props contract
+ *   None — reads selectListChannels / selectNumPeers /
+ *   selectWalletBalances from Redux.
+ */
 const Overview = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const walletBalances = useSelector(selectWalletBalances);

@@ -2,6 +2,30 @@ import './CLNWallet.scss';
 import { useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, Col, ButtonGroup, Spinner, Alert, Tab, Nav } from 'react-bootstrap';
+
+/**
+ * CLN Wallet — /cln/cln-wallet Lightning surface.
+ *
+ * What it renders
+ *   The Lightning side of the wallet: cln balance hero (local +
+ *   remote + pending + inactive), Send / Receive action buttons, and
+ *   a tabbed lazy-loaded list (Payments / Offers) with framer-motion
+ *   tab transition + Refresh.
+ *
+ *   Counterpart to BTCWallet (on-chain side).
+ *
+ * Lazy-loaded children
+ *   CLNTransactionsList + CLNOffersList are both React.lazy() to keep
+ *   the /cln initial bundle small.
+ *
+ * Side effects
+ *   - resetListLightningTransactions / resetListOffers on Refresh
+ *   - List children own their own pagination polling
+ *
+ * Props contract
+ *   None — fully self-contained route.
+ */
+
 const CLNTransactionsList = lazy(() => import('../CLNTransactionsList/CLNTransactionsList'));
 const CLNOffersList = lazy(() => import('../CLNOffersList/CLNOffersList'));
 import { LightningWalletSVG } from '../../../svgs/LightningWallet';
