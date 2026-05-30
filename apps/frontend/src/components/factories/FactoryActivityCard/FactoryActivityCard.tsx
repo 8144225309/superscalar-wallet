@@ -8,6 +8,34 @@ import { FactoriesService } from '../../../services/http.service';
 import { selectFactoryList } from '../../../store/factoriesSelectors';
 import SatsWithFiat from '../../shared/SatsWithFiat/SatsWithFiat';
 
+/**
+ * Factory Activity Card — Session 6d (Tier-2 polish).
+ *
+ * What it renders
+ *   The Activity tab inside FactoryDetail's accordion. Surfaces 7-day
+ *   routing volume + invoice/sendpay summaries scoped to channels
+ *   inside this factory. Shows a Recharts bar chart of routed value
+ *   per day plus an itemized table per channel.
+ *
+ * Key state
+ *   - `peerChannels`: listpeerchannels result (for scid↔peer mapping)
+ *   - `forwards`: listforwards (routed payments)
+ *   - `invoices`: listinvoices (incoming)
+ *   - `sendpays`: listsendpays (outgoing)
+ *   - `loading` / `error`: per-fetch UI state
+ *
+ * Side effects
+ *   Frontend-only — joins data the wallet already has via existing
+ *   plugin/CLN RPCs (no new factory-* RPCs). 4 parallel CLN RPCs on
+ *   mount, no polling (Activity is informational; refresh on page
+ *   navigation).
+ *
+ * Props contract
+ *   `factory: Factory` — the parent FactoryDetail's factory row. Used
+ *   to enumerate factory.channels[].channel_id for the activity join.
+ */
+
+
 /* Session 6d (Tier-2 polish): per-factory activity view.
  *
  * Frontend-only — no plugin RPC. Joins the existing data the wallet

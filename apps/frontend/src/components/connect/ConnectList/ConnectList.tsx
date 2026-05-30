@@ -1,6 +1,36 @@
 import './ConnectList.scss';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PerfectScrollbar from 'react-perfect-scrollbar';
+
+/**
+ * Connect List — client-side LSP discovery + invite surface.
+ *
+ * What it renders
+ *   The main /connect page. Tabbed surface with:
+ *   - Discovered LSPs (from rendezvous Nostr relays + plugin's
+ *     factory-browse-host probes)
+ *   - Manual connect (paste pubkey@host:port)
+ *   - Accept invite (paste superscalar:// URL → opens
+ *     AcceptInviteModal)
+ *   - Gossip pill summary (live status of relay+plugin discovery)
+ *
+ * Key state
+ *   - `coordinationFactories`: merged list of advertised LSPs from
+ *     rendezvous + plugin browses; refreshed on bumpVouchRefreshTrigger
+ *   - selected LSP / connection form fields
+ *   - join-in-flight markers per row
+ *
+ * Side effects
+ *   - Nostr relay fetches via RendezvousService.fetchSettings
+ *   - Plugin RPCs: factory-browse-host (probe an LSP),
+ *     factory-join-request (the actual join wire message)
+ *   - Auto-connect to the LSP peer if not already peered (plugin
+ *     handles this on factory-join-request).
+ *
+ * Props contract
+ *   None — fully self-contained page mounted at /connect.
+ */
+
 import {
   Card,
   Row,
