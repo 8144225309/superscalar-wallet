@@ -39,7 +39,12 @@ type JoinEntry = {
   reason: string | null;
 };
 
-const STATUS_LABEL: Record<number, { label: string; bg: string; text: string }> = {
+/* Mirror of the LspOperatorConsole status badge map. Constrain `text`
+ * to the Bootstrap color-token union so the Badge JSX consumer doesn't
+ * need an `as any` cast. */
+type BadgeTextColor = 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'light' | 'dark' | 'muted' | 'white' | 'body' | 'black';
+
+const STATUS_LABEL: Record<number, { label: string; bg: string; text: BadgeTextColor }> = {
   0: { label: 'Queued', bg: 'warning', text: 'dark' },
   1: { label: 'Accepted', bg: 'info', text: 'dark' },
   2: { label: 'Signed', bg: 'success', text: 'light' },
@@ -171,7 +176,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
             </thead>
             <tbody>
               {sortedEntries.map((e) => {
-                const badge = STATUS_LABEL[e.status] ?? { label: `Status ${e.status}`, bg: 'secondary', text: 'light' };
+                const badge = STATUS_LABEL[e.status] ?? { label: `Status ${e.status}`, bg: 'secondary', text: 'light' as BadgeTextColor };
                 const age = currentBlock > 0 ? currentBlock - e.received_at_block : 0;
                 const isBusy = busyClient === e.client_pubkey_hex;
                 return (
@@ -184,7 +189,7 @@ function JoinRequestsCard({ factoryInstanceIdHex, currentBlock }: Props) {
                       {age} blk ago
                     </td>
                     <td>
-                      <Badge bg={badge.bg} text={badge.text as any}>{badge.label}</Badge>
+                      <Badge bg={badge.bg} text={badge.text}>{badge.label}</Badge>
                       {e.reason && <div className='text-muted' style={{ fontSize: '0.75rem' }}>{e.reason}</div>}
                     </td>
                     <td className='text-end'>

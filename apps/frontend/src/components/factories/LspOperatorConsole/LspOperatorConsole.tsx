@@ -51,7 +51,13 @@ type JoinEntry = {
   reason: string | null;
 };
 
-const STATUS_LABEL: Record<number, { label: string; bg: string; text: string }> = {
+/* Bootstrap Badge's `text` prop is a fixed color-token union; using a
+ * raw string would lose that constraint and the prior code worked
+ * around it with `as any`. Constrain the field here so callers get
+ * compile-time autocomplete and we drop the cast. */
+type BadgeTextColor = 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'light' | 'dark' | 'muted' | 'white' | 'body' | 'black';
+
+const STATUS_LABEL: Record<number, { label: string; bg: string; text: BadgeTextColor }> = {
   0: { label: 'Queued', bg: 'warning', text: 'dark' },
   1: { label: 'Accepted', bg: 'info', text: 'dark' },
   2: { label: 'Signed', bg: 'success', text: 'light' },
@@ -427,7 +433,7 @@ function LspOperatorConsole() {
               <tbody>
                 {rows.map((r) => {
                   const badge =
-                    STATUS_LABEL[r.status] ?? { label: `Status ${r.status}`, bg: 'secondary', text: 'light' };
+                    STATUS_LABEL[r.status] ?? { label: `Status ${r.status}`, bg: 'secondary', text: 'light' as BadgeTextColor };
                   const key = `${r.factory_instance_id_hex}-${r.client_pubkey_hex}`;
                   const isBusy = busyKey === key;
                   const currentBlock = r.factory.creation_block + 0; // we don't have blockheight here; rely on received_at_block raw
@@ -468,7 +474,7 @@ function LspOperatorConsole() {
                         {age > 0 && <div style={{ fontSize: '0.7rem' }}>{age} blk ago</div>}
                       </td>
                       <td>
-                        <Badge bg={badge.bg} text={badge.text as any}>
+                        <Badge bg={badge.bg} text={badge.text}>
                           {badge.label}
                         </Badge>
                         {r.reason && (
