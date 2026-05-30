@@ -29,7 +29,7 @@ import { selectConnectionUrl, selectIsDarkMode, selectShowModals } from '../../.
  *   None — visibility driven by selectShowModals.qrCodeLarge and
  *   payload by selectConnectionUrl.
  */
-
+const QRCodeLarge = () => {
   const dispatch = useDispatch();
   const isDarkMode = useSelector(selectIsDarkMode);
   const showModals = useSelector(selectShowModals);
