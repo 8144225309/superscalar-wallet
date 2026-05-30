@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import FactoriesNav from './FactoriesNav';
 
@@ -9,6 +9,10 @@ function renderAt(pathname: string) {
     </MemoryRouter>,
   );
 }
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('FactoriesNav', () => {
   it('renders all six pill destinations', () => {
@@ -38,17 +42,15 @@ describe('FactoriesNav', () => {
     expect(screen.getByTestId('nav-console')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('marks each section active when on its exact path', () => {
-    for (const [path, testid] of [
-      ['/factories/console', 'nav-console'],
-      ['/factories/operator-prefs', 'nav-operator-prefs'],
-      ['/factories/signing-prefs', 'nav-signing-prefs'],
-      ['/factories/peers', 'nav-peers'],
-      ['/factories/create', 'nav-create'],
-    ] as const) {
-      renderAt(path);
-      expect(screen.getByTestId(testid)).toHaveAttribute('aria-current', 'page');
-    }
+  it.each([
+    ['/factories/console', 'nav-console'],
+    ['/factories/operator-prefs', 'nav-operator-prefs'],
+    ['/factories/signing-prefs', 'nav-signing-prefs'],
+    ['/factories/peers', 'nav-peers'],
+    ['/factories/create', 'nav-create'],
+  ])('marks %s active when on that exact path', (path, testid) => {
+    renderAt(path);
+    expect(screen.getByTestId(testid)).toHaveAttribute('aria-current', 'page');
   });
 
   it('does NOT mark any section active on a factory-detail deep path', () => {
