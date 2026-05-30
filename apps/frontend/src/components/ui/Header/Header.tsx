@@ -2,6 +2,31 @@ import './Header.scss';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Row, Col, Image } from 'react-bootstrap';
 
+/**
+ * Header — global app header strip.
+ *
+ * What it renders
+ *   The top-of-page strip on every authenticated route:
+ *   - App logo (links to /)
+ *   - NodePicker (when multiple node profiles exist)
+ *   - Menu icon (mobile only — opens the left nav drawer)
+ *   - Settings cog dropdown (theme, fiat-display toggles, glossary,
+ *     export/import, what's-new, node ID modal, logout)
+ *   - Dark/light theme toggle
+ *
+ * Responsive
+ *   useBreakpoint() gates the Menu icon visibility (only XS/SM)
+ *   since wider viewports show the nav rail inline.
+ *
+ * Side effects
+ *   - Logout button: dispatches RootService.userLogout + setConfig
+ *   - Theme toggle: dispatches setConfig with the new appMode
+ *
+ * Props contract
+ *   None — global element rendered by the layout shell.
+ */
+
+
 import useBreakpoint from '../../../hooks/use-breakpoint';
 import { ApplicationModes, Breakpoints } from '../../../utilities/constants';
 import { DayModeSVG } from '../../../svgs/DayMode';
