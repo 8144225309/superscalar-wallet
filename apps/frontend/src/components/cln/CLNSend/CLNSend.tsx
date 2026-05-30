@@ -11,7 +11,7 @@ import { AmountSVG } from '../../../svgs/Amount';
 import { AddressSVG } from '../../../svgs/Address';
 import { LightningWalletSVG } from '../../../svgs/LightningWallet';
 import InvalidInputMessage from '../../shared/InvalidInputMessage/InvalidInputMessage';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import { CLNService } from '../../../services/http.service';
 import { useSelector } from 'react-redux';
@@ -206,9 +206,7 @@ const CLNSend = (props) => {
               <LightningWalletSVG svgClassName="svg-small me-2" className="fill-primary" />
               <span className="fw-bold">Lightning Wallet</span>
             </div>
-            <span className="span-close-svg" onClick={props.onClose}>
-              <CloseSVG />
-            </span>
+            <CloseButton onClose={props.onClose} label='Close send' />
           </Card.Header>
           <h4 className="text-blue fw-bold mt-2">Send Payment</h4>
           <Card.Body className="pb-0 px-1 d-flex flex-column align-items-start justify-content-between">

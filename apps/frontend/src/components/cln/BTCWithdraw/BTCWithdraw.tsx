@@ -13,7 +13,7 @@ import { FeeRateSVG } from '../../../svgs/FeeRate';
 import { BitcoinWalletSVG } from '../../../svgs/BitcoinWallet';
 import FiatBox from '../../shared/FiatBox/FiatBox';
 import InvalidInputMessage from '../../shared/InvalidInputMessage/InvalidInputMessage';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import FeerateRange from '../../shared/FeerateRange/FeerateRange';
 import { CLNService } from '../../../services/http.service';
@@ -129,7 +129,7 @@ const BTCWithdraw = (props) => {
               <BitcoinWalletSVG svgClassName='svg-small me-2' className='fill-primary' />
               <span className='fw-bold'>Bitcoin Wallet</span>
             </div>
-            <span role='button' data-testid='close-button' className='span-close-svg' onClick={props.onClose}><CloseSVG /></span>
+            <CloseButton onClose={props.onClose} label='Close withdraw' testId='close-button' />
           </Card.Header>
           <h4 className='text-blue fw-bold mt-2'>Withdraw</h4>
           <Card.Body className='py-0 px-1 d-flex flex-column align-items-start justify-content-between'>

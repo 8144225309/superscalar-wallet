@@ -6,7 +6,7 @@ import { CallStatus, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constan
 import logger from '../../../services/logger.service';
 import { BitcoinWalletSVG } from '../../../svgs/BitcoinWallet';
 import QRCodeComponent from '../../shared/QRCode/QRCode';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import { CLNService } from '../../../services/http.service';
 
@@ -52,9 +52,7 @@ const BTCDeposit = props => {
             <BitcoinWalletSVG svgClassName="svg-small me-2" className="fill-primary" />
             <span className="fw-bold">Bitcoin Wallet</span>
           </div>
-          <span className="span-close-svg" onClick={props.onClose}>
-            <CloseSVG />
-          </span>
+          <CloseButton onClose={props.onClose} label='Close deposit' />
         </Card.Header>
         <h4 className="text-blue fw-bold mt-2">Deposit</h4>
         <Card.Body className="py-0 px-1" data-testid='deposit-card-body'>

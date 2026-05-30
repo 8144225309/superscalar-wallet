@@ -12,7 +12,7 @@ import { AddressSVG } from '../../../svgs/Address';
 import { FeeRateSVG } from '../../../svgs/FeeRate';
 import FiatBox from '../../shared/FiatBox/FiatBox';
 import InvalidInputMessage from '../../shared/InvalidInputMessage/InvalidInputMessage';
-import { CloseSVG } from '../../../svgs/Close';
+import CloseButton from '../../shared/CloseButton/CloseButton';
 import StatusAlert from '../../shared/StatusAlert/StatusAlert';
 import FeerateRange from '../../shared/FeerateRange/FeerateRange';
 import { CLNService } from '../../../services/http.service';
@@ -149,7 +149,7 @@ const ChannelOpen = (props) => {
             <div className='fs-4 p-0 fw-bold text-dark'>
               Open Channel
             </div>
-            <span className='span-close-svg' onClick={props.onClose}><CloseSVG /></span>
+            <CloseButton onClose={props.onClose} label='Close channel open' />
           </Card.Header>
           <Card.Body className='pb-0 px-1 d-flex flex-column align-items-start justify-content-between'>
             <Row className='d-flex align-items-start justify-content-center'>
