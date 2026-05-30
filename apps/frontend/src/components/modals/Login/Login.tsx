@@ -3,6 +3,35 @@ import { useState } from 'react';
 import SHA256 from "crypto-js/sha256";
 import { Modal, Col, Row, Spinner, InputGroup, Form } from 'react-bootstrap';
 
+/**
+ * Login — first-screen password modal.
+ *
+ * What it renders
+ *   The login modal that gates every authenticated route. Mounts at
+ *   app boot when isAuthenticated=false. Shows a password input + show/
+ *   hide toggle + submit button. The submitted plaintext is SHA-256
+ *   hashed CLIENT-SIDE before being POSTed to /v1/auth/login — the
+ *   server never sees the plaintext, only the hash.
+ *
+ * Key state
+ *   - `responseStatus` / `responseMessage` for StatusAlert
+ *   - `showPassword` boolean for the eye toggle
+ *   - useInput-managed `password` field with non-empty validation
+ *
+ * Side effects
+ *   - On submit: RootService.userLogin(hash) → dispatch setAuthStatus
+ *   - On success: dispatch setShowModals to close the login modal
+ *
+ * Security posture
+ *   - Pre-hashing in the browser avoids logging plaintext on the
+ *     backend (winston level=info would otherwise see req.body)
+ *   - The server response sets the JWT cookie; UI never touches it
+ *
+ * Props contract
+ *   None — fully self-contained, gated by Redux auth state.
+ */
+
+
 import useInput from '../../../hooks/use-input';
 import { CallStatus } from '../../../utilities/constants';
 import { ActionSVG } from '../../../svgs/Action';

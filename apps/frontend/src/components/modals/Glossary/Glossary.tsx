@@ -7,6 +7,29 @@ import { CloseSVG } from '../../../svgs/Close';
 import { setShowModals } from '../../../store/rootSlice';
 import { selectShowModals } from '../../../store/rootSelectors';
 
+/**
+ * Glossary — searchable protocol-term reference (R3.4).
+ *
+ * What it renders
+ *   A modal with ~15 SuperScalar terms (factory, MuSig2, kickoff TX,
+ *   epoch, DW timelock, pseudo-Spilman, breach window, etc.) plus a
+ *   search box and tag filter (protocol / crypto / lifecycle / lsp).
+ *   Each term has a `name`, optional aliases (`aka`), tag, and a
+ *   short definition.
+ *
+ *   Wired from the Settings dropdown so a user reading docs or the
+ *   wallet UI can pop the glossary without losing their place.
+ *
+ * Key state
+ *   - `query` for the search box
+ *   - `selectedTag` for the tag filter
+ *
+ * Side effects
+ *   None — pure render keyed off Redux modal visibility.
+ *
+ * Props contract
+ *   None — visibility driven by selectShowModals.glossaryModal.
+ */
 type GlossaryTerm = {
   name: string;
   aka?: string[];

@@ -4,6 +4,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Modal, Row, InputGroup, Form } from 'react-bootstrap';
 
+/**
+ * Node Info — share-node-ID modal.
+ *
+ * What it renders
+ *   A modal showing the active node's pubkey + best-available address,
+ *   a QR code for the same, and Copy buttons next to each. Used when
+ *   another peer needs to manually open a channel to this node (paste
+ *   the URI into their wallet's Open Channel form, or scan the QR
+ *   from a mobile wallet).
+ *
+ *   For SuperScalar factory invites the InviteModal (under /factories)
+ *   is the right surface — it embeds the iid + LSP info + min/max
+ *   into a superscalar:// URL. NodeInfo is the pre-SuperScalar
+ *   "give me your node's pubkey@host:port" workflow.
+ *
+ * Key state
+ *   - `qrSize` adapts to the modal width on resize
+ *
+ * Side effects
+ *   - Copy buttons: copyTextToClipboard + dispatch setShowToast
+ *
+ * Props contract
+ *   None — visibility driven by selectShowModals.nodeInfoModal.
+ */
+
+
 import { CopySVG } from '../../../svgs/Copy';
 import CloseButton from '../../shared/CloseButton/CloseButton';
 import logger from '../../../services/logger.service';
