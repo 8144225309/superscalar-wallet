@@ -5,6 +5,30 @@ import { selectNodeInfo } from '../../../store/rootSelectors';
 import { selectFactories, selectFactoriesLoading } from '../../../store/factoriesSelectors';
 import { FactoryLifecycle } from '../../../types/factories.type';
 
+/**
+ * Expiry Warnings — sidebar card on /factories.
+ *
+ * What it renders
+ *   A Card listing every non-expired factory with a positive
+ *   expiry_block, sorted by soonest-to-expire. Each row shows:
+ *   - First 12 chars of the iid (compact identifier)
+ *   - Blocks remaining + a level-colored ProgressBar
+ *   - Level coloring: `danger` (<=144 blocks ≈ 1 day),
+ *     `warning` (<=432 blocks ≈ 3 days), else `success`
+ *
+ *   Counterpart to BreachStatus; both occupy the lower-right column
+ *   of the /factories dashboard. Empty-state shows "No active
+ *   factories" rather than rendering nothing.
+ *
+ * Key state
+ *   None — derived from selectNodeInfo (blockheight) + selectFactories.
+ *
+ * Side effects
+ *   None — pure render.
+ *
+ * Props contract
+ *   None — reads from Redux only.
+ */
 const ExpiryWarnings = () => {
   const nodeInfo = useSelector(selectNodeInfo);
   const factories = useSelector(selectFactories);

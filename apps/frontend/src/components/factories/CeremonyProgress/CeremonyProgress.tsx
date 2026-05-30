@@ -1,6 +1,31 @@
 import './CeremonyProgress.scss';
 import { FactoryCeremony } from '../../../types/factories.type';
 
+/**
+ * Ceremony Progress — MuSig2 step indicator.
+ *
+ * What it renders
+ *   A horizontal stepper visualizing the current FactoryCeremony state
+ *   relative to the canonical sequence:
+ *     CREATION_STEPS: IDLE → PROPOSED → NONCES_COLLECTED →
+ *                      PSIGS_COLLECTED → COMPLETE
+ *     ROTATION_STEPS: ROTATING → ROTATE_COMPLETE → REVOKED
+ *   Each step shows a checkmark when reached, a spinner on the
+ *   current step, and a muted dot for upcoming steps. FAILED states
+ *   surface a red mark on the step where the ceremony last advanced.
+ *
+ *   Used inside FactoryDetail and JoinFactoryModal so a participant
+ *   can watch the MuSig2 ceremony advance.
+ *
+ * Key state
+ *   None — derived from the `ceremony` prop.
+ *
+ * Side effects
+ *   None — pure render.
+ *
+ * Props contract
+ *   `ceremony: FactoryCeremony` — the current ceremony enum value.
+ */
 type CeremonyProgressProps = {
   ceremony: FactoryCeremony;
 };

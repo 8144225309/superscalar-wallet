@@ -3,6 +3,28 @@ import { Card, ListGroup, Alert } from 'react-bootstrap';
 import { useSelector } from 'react-redux';
 import { selectFactories, selectFactoriesLoading } from '../../../store/factoriesSelectors';
 
+/**
+ * Breach Status — sidebar card on /factories.
+ *
+ * What it renders
+ *   A small Card listing every factory with `n_breach_epochs > 0`,
+ *   each surfacing the breach-epoch count in a danger Alert pill. If
+ *   the count is zero across all factories, renders a neutral "No
+ *   breaches detected" line — never an empty card.
+ *
+ *   Counterpart to ExpiryWarnings (which surfaces upcoming
+ *   expiries). Together they form the lower-right column of the
+ *   /factories dashboard.
+ *
+ * Key state
+ *   None — derived entirely from Redux factories selector.
+ *
+ * Side effects
+ *   None — pure render.
+ *
+ * Props contract
+ *   None — reads from Redux only.
+ */
 const BreachStatus = () => {
   const factories = useSelector(selectFactories);
   const isLoading = useSelector(selectFactoriesLoading);
