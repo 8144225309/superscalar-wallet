@@ -9,6 +9,31 @@ import ChannelDetails from '../ChannelDetails/ChannelDetails';
 import { CLEAR_STATUS_ALERT_DELAY, TRANSITION_DURATION } from '../../../utilities/constants';
 import { PeerChannel } from '../../../types/root.type';
 
+/**
+ * Channels Card — animated 3-way sub-view router.
+ *
+ * What it renders
+ *   A Card whose contents swap among three sub-views based on local
+ *   selChannelCard state:
+ *     'channels' → Channels list (default)
+ *     'open'     → ChannelOpen form
+ *     'details'  → ChannelDetails for selChannel
+ *   Framer-Motion AnimatePresence drives slide+fade transitions.
+ *
+ *   newlyOpenedChannelId is passed to Channels to highlight the new
+ *   row when ChannelOpen completes.
+ *
+ * Key state
+ *   - selChannelCard: 'channels' | 'open' | 'details'
+ *   - selChannel: the PeerChannel currently shown in ChannelDetails
+ *   - newlyOpenedChannelId: pass-through for highlight cue
+ *
+ * Side effects
+ *   None — children own their own RPC + dispatch.
+ *
+ * Props contract
+ *   None — fully self-contained card on /cln.
+ */
 const ChannelsCard = () => {
   const [selChannelCard, setSelChannelCard] = useState('channels');
   const [selChannel, setSelChannel] = useState<PeerChannel | null>(null);

@@ -3,6 +3,31 @@ import { motion } from 'framer-motion';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { Spinner, Card, Row, Col, ListGroup, Alert, ProgressBar, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
+/**
+ * Channels — channel list inside ChannelsCard.
+ *
+ * What it renders
+ *   The flat list of all channels (active + pending + inactive) from
+ *   selectListChannels. Each row shows:
+ *   - Peer alias / pubkey
+ *   - Capacity bar (to_us vs to_them via Bootstrap ProgressBar)
+ *   - State badge keyed off channelStateMap
+ *   - Row click → opens ChannelDetails via parent state
+ *
+ * Empty state
+ *   When there are no channels, renders a friendly empty illustration
+ *   (NoChannelLightSVG / NoChannelDarkSVG by theme).
+ *
+ * Side effects
+ *   None — read-only list; mutating actions live in Channel{Open,Details}.
+ *
+ * Props contract
+ *   - `onChannelClick: (channel) => void` — row click handler
+ *   - `onOpenChannel: () => void` — "Open new" CTA
+ *   - `newlyOpenedChannelId?: string` — flash-highlight target
+ */
+
+
 import { titleCase } from '../../../utilities/data-formatters';
 import { ActionSVG } from '../../../svgs/Action';
 import { channelStateMap, STAGERRED_SPRING_VARIANTS_3 } from '../../../utilities/constants';

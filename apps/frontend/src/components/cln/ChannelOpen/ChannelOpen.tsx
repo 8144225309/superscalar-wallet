@@ -3,6 +3,37 @@ import { useState, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Spinner, Card, Row, Col, Form, InputGroup } from 'react-bootstrap';
 
+/**
+ * Channel Open — standard open-channel form.
+ *
+ * What it renders
+ *   The form for opening a regular (non-SuperScalar) Lightning channel
+ *   to a peer. Fields:
+ *   - Peer pubkey@host:port (paste)
+ *   - Amount sats (with FiatBox sibling)
+ *   - Fee rate selector (FeeRate enum)
+ *   Plus a StatusAlert for the in-flight ceremony.
+ *
+ *   For SuperScalar factory joins, JoinFactoryModal on /connect is the
+ *   right surface — that flow doesn't open a peer channel directly,
+ *   it goes through factory-join-request.
+ *
+ * Key state
+ *   - useInput-managed amount + address fields
+ *   - selectedFeeRate
+ *   - responseStatus / responseMessage for StatusAlert
+ *
+ * Side effects
+ *   - CLNService.connectPeer (if not already connected)
+ *   - CLNService.openChannel on submit
+ *
+ * Props contract
+ *   - `onClose: () => void` — back to channel list
+ *   - `onChannelOpened: (id: string) => void` — notify parent for
+ *     newlyOpenedChannelId highlight
+ */
+
+
 import logger from '../../../services/logger.service';
 import useInput from '../../../hooks/use-input';
 import { CallStatus, FeeRate, BOUNCY_SPRING_VARIANTS_1, CLEAR_STATUS_ALERT_DELAY } from '../../../utilities/constants';
