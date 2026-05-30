@@ -1,3 +1,30 @@
+/**
+ * Data Transform Service — bkpr + cln raw-row → UI-shape transformer.
+ *
+ * What it provides
+ *   Pure functions that consume RAW result sets from the SQL endpoints
+ *   (cln-sql + bookkeeper-sql) and produce the typed shapes the React
+ *   components actually render: AccountEventsPeriod[], SatsFlow,
+ *   VolumeData, BkprSummaryInfo (with SummaryRoute), and the LN/BTC
+ *   transactions lists.
+ *
+ * Why it lives in a service file
+ *   The SQL endpoints return arrays of row objects. The bookkeeper
+ *   views (graphs, tables) need period-bucketed, period-aggregated,
+ *   ChannelOrigin-classified data. Doing this transform inside
+ *   useMemo per component would duplicate logic across 6+ surfaces.
+ *
+ * Pure / side-effect-free
+ *   No fetches, no Redux dispatch, no logging. Safe to call inside
+ *   useMemo on every fetch. Constants come from utilities/constants:
+ *   - secondsForTimeGranularity / getTimestampFromPeriodKey /
+ *     getTimestampWithGranularity for period bucketing
+ *   - TOTAL_LABELS for the "total" pseudo-period
+ *
+ * Public API
+ *   Helpers per bkpr/cln domain. Each takes raw rows + a time
+ *   granularity (where applicable) and returns the chart-ready shape.
+ */
 import {
   AccountEventsPeriod,
   SatsFlowEvent,
