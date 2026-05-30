@@ -184,16 +184,23 @@ export class SharedController {
        * which has no CHANGELOG.md at any reasonable depth, so the
        * previous cwd-based search silently returned empty).
        *
-       * Use the module-file location (MODULE_DIR) as the stable anchor:
-       *   .../apps/backend/dist/controllers/shared.js → root is 4 up.
-       * Keep cwd-based candidates too so docker / monorepo overrides
-       * still hit. */
-      const candidates = [
-        path.resolve(MODULE_DIR, '..', '..', '..', '..', 'CHANGELOG.md'),
-        path.resolve(process.cwd(), 'CHANGELOG.md'),
-        path.resolve(process.cwd(), '..', '..', 'CHANGELOG.md'),
-        path.resolve(process.cwd(), '..', '..', '..', 'CHANGELOG.md'),
-      ];
+       * Three lookup strategies, in order:
+       *   1. APP_CHANGELOG_PATH env var (explicit override). Operators
+       *      with a non-standard layout can point at any absolute
+       *      file; tests use it to isolate from the repo's real
+       *      CHANGELOG.md.
+       *   2. Module-file dir (MODULE_DIR) — stable across launches:
+       *      .../apps/backend/dist/controllers/shared.js → root is 4 up.
+       *   3. cwd-based fallbacks for docker / monorepo overrides where
+       *      the dist file lives somewhere unexpected. */
+      const candidates = process.env.APP_CHANGELOG_PATH
+        ? [process.env.APP_CHANGELOG_PATH]
+        : [
+            path.resolve(MODULE_DIR, '..', '..', '..', '..', 'CHANGELOG.md'),
+            path.resolve(process.cwd(), 'CHANGELOG.md'),
+            path.resolve(process.cwd(), '..', '..', 'CHANGELOG.md'),
+            path.resolve(process.cwd(), '..', '..', '..', 'CHANGELOG.md'),
+          ];
       let raw = '';
       for (const p of candidates) {
         if (fs.existsSync(p)) {
