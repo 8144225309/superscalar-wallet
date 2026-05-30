@@ -7,11 +7,13 @@ import type { Request } from 'express';
 /* AUDIT_LOG_PATH is computed at module-init from APP_AUDIT_LOG_FILE,
  * so each test needs a fresh module bound to a fresh tempdir. The
  * dynamic-import cache-bust pattern is the same as metrics.test.ts. */
+/* audit-log.ts reads APP_AUDIT_LOG_FILE at module init, so we set the
+ * env var per test and let vi.resetModules clear the cache. */
 async function freshModule(envPath: string) {
   process.env.APP_AUDIT_LOG_FILE = envPath;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).__auditCacheBust = ((globalThis as any).__auditCacheBust || 0) + 1;
-  return import(`./audit-log.js?bust=${(globalThis as any).__auditCacheBust}`);
+  const { vi } = await import('vitest');
+  vi.resetModules();
+  return import('./audit-log.js');
 }
 
 function fakeReq(overrides: Partial<Request> = {}): Request {
@@ -56,11 +58,8 @@ describe('clnMethodToAuditEvent', () => {
   });
 
   it('is case-insensitive', () => {
-    let M2: typeof import('./audit-log.js');
-    // M is already bound; reuse it
-    M2 = M;
-    expect(M2.clnMethodToAuditEvent('Factory-Create')).toBe('cln_call_factory_create');
-    expect(M2.clnMethodToAuditEvent('FUNDCHANNEL')).toBe('cln_call_fundchannel');
+    expect(M.clnMethodToAuditEvent('Factory-Create')).toBe('cln_call_factory_create');
+    expect(M.clnMethodToAuditEvent('FUNDCHANNEL')).toBe('cln_call_fundchannel');
   });
 });
 
