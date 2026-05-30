@@ -1,6 +1,29 @@
 import './BkprHome.scss';
 import { useLocation } from 'react-router-dom';
 import { Row, Col } from 'react-bootstrap';
+
+/**
+ * Bkpr Home — /bookkeeper route shell.
+ *
+ * What it renders
+ *   The bookkeeper dashboard. Three info cards (AccountEvents,
+ *   SatsFlow, Volume) that each link to their respective full-page
+ *   timeline / chart view. Mounts:
+ *   - Page Header
+ *   - cln Overview hero (reused from /cln)
+ *   - AccountEventsInfo + SatsFlowInfo + VolumeInfo summary cards
+ *   - RouteTransition wrapper for the slide-in detail views
+ *
+ * Lazy injection
+ *   useInjectReducer('bkpr', bkprReducer) on first mount.
+ *
+ * Side effects
+ *   None — children own their RPCs.
+ *
+ * Props contract
+ *   None — mounted by the router at /bookkeeper.
+ */
+
 import RouteTransition from '../../ui/RouteTransition/RouteTransition';
 import SatsFlowInfo from './SatsFlowInfo/SatsFlowInfo';
 import VolumeInfo from './VolumeInfo/VolumeInfo';

@@ -2,6 +2,30 @@ import './SatsFlowRoot.scss';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Col, Row } from 'react-bootstrap';
+
+/**
+ * Sats Flow Root — /bookkeeper/sats-flow full view.
+ *
+ * What it renders
+ *   The deep-dive view for the bkpr satsflow per-period chart.
+ *   - DataFilterOptions: TimeGranularity + date-range + zero-period
+ *     toggle
+ *   - SatsFlowGraph: Recharts stacked bar (inflow / outflow per period)
+ *
+ *   Reads selectSatsFlowPeriods which is populated by the bkpr slice
+ *   after a SatsFlowSQL fetch + data-transform.service shaping.
+ *
+ * Key state
+ *   - timeGranularity / startTimestamp / endTimestamp
+ *   - showZeroActivityPeriods
+ *
+ * Side effects
+ *   - Re-runs SatsFlowSQL via bkpr slice on filter change
+ *
+ * Props contract
+ *   None — mounted by the router.
+ */
+
 import { CloseSVG } from '../../../svgs/Close';
 import DataFilterOptions from '../../shared/DataFilterOptions/DataFilterOptions';
 import SatsFlowGraph from './SatsFlowGraph/SatsFlowGraph';

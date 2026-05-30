@@ -1,6 +1,31 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import './AccountEventsRoot.scss';
 import { Card, Row, Col } from 'react-bootstrap';
+
+/**
+ * Account Events Root — /bookkeeper/account-events full view.
+ *
+ * What it renders
+ *   The deep-dive view for the bkpr account-events cumulative timeline.
+ *   - DataFilterOptions: TimeGranularity (DAILY/WEEKLY/MONTHLY) +
+ *     date-range picker + FilterMode (zero-activity toggle)
+ *   - AccountEventsGraph: stacked Recharts area chart per account
+ *   - AccountEventsTable: tabular per-period breakdown with sort
+ *
+ *   Uses filterZeroActivityAccountEvents to optionally drop periods
+ *   where nothing changed (keeps long-flat timelines readable).
+ *
+ * Key state
+ *   - timeGranularity / startTimestamp / endTimestamp
+ *   - showZeroActivityPeriods (FilterMode boolean)
+ *
+ * Side effects
+ *   - Re-runs the bkpr SQL via the bkpr slice on filter change
+ *
+ * Props contract
+ *   None — mounted by the router; uses useNavigate for the close X.
+ */
+
 import AccountEventsGraph from './AccountEventsGraph/AccountEventsGraph';
 import AccountEventsTable from './AccountEventsTable/AccountEventsTable';
 import { CloseSVG } from '../../../svgs/Close';
