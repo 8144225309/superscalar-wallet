@@ -2,6 +2,32 @@ import './CLNSend.scss';
 import { useState } from 'react';
 import { Card, Row, Col, Spinner, Button, Form, InputGroup } from 'react-bootstrap';
 
+/**
+ * CLN Send — Lightning send form.
+ *
+ * What it renders
+ *   The send view for CLNWallet. Accepts BOLT11 invoices, BOLT12
+ *   offers, and keysend pubkeys. Decodes the input via CLN's `decode`
+ *   RPC on blur to surface the destination + amount + description
+ *   before the user fires.
+ *
+ *   PaymentType (Invoice / Offer / Keysend) is determined by input
+ *   prefix and shapes the submit call.
+ *
+ * Key state
+ *   - useInput-managed paste field + (for keysend) explicit amount
+ *   - decoded preview (alias, dest, msat, description)
+ *   - responseStatus / responseMessage for StatusAlert
+ *
+ * Side effects
+ *   - CLNService.decode on input blur
+ *   - CLNService.pay / fetchInvoice / sendPay on submit
+ *
+ * Props contract
+ *   - `onClose: () => void` — back to CLNWallet
+ */
+
+
 import logger from '../../../services/logger.service';
 import useInput from '../../../hooks/use-input';
 import { formatCurrency, isCompatibleVersion } from '../../../utilities/data-formatters';

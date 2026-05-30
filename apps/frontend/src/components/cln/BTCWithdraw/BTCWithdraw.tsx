@@ -3,6 +3,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, ChangeEvent } from 'react';
 import { Spinner, Card, Row, Col, Button, Form, InputGroup } from 'react-bootstrap';
 
+/**
+ * BTC Withdraw — on-chain send form.
+ *
+ * What it renders
+ *   The send view for BTCWallet. Fields:
+ *   - Destination address (paste/QR scan)
+ *   - Amount sats + sibling FiatBox + "max" CTA
+ *   - Fee rate selector (FeeRate enum) + custom-perkw input
+ *   - Clear-input close button next to amount
+ *   Plus StatusAlert for the in-flight withdraw.
+ *
+ * Key state
+ *   - useInput-managed amount + address fields
+ *   - selFeeRate / showCustomFeeRate
+ *   - responseStatus / responseMessage for StatusAlert
+ *
+ * Side effects
+ *   - CLNService.withdraw on submit
+ *
+ * Props contract
+ *   - `onClose: () => void` — back to BTCWallet
+ */
+
+
 import logger from '../../../services/logger.service';
 import useInput from '../../../hooks/use-input';
 import { CallStatus, CLEAR_STATUS_ALERT_DELAY, FeeRate, FEE_RATES } from '../../../utilities/constants';
