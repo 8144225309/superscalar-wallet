@@ -1,5 +1,35 @@
 import './FactoryCreate.scss';
 import { useMemo, useState } from 'react';
+
+/**
+ * Factory Create page.
+ *
+ * What it renders
+ *   The Create-a-factory wizard: amount + duration + participant
+ *   policy + optional allocations + optional advertise-to-rendezvous
+ *   form. Uses an Accordion for the "Advanced" knobs (block-early
+ *   count, force-start offset, leaf arity, ps-subfactory arity) so
+ *   the default path is one screen of inputs.
+ *
+ * Key state
+ *   - Form fields: amount sats, lifetime preset, allocation rows,
+ *     advertise-to-rendezvous toggle, network choice
+ *   - Plan preview: factoryPlanner derives epoch count + dying period
+ *     + breach-watch window from lifetime + presets; warnings surface
+ *     under each affected field
+ *   - Call-status alert driven by StatusAlert + CLEAR_STATUS_ALERT_DELAY
+ *
+ * Side effects
+ *   - factory-create plugin RPC on submit
+ *   - When "advertise to rendezvous" is on: also calls
+ *     RendezvousService.prepareVouchEvent + publishSignedEvent to push
+ *     the LSP info to Nostr relays. Bumps vouchRefreshTrigger so other
+ *     panels re-fetch.
+ *
+ * Props contract
+ *   None — fully self-contained page. Mounted at /factories/create.
+ */
+
 import { useDispatch, useSelector } from 'react-redux';
 import { bumpVouchRefreshTrigger } from '../../../store/rendezvousSlice';
 import { Card, Row, Col, Form, Spinner, Accordion, InputGroup, Alert } from 'react-bootstrap';
