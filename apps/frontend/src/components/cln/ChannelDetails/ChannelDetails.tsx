@@ -3,6 +3,32 @@ import { useState } from 'react';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { Spinner, Card, Row, Col, ProgressBar, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
+/**
+ * Channel Details — per-channel deep dive.
+ *
+ * What it renders
+ *   The detail view for one selected PeerChannel. Shows:
+ *   - Peer pubkey + alias + connection status
+ *   - Funding txid (with mempool link via OpenLinkSVG)
+ *   - Capacity / receivable / spendable / dust limit
+ *   - CLTV + private flag + state badge
+ *   - Close button → CLNService.closeChannel (with confirm)
+ *
+ *   Wired with StatusAlert for the close action lifecycle.
+ *
+ * Key state
+ *   - responseStatus / responseMessage for StatusAlert
+ *
+ * Side effects
+ *   - CLNService.closeChannel on confirm
+ *   - copyTextToClipboard + ToastMessage for Copy buttons
+ *
+ * Props contract
+ *   - `selChannel: PeerChannel` — the channel to detail
+ *   - `onClose: () => void` — close handler (back to list)
+ */
+
+
 import { copyTextToClipboard, formatCurrency, titleCase } from '../../../utilities/data-formatters';
 import { CallStatus, channelStateMap, CLEAR_STATUS_ALERT_DELAY, Units } from '../../../utilities/constants';
 import { ActionSVG } from '../../../svgs/Action';
