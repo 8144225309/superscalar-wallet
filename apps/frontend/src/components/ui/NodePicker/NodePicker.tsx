@@ -1,4 +1,5 @@
 import './NodePicker.scss';
+import { useEffect, useRef } from 'react';
 import { Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 /**
@@ -35,7 +36,7 @@ import { setIsSwitching, setIsDiscovering, setActiveProfileId, setProfileHealth 
 import { selectNodeProfiles, selectActiveProfile, selectIsSwitchingNode, selectHasMultipleNodes, selectActiveProfileId, selectIsConnected, selectIsDiscovering, selectProfileHealth } from '../../../store/nodesSelectors';
 import { selectNodeInfo } from '../../../store/rootSelectors';
 import { NodesService, RootService, CLNService, BookkeeperService, FactoriesService } from '../../../services/http.service';
-import { clearNodeData } from '../../../store/rootSlice';
+import { clearNodeData, setShowToast } from '../../../store/rootSlice';
 import { clearCLNStore } from '../../../store/clnSlice';
 import { clearBKPRStore } from '../../../store/bkprSlice';
 import { clearFactoriesStore } from '../../../store/factoriesSlice';
@@ -55,6 +56,23 @@ const NodePicker = () => {
   const hasMultipleNodes = useSelector(selectHasMultipleNodes);
   const nodeInfo = useSelector(selectNodeInfo);
   const profileHealth = useSelector(selectProfileHealth);
+
+  /* Initial health probe: when profiles first land, fire one healthCheck so
+   * every row in the dropdown gets a real red/green dot instead of staying
+   * "unprobed (?)" until the user manually rescans. Guarded with a ref so we
+   * only fire once per session — subsequent updates come from rescan or
+   * post-switch handlers. */
+  const didInitialHealthProbe = useRef(false);
+  useEffect(() => {
+    if (didInitialHealthProbe.current) return;
+    if (profiles.length === 0) return;
+    didInitialHealthProbe.current = true;
+    NodesService.healthCheck()
+      .then(h => {
+        if (h?.health) appStore.dispatch(setProfileHealth(h.health));
+      })
+      .catch(err => logger.warn('Initial health check failed:', err));
+  }, [profiles.length]);
 
   const handleSwitchNode = async (profileId: string) => {
     if (profileId === activeProfileId || isSwitching) return;
@@ -120,17 +138,32 @@ const NodePicker = () => {
     try {
       appStore.dispatch(setIsDiscovering(true));
       const result = await NodesService.discoverNodes();
-      if (result.profiles && result.profiles.length > 0) {
+      const newCount = result?.profiles?.length || 0;
+      if (newCount > 0) {
         // Re-fetch profile list
         await NodesService.fetchAndDispatchNodes();
         const nodeData = await NodesService.listNodes();
         // If not connected yet, auto-switch to the first discovered node
-        if (!nodeData.activeProfileId && result.profiles.length > 0) {
+        if (!nodeData.activeProfileId) {
           await handleSwitchNode(result.profiles[0].id);
         } else if (nodeData.activeProfileId && !nodeData.isConnected) {
           // Profile exists but not connected — reconnect
           await handleSwitchNode(nodeData.activeProfileId);
         }
+        appStore.dispatch(setShowToast({
+          show: true,
+          message: `${newCount} new node${newCount === 1 ? '' : 's'} discovered`,
+          bg: 'success',
+        }));
+      } else {
+        /* Silence was the prior UX — no toast meant the user couldn't tell
+         * if the scan ran. Surface an info toast so a no-op rescan still
+         * confirms the click went through. */
+        appStore.dispatch(setShowToast({
+          show: true,
+          message: 'Scan complete — no new nodes found',
+          bg: 'info',
+        }));
       }
       // Refresh per-profile health dots after the rescan so the dropdown
       // shows live red/green status for every profile in the list. Probe is
@@ -144,6 +177,11 @@ const NodePicker = () => {
       }
     } catch (error) {
       logger.error('Failed to discover nodes:', error);
+      appStore.dispatch(setShowToast({
+        show: true,
+        message: 'Rescan failed — check wallet logs',
+        bg: 'danger',
+      }));
     } finally {
       appStore.dispatch(setIsDiscovering(false));
     }
@@ -250,9 +288,18 @@ const NodePicker = () => {
     );
   }
 
-  // Multiple nodes: show dropdown
+  /* Multiple nodes: show dropdown.
+   *
+   * autoClose='outside': keep the dropdown open while the user clicks
+   * "Rescan for Nodes" — the rescan can take several seconds and may
+   * surface new entries the user wants to click on right away. The
+   * default `autoClose=true` closes the menu the instant Rescan is
+   * clicked, hiding the spinner and forcing the user to re-open to see
+   * results. Profile-switch items still work — `handleSwitchNode`
+   * navigates the wallet to the new profile and the dropdown is closed
+   * implicitly by the user clicking elsewhere afterward. */
   return (
-    <Dropdown className='node-picker d-inline-flex align-items-center'>
+    <Dropdown autoClose='outside' className='node-picker d-inline-flex align-items-center'>
       <span className='d-flex align-items-center'>
         {getStatusDot()}
       </span>
