@@ -2,6 +2,32 @@ import './FactoryListCard.scss';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from 'react-bootstrap';
 import { useNavigate, useParams } from 'react-router-dom';
+
+/**
+ * Factory List Card — animated sub-view router for /factories.
+ *
+ * What it renders
+ *   A single Card whose contents swap among three sub-views based on
+ *   the URL splat:
+ *     /factories          → FactoryList (default)
+ *     /factories/create   → FactoryCreate wizard
+ *     /factories/<iid>    → FactoryDetail for that factory
+ *   Framer-Motion AnimatePresence drives the slide+fade transition
+ *   between the three.
+ *
+ * Key state
+ *   None — view selection is derived from useParams() splat + Redux
+ *   factories list.
+ *
+ * Side effects
+ *   - navigate('/factories') for child onClose handlers
+ *   - navigate('/factories/<iid>') for row clicks (FactoryList)
+ *   - navigate('/factories/create') for the Host CTA
+ *
+ * Props contract
+ *   None — sub-view + selection is resolved from the route.
+ */
+
 import { useSelector } from 'react-redux';
 import { TRANSITION_DURATION } from '../../../utilities/constants';
 import { selectFactories } from '../../../store/factoriesSelectors';
