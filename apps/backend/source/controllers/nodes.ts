@@ -1,3 +1,29 @@
+/**
+ * Nodes Controller — /v1/nodes/* express handlers.
+ *
+ * What it provides
+ *   The multi-profile switcher. The demo wallet (and any operator with
+ *   multiple CLN nodes — see project-signet-node-fleet for the a/b/c/d
+ *   pattern) needs to flip the active node without restarting the
+ *   wallet. This controller owns:
+ *   - listProfiles: returns sanitized profiles (rune stripped) for the
+ *     UI dropdown
+ *   - addProfile / removeProfile: persisted profile editing
+ *   - switchProfile: rebinds the NodeManager to a different transport
+ *     target, then re-runs the connection flow
+ *   - discoverNodes: scans the local network / known hosts for CLN
+ *     endpoints to suggest as profiles
+ *
+ * Rune handling
+ *   The `rune` field on a NodeProfile is the commando bearer secret.
+ *   sanitizeProfile() destructure-rest strips it before any response
+ *   so the rune never leaves the server. The disable comment is
+ *   localized (not project-wide) per code style — see Lightning
+ *   controller for the same pattern.
+ *
+ * Routing
+ *   Mounted under /v1/nodes/* by source/routes/nodes.routes.ts.
+ */
 import { Request, Response, NextFunction } from 'express';
 import handleError from '../shared/error-handler.js';
 import { NodeManager } from '../service/node-manager.service.js';
