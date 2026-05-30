@@ -6,6 +6,29 @@ import { CurrencySVG } from '../../../svgs/Currency';
 import { useSelector } from 'react-redux';
 import { selectFiatUnit } from '../../../store/rootSelectors';
 
+/**
+ * Fiat Box — sibling-mode fiat display.
+ *
+ * What it renders
+ *   The fiat-conversion display used alongside CurrencyBox in every
+ *   balance card. Looks up the user's selected fiat currency
+ *   (selectFiatUnit), finds its FIAT_CURRENCIES symbol entry, and
+ *   renders the converted value via formatFiatValue + CurrencySVG.
+ *
+ *   When the fiat rate isn't loaded yet (fiatConfig.rate = 0), parent
+ *   renders this in a hidden state.
+ *
+ * Why a separate component from SatsWithFiat
+ *   SatsWithFiat renders sats + an INLINE fiat suffix on the same span;
+ *   it's for compact inline display (peer rows, tooltip values).
+ *   FiatBox is the BIG, sibling-positioned fiat display under a count-up
+ *   for the balance hero cards.
+ *
+ * Props contract
+ *   - `value: number` — value in sats
+ *   - `rootUnit: Units` — input unit (sats / btc)
+ *   - other layout props (className, etc.)
+ */
 const FiatBox = props => {
   const fiatUnit = useSelector(selectFiatUnit);
   const fiatSymbol = FIAT_CURRENCIES.find((fiat => fiat.currency === fiatUnit))?.symbol;

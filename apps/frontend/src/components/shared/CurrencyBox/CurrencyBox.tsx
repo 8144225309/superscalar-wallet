@@ -8,6 +8,32 @@ import FiatBox from '../FiatBox/FiatBox';
 import { useSelector } from 'react-redux';
 import { selectFiatConfig, selectFiatUnit, selectUIConfigUnit } from '../../../store/rootSelectors';
 
+/**
+ * Currency Box — animated count-up + tooltip currency display.
+ *
+ * What it renders
+ *   The canonical primary-currency display used by every balance card
+ *   in the wallet (overview, BTC wallet, CLN wallet, FactoriesOverview).
+ *   Reads the user's selected unit (selectUIConfigUnit: SATS / BTC),
+ *   animates a count-up from the previous value to the new value via
+ *   framer-motion MotionValue, and (separately) renders the same value
+ *   in fiat via the FiatBox child.
+ *
+ * Why animated
+ *   Static balance changes feel like reloads. The count-up makes deltas
+ *   visible — a payment causes the number to roll up/down so the user
+ *   notices.
+ *
+ * Side effects
+ *   - animate(motionValue, target, …) on every value prop change
+ *
+ * Props contract
+ *   - `value: number` — the value to display, in millisatoshis or sats
+ *     depending on `rootUnit`
+ *   - `rootUnit: Units` — input unit, used to convert before display
+ *   - `shortened?: boolean` — render compact "1.2k" form instead of grouped
+ *   - other Bootstrap layout props (className, etc.)
+ */
 const CurrencyBox = props => {
   const fiatUnit = useSelector(selectFiatUnit);
   const uiConfigUnit = useSelector(selectUIConfigUnit);
