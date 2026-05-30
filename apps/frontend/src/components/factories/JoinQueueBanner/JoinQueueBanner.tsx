@@ -6,6 +6,28 @@ import { selectFactoryList } from '../../../store/factoriesSelectors';
 import { Factory } from '../../../types/factories.type';
 import { FactoriesService } from '../../../services/http.service';
 
+/**
+ * Join Queue Banner — LSP-side sticky banner.
+ *
+ * What it renders
+ *   A small Alert pinned at the top of /factories whenever any LSP
+ *   factory has pending (status=0) join requests. Click → navigate
+ *   to LspOperatorConsole's pending view scoped to the first factory
+ *   with queued joins. Counterpart to HeldProposalsBanner (the
+ *   client-side sticky review banner).
+ *
+ * Key state
+ *   - `perFactory`: Record<iid, queuedCount>, polled every 7s
+ *
+ * Side effects
+ *   - Plugin RPC: wallet-count-join-queue-by-status (per factory)
+ *
+ * Props contract
+ *   None — reads LSP factories from Redux and renders unconditionally
+ *   above the factories listing.
+ */
+
+
 /* Session 2 slice C: sticky banner on /factories that surfaces
  * pending join requests across all factories where this node is LSP.
  * Mirrors HeldProposalsBanner (which is for the CLIENT role's pending

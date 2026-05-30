@@ -3,6 +3,31 @@ import { Alert, Button, Badge } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
 import ReviewProposalModal from './ReviewProposalModal';
 
+/**
+ * Held Proposals Banner — client-side sticky review prompt (D.5).
+ *
+ * What it renders
+ *   A sticky Alert that surfaces any FACTORY_PROPOSE wire message
+ *   the plugin is HOLDING for the operator's approve/refuse decision
+ *   (`auto_sign_on_validator_pass=false`). Counterpart to
+ *   JoinQueueBanner (the LSP-side sticky banner). Click → opens
+ *   ReviewProposalModal for the oldest held proposal.
+ *
+ * Key state
+ *   - `held`: array of HeldProposal rows (poll every 5s)
+ *   - `selected`: the row currently open in the modal
+ *
+ * Side effects
+ *   - Plugin RPCs:
+ *     wallet-list-held-proposals (poll)
+ *     factory-approve-proposal / factory-refuse-proposal (modal)
+ *
+ * Props contract
+ *   None — mounts wherever the client UI needs the sticky review
+ *   prompt (typically above the factories list).
+ */
+
+
 type HeldProposal = {
   instance_id: string;
   lsp_peer_id: string;
