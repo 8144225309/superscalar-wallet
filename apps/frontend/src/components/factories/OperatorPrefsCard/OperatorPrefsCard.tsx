@@ -2,12 +2,30 @@ import { useEffect, useState } from 'react';
 import { Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
 
-/* Session 2 slice B (per-factory editor): LSP operator preferences for
- * one specific factory. Reads/writes lsp_operator_prefs rows where
- * factory_instance_id = this iid. Fields fall back to global defaults
- * (factory_instance_id=NULL) when the per-factory row is missing — the
- * card shows an "Inherited from global" badge in that case. Writes via
- * wallet-set-operator-pref with this factory's iid. */
+/**
+ * Operator Prefs Card — per-factory override editor (Session 2 slice B).
+ *
+ * What it renders
+ *   The same 4-field LSP prefs form as OperatorPrefs but scoped to a
+ *   single factory iid (instead of NULL global defaults). Empty fields
+ *   inherit from the global defaults — the badge surfaces that as
+ *   "Inherited from global" so the operator knows which fields are
+ *   in effect.
+ *
+ * Key state
+ *   - `values`: current form state per field
+ *   - `original`: snapshot for Discard button
+ *   - `loading` / `saving` / `error` / `savedMsg`
+ *
+ * Side effects
+ *   - Plugin RPCs:
+ *     wallet-get-operator-pref (per field, scoped to this iid)
+ *     wallet-set-operator-pref (per dirty field, with this factory's iid)
+ *
+ * Props contract
+ *   `factoryInstanceIdHex: string` — the iid this card scopes to.
+ *   Parent (FactoryDetail) guards on `factory.is_lsp` before mounting.
+ */
 
 type PrefKey =
   | 'auto_accept_threshold'

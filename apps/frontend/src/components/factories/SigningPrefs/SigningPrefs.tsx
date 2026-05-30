@@ -14,6 +14,34 @@ import {
   ProofTier,
 } from '../../../types/signing-prefs.type';
 
+/**
+ * Signing Prefs — client-side B3 prefs editor.
+ *
+ * What it renders
+ *   The full client signing-prefs editor: 12 joiner_enforceable_hard
+ *   fields organized by section (HTLC sizing, HTLC concurrency, CLTV
+ *   expiry, capacity, proof tier, rotation cadence, tier-B rollover,
+ *   state-replay defense window) + the auto-sign toggle (D.1) +
+ *   require-strict-proof-tier checkbox + require-tier-b-rollover
+ *   checkbox.
+ *
+ * Key state
+ *   - `prefs`: ClientSigningPrefs (12 enforced fields + 3 booleans)
+ *   - `original`: snapshot for the Discard button
+ *   - `loading` / `saving` / `error` / `savedMsg`: per-fetch UI state
+ *
+ * Side effects
+ *   - Plugin RPCs:
+ *     client-signing-prefs-get on mount (B3 follow-up RPC)
+ *     client-signing-prefs-set on Save
+ *   - Until those RPCs land the editor falls back to
+ *     DEFAULT_CLIENT_SIGNING_PREFS so the component stays usable.
+ *
+ * Props contract
+ *   None — fully self-contained editor mounted under /factories/signing.
+ */
+
+
 const TIER_LABEL: Record<ProofTier, string> = {
   [ProofTier.CHANNEL]: 'CHANNEL (strictest — only direct channels accepted)',
   [ProofTier.INVOICE]: 'INVOICE (recommended — proof-via-invoice required)',

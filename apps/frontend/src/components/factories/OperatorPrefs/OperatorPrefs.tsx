@@ -3,13 +3,34 @@ import { useEffect, useState } from 'react';
 import { Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { FactoriesService } from '../../../services/http.service';
 
-/* Session 3 slice B: global LSP operator preferences editor.
- * Parallels SigningPrefs.tsx (client-side) but for the LSP role.
+/**
+ * Operator Prefs — LSP-side global default editor (Session 3 slice B).
  *
- * Reads/writes lsp_operator_prefs rows with factory_instance_id=NULL
- * via wallet-get-operator-pref / wallet-set-operator-pref. These act
- * as defaults; per-factory overrides live in OperatorPrefsCard on
- * FactoryDetail. */
+ * What it renders
+ *   The global default LSP operator preferences form. Counterpart to
+ *   SigningPrefs (client role). Four numeric fields:
+ *   - auto_accept_threshold
+ *   - min_contribution
+ *   - max_contribution
+ *   - required_reputation
+ *   Plus the R4.1 polish: inline numeric validation, persistent save
+ *   message (no auto-dismiss), Reload button.
+ *
+ * Key state
+ *   - `values`: current form state (typed string for input handling)
+ *   - `original`: snapshot for Discard
+ *   - `loading` / `saving` / `error` / `savedMsg`: per-fetch UI state
+ *
+ * Side effects
+ *   - Plugin RPCs:
+ *     wallet-get-operator-pref (per field on mount)
+ *     wallet-set-operator-pref (per dirty field on Save)
+ *   - factory_instance_id is NULL → these are global defaults; per-factory
+ *     overrides live in OperatorPrefsCard on FactoryDetail.
+ *
+ * Props contract
+ *   None — fully self-contained editor mounted under /factories/operator-prefs.
+ */
 
 type PrefKey =
   | 'auto_accept_threshold'
