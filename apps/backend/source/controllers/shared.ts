@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { Request, Response, NextFunction } from 'express';
 
 import { APP_CONSTANTS, DEFAULT_CONFIG, FIAT_RATE_API, HttpStatusCode } from '../shared/consts.js';
@@ -21,6 +22,14 @@ const CONFIG_EXPORT_VERSION = 1;
  * has no meaning outside the process; mode flags (singleSignOn) are
  * deployment-environment concerns and shouldn't be carried across hosts. */
 const NON_PORTABLE_CONFIG_KEYS = ['password', 'isLoading', 'error', 'singleSignOn'] as const;
+
+/* Module-file path, used to derive repo-root for repo-relative file
+ * lookups (CHANGELOG.md). cwd is unreliable here because operators
+ * may launch the wallet from anywhere (e.g. /root/ss-walletdemo/
+ * wallet-cwd on the demo VPS, /opt/superscalar-wallet for systemd,
+ * apps/backend during local dev). dirname(import.meta.url) is stable
+ * because the dist file location follows the build, not the run. */
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 export class SharedController {
   private nodeManager: NodeManager;
@@ -169,16 +178,29 @@ export class SharedController {
 
   getChangelog = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      /* CHANGELOG.md lives at repo root. Try a couple of working-directory
-       * relatives because the cwd differs between local dev (apps/backend),
-       * the dist runtime, and the docker image. If we can't find it,
-       * return an empty array so the "What's new" UI shows a graceful
-       * empty state rather than 5xx-ing. */
-      const candidates = [
-        path.resolve(process.cwd(), 'CHANGELOG.md'),
-        path.resolve(process.cwd(), '..', '..', 'CHANGELOG.md'),
-        path.resolve(process.cwd(), '..', '..', '..', 'CHANGELOG.md'),
-      ];
+      /* CHANGELOG.md lives at repo root. We need to find it without
+       * depending on process.cwd() — operators may launch from any
+       * directory (the demo VPS uses cwd=/root/ss-walletdemo/wallet-cwd
+       * which has no CHANGELOG.md at any reasonable depth, so the
+       * previous cwd-based search silently returned empty).
+       *
+       * Three lookup strategies, in order:
+       *   1. APP_CHANGELOG_PATH env var (explicit override). Operators
+       *      with a non-standard layout can point at any absolute
+       *      file; tests use it to isolate from the repo's real
+       *      CHANGELOG.md.
+       *   2. Module-file dir (MODULE_DIR) — stable across launches:
+       *      .../apps/backend/dist/controllers/shared.js → root is 4 up.
+       *   3. cwd-based fallbacks for docker / monorepo overrides where
+       *      the dist file lives somewhere unexpected. */
+      const candidates = process.env.APP_CHANGELOG_PATH
+        ? [process.env.APP_CHANGELOG_PATH]
+        : [
+            path.resolve(MODULE_DIR, '..', '..', '..', '..', 'CHANGELOG.md'),
+            path.resolve(process.cwd(), 'CHANGELOG.md'),
+            path.resolve(process.cwd(), '..', '..', 'CHANGELOG.md'),
+            path.resolve(process.cwd(), '..', '..', '..', 'CHANGELOG.md'),
+          ];
       let raw = '';
       for (const p of candidates) {
         if (fs.existsSync(p)) {
