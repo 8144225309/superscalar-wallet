@@ -28,7 +28,9 @@ import { Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
  *   None — fully self-contained. Mounted in Header.
  */
 
+import { useState } from 'react';
 import InlineSpinner from '../InlineSpinner/InlineSpinner';
+import AddNodeModal from './AddNodeModal';
 import { useSelector } from 'react-redux';
 import { useInjectReducer } from '../../../hooks/use-injectreducer';
 import nodesReducer from '../../../store/nodesSlice';
@@ -56,6 +58,10 @@ const NodePicker = () => {
   const hasMultipleNodes = useSelector(selectHasMultipleNodes);
   const nodeInfo = useSelector(selectNodeInfo);
   const profileHealth = useSelector(selectProfileHealth);
+
+  /* Add-node modal visibility. Triggered from the no-profiles scan state,
+   * the single-node display, and the multi-node dropdown footer (S2 gap fix). */
+  const [showAddNode, setShowAddNode] = useState(false);
 
   /* Initial health probe: when profiles first land, fire one healthCheck so
    * every row in the dropdown gets a real red/green dot instead of staying
@@ -187,6 +193,18 @@ const NodePicker = () => {
     }
   };
 
+  /* After a successful add, switch to the newly-added node so the user
+   * lands on it immediately rather than having to find it in the list.
+   * Defined after handleSwitchNode so there's no use-before-define. */
+  const handleNodeAdded = (profileId: string) => {
+    appStore.dispatch(setShowToast({
+      show: true,
+      message: 'Node added — switching to it…',
+      bg: 'success',
+    }));
+    handleSwitchNode(profileId);
+  };
+
   const getNetworkBadgeVariant = (network?: string) => {
     if (!network || network === 'bitcoin') return null;
     return network === 'regtest' ? 'danger' : 'warning';
@@ -237,7 +255,7 @@ const NodePicker = () => {
   // Determine if we're actually connected — nodeInfo having an id means commando works
   const actuallyConnected = isConnected || !!nodeInfo.id;
 
-  // No connection and no profiles — show scan button
+  // No connection and no profiles — show scan + add buttons
   if (!actuallyConnected && profiles.length === 0 && !nodeInfo.isLoading) {
     return (
       <span className='fs-7 d-flex align-items-center'>
@@ -245,12 +263,20 @@ const NodePicker = () => {
           <span className='d-inline-block me-2 dot bg-danger'></span>
         </OverlayTrigger>
         <button
-          className='btn btn-sm btn-outline-warning btn-rounded px-3'
+          className='btn btn-sm btn-outline-warning btn-rounded px-3 me-2'
           onClick={handleDiscover}
           disabled={isDiscovering}
         >
           {isDiscovering ? <InlineSpinner label='Scanning' marginEnd={1} /> : 'Scan for Nodes'}
         </button>
+        <button
+          className='btn btn-sm btn-outline-primary btn-rounded px-3'
+          onClick={() => setShowAddNode(true)}
+          data-testid='add-node-trigger-empty'
+        >
+          + Add node
+        </button>
+        <AddNodeModal show={showAddNode} onHide={() => setShowAddNode(false)} onAdded={handleNodeAdded} />
       </span>
     );
   }
@@ -284,6 +310,19 @@ const NodePicker = () => {
             {nodeInfo.version && <span className='ms-1 opacity-50' style={{ fontSize: '0.85em' }}>({nodeInfo.version})</span>}
           </>
         )}
+        {/* With only one profile there's no dropdown, so surface an explicit
+            "add node" affordance here — otherwise the user can never reach a
+            second profile through the UI (the S2 gap). */}
+        <button
+          className='btn btn-sm btn-link text-light text-decoration-none ms-2 p-0'
+          onClick={() => setShowAddNode(true)}
+          title='Add another CLN node'
+          data-testid='add-node-trigger-single'
+          style={{ fontSize: '0.85em' }}
+        >
+          + Add node
+        </button>
+        <AddNodeModal show={showAddNode} onHide={() => setShowAddNode(false)} onAdded={handleNodeAdded} />
       </span>
     );
   }
@@ -379,7 +418,15 @@ const NodePicker = () => {
         <Dropdown.Item className='node-item node-picker-rescan' onClick={handleDiscover} disabled={isDiscovering}>
           {isDiscovering ? <InlineSpinner label='Scanning' marginEnd={1} /> : 'Rescan for Nodes'}
         </Dropdown.Item>
+        <Dropdown.Item
+          className='node-item node-picker-add'
+          onClick={() => setShowAddNode(true)}
+          data-testid='add-node-trigger-dropdown'
+        >
+          + Add a node…
+        </Dropdown.Item>
       </Dropdown.Menu>
+      <AddNodeModal show={showAddNode} onHide={() => setShowAddNode(false)} onAdded={handleNodeAdded} />
     </Dropdown>
   );
 };
